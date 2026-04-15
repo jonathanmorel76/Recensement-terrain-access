@@ -85,6 +85,29 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 .wpt-type-btn.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}
 .wpt-types.locked-all .wpt-type-btn{opacity:.38;pointer-events:none;filter:grayscale(.6)}
 
+/* ── MODAL ÉDITION POINT ─────────────────── */
+#edit-modal{display:none;position:fixed;inset:0;background:#000c;z-index:300;align-items:flex-end}
+#edit-modal.open{display:flex}
+#edit-form{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:85vh;overflow-y:auto}
+/* Sélecteur de type visuel */
+.type-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.type-opt{background:var(--bg2);border:2px solid var(--brd);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;transition:all .12s}
+.type-opt.selected{border-color:var(--acc2);background:#1e3a5f44}
+.type-opt .t-icon{font-size:22px;line-height:1;margin-bottom:4px}
+.type-opt .t-label{font-size:12px;font-weight:600;color:var(--txt2)}
+.type-opt .t-sub{font-size:10px;color:var(--txt3);font-family:'JetBrains Mono',Consolas,monospace}
+#avg-modal{display:none;position:fixed;inset:0;background:#000c;z-index:300;align-items:flex-end}
+#avg-modal.open{display:flex}
+#avg-form{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%}
+.avg-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.avg-sub{font-size:12px;color:var(--txt3);margin-bottom:16px}
+#avg-progress-bar-bg{height:12px;background:var(--bg3);border-radius:6px;overflow:hidden;margin-bottom:10px}
+#avg-progress-bar-fill{height:100%;border-radius:6px;transition:width .3s,background .3s;width:0%}
+#avg-stats-row{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-family:'JetBrains Mono',Consolas,monospace}
+.avg-btn-row{display:flex;gap:10px}
+#avg-btn-force{flex:1;background:var(--bg3);border:1px solid var(--acc3);color:var(--acc3);border-radius:10px;padding:13px;font-size:14px;font-weight:600}
+#avg-btn-cancel{flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt2);border-radius:10px;padding:13px;font-size:14px}
+
 /* ── JAUGE DE PRÉCISION ──────────────────── */
 #acc-bar-wrap{margin-top:10px}
 #acc-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -265,6 +288,77 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
   </div><!-- content -->
 </div><!-- app -->
 
+<!-- MODAL ÉDITION POINT -->
+<div id="edit-modal">
+  <div id="edit-form">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✏ Modifier le point</div>
+    <div class="modal-sub" id="edit-coords">—</div>
+    <!-- Sélecteur de catégorie -->
+    <div class="form-group">
+      <label>Catégorie</label>
+      <div class="type-selector" id="edit-type-selector">
+        <div class="type-opt" data-type="entree" onclick="selectEditType('entree',this)">
+          <div class="t-icon">🚪</div>
+          <div class="t-label">Entrée bâtiment</div>
+          <div class="t-sub">SiteEntrance</div>
+        </div>
+        <div class="type-opt" data-type="equip_comp" onclick="selectEditType('equip_comp',this)">
+          <div class="t-icon">🖥</div>
+          <div class="t-label">Info voyageur</div>
+          <div class="t-sub">PassengerInfo</div>
+        </div>
+        <div class="type-opt" data-type="noeud" onclick="selectEditType('noeud',this)">
+          <div class="t-icon">⬤</div>
+          <div class="t-label">Nœud cheminement</div>
+          <div class="t-sub">PathJunction</div>
+        </div>
+        <div class="type-opt" data-type="autre" onclick="selectEditType('autre',this)">
+          <div class="t-icon">📌</div>
+          <div class="t-label">Autre / Remarque</div>
+          <div class="t-sub">À classifier</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Sous-type</label>
+      <select id="edit-subtype"></select>
+    </div>
+    <div class="form-group">
+      <label>Nom</label>
+      <input type="text" id="edit-name" placeholder="Nom du point">
+    </div>
+    <div class="form-group">
+      <label>Remarque</label>
+      <textarea id="edit-desc" placeholder="Observations, état…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
+      <button class="btn-save" onclick="saveEdit()">✓ Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MOYENNAGE GPS -->
+<div id="avg-modal">
+  <div id="avg-form">
+    <div class="modal-handle"></div>
+    <div class="avg-title" id="avg-title">📍 Capture en cours…</div>
+    <div class="avg-sub" id="avg-sub">Accumulation des mesures GPS pour améliorer la précision</div>
+    <div id="avg-progress-bar-bg">
+      <div id="avg-progress-bar-fill"></div>
+    </div>
+    <div id="avg-stats-row">
+      <span id="avg-stat-samples">0 / 8 mesures</span>
+      <span id="avg-stat-acc">±— m</span>
+    </div>
+    <div class="avg-btn-row">
+      <button id="avg-btn-force" onclick="forceAvgCapture()">⚡ Forcer maintenant</button>
+      <button id="avg-btn-cancel" onclick="cancelAvgCapture()">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL SAISIE WPT -->
 <div id="wpt-modal">
   <div id="wpt-form">
@@ -361,11 +455,10 @@ function startGPS(){
       document.getElementById('coords-display').textContent =
         S.pos.lat.toFixed(6)+', '+S.pos.lon.toFixed(6);
 
-      // Mise à jour jauge
+      // Mise à jour jauge — informative seulement, plus de blocage
       updateAccBar(S.accuracy, GPS_SEUIL);
-
-      // Verrouillage/déverrouillage des boutons de levé
-      updateWptLock(S.accuracy, GPS_SEUIL);
+      // Déverrouiller toujours les boutons (le moyennage gère la qualité)
+      updateWptLock(0, GPS_SEUIL);
 
       // Enregistrement tronçon : filtrer les points avec précision insuffisante
       if(S.recording && !S.paused){
@@ -555,48 +648,184 @@ function haversine(a,b){
 }
 
 // ══════════════════════════════════════════════
-// WAYPOINTS
+// WAYPOINTS — MOYENNAGE GPS
 // ══════════════════════════════════════════════
+const AVG = {
+  samples:     [],   // [{lat,lon,acc}] accumulées
+  target:      8,    // nb de mesures cible
+  maxAcc:      20,   // seuil max pour inclure une mesure (m)
+  type:        null,
+  active:      false,
+  watchCb:     null, // callback branché sur watchPosition
+};
+
 function openWptModal(type){
   if(!S.pos){ showToast('Attendez le signal GPS','amber'); return; }
-  if(S.accuracy > 5){
-    showToast('Précision insuffisante (±'+S.accuracy+' m) — attendez le verrou vert','amber');
-    return;
+  // Démarrer la capture par moyennage
+  startAvgCapture(type);
+}
+
+function startAvgCapture(type){
+  AVG.type   = type;
+  AVG.active = true;
+  AVG.samples = [];
+
+  // Ajouter immédiatement la position courante si acceptable
+  if(S.accuracy <= AVG.maxAcc){
+    AVG.samples.push({lat:S.pos.lat, lon:S.pos.lon, acc:S.accuracy});
   }
-  S.pendingType=type;
-  document.getElementById('modal-title').textContent=TYPE_LABELS[type]||type;
-  document.getElementById('modal-coords').textContent=
-    S.pos.lat.toFixed(6)+', '+S.pos.lon.toFixed(6)+
-    (S.accuracy?' · ±'+S.accuracy+' m':'');
+
+  // Afficher la modale de progression
+  document.getElementById('avg-title').textContent =
+    '📍 Capture — '+TYPE_LABELS[type];
+  document.getElementById('avg-modal').classList.add('open');
+  updateAvgProgress();
+
+  // Branchement sur les nouvelles positions GPS
+  AVG.watchCb = (pos)=>{
+    if(!AVG.active) return;
+    const acc = Math.round(pos.coords.accuracy);
+    // N'inclure que les mesures suffisamment précises
+    if(acc <= AVG.maxAcc){
+      AVG.samples.push({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        acc
+      });
+      updateAvgProgress();
+      // Auto-valider quand on atteint la cible
+      if(AVG.samples.length >= AVG.target){
+        validateAvgCapture();
+      }
+    }
+  };
+  // On réutilise watchPosition déjà actif via un event listener supplémentaire
+  navigator.geolocation.watchPosition(
+    AVG.watchCb,
+    ()=>{},
+    {enableHighAccuracy:true, timeout:30000, maximumAge:1000}
+  );
+}
+
+function updateAvgProgress(){
+  const n    = AVG.samples.length;
+  const tot  = AVG.target;
+  const pct  = Math.min(100, Math.round((n/tot)*100));
+
+  // Calculer la précision moyenne des mesures accumulées
+  const avgAcc = n > 0
+    ? Math.round(AVG.samples.reduce((s,p)=>s+p.acc,0)/n)
+    : null;
+
+  // Couleur selon la qualité
+  const color = pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#60a5fa';
+
+  document.getElementById('avg-progress-bar-fill').style.width  = pct+'%';
+  document.getElementById('avg-progress-bar-fill').style.background = color;
+  document.getElementById('avg-stat-samples').textContent = n+' / '+tot+' mesures';
+  document.getElementById('avg-stat-acc').textContent = avgAcc ? '±'+avgAcc+' m (moy.)' : '±— m';
+
+  // Activer "Forcer" dès qu'on a au moins 1 mesure
+  const forceBtn = document.getElementById('avg-btn-force');
+  if(n >= 1){
+    forceBtn.disabled = false;
+    forceBtn.style.opacity = '1';
+    forceBtn.textContent = '⚡ Forcer ('+n+' mesure'+(n>1?'s':'')+')';
+  } else {
+    forceBtn.disabled = true;
+    forceBtn.style.opacity = '.4';
+    forceBtn.textContent = '⚡ Forcer';
+  }
+}
+
+function computeAvgPos(){
+  // Moyenne pondérée par l'inverse de la précision (mesures précises = plus de poids)
+  const samples = AVG.samples;
+  if(samples.length === 0) return null;
+  let wLat=0, wLon=0, wSum=0;
+  for(const s of samples){
+    const w = 1 / Math.max(1, s.acc); // poids = 1/précision
+    wLat += s.lat * w;
+    wLon += s.lon * w;
+    wSum += w;
+  }
+  const lat = wLat / wSum;
+  const lon = wLon / wSum;
+  // Précision estimée de la moyenne = précision_moy / sqrt(n)
+  const meanAcc = samples.reduce((s,p)=>s+p.acc,0)/samples.length;
+  const estAcc  = Math.round(meanAcc / Math.sqrt(samples.length));
+  return {lat, lon, acc: estAcc};
+}
+
+function validateAvgCapture(){
+  const pos = computeAvgPos();
+  if(!pos) return;
+  AVG.active = false;
+  document.getElementById('avg-modal').classList.remove('open');
+  // Ouvrir la modale de saisie avec la position moyennée
+  openWptFormWithPos(AVG.type, pos);
+}
+
+function forceAvgCapture(){
+  if(AVG.samples.length === 0){
+    // Aucune mesure acceptable — utiliser la position courante avec avertissement
+    if(S.pos){
+      AVG.samples.push({lat:S.pos.lat, lon:S.pos.lon, acc:S.accuracy});
+    } else { return; }
+  }
+  validateAvgCapture();
+}
+
+function cancelAvgCapture(){
+  AVG.active = false;
+  AVG.samples = [];
+  AVG.type = null;
+  document.getElementById('avg-modal').classList.remove('open');
+}
+
+function openWptFormWithPos(type, pos){
+  S.pendingType = type;
+  S.pendingPos  = pos; // position moyennée — utilisée dans saveWpt
+  document.getElementById('modal-title').textContent = TYPE_LABELS[type]||type;
+  // Afficher la précision estimée avec indicateur qualité
+  const qualLabel = pos.acc <= 3 ? '✓ Excellente' : pos.acc <= 5 ? '✓ Bonne' : pos.acc <= 10 ? '⚠ Acceptable' : '⚠ Dégradée';
+  document.getElementById('modal-coords').textContent =
+    pos.lat.toFixed(6)+', '+pos.lon.toFixed(6)+
+    ' · ±'+pos.acc+' m — '+qualLabel+
+    ' ('+AVG.samples.length+' mes.)';
   document.getElementById('wpt-name').value='';
   document.getElementById('wpt-desc').value='';
-  // Peupler les sous-types
-  const sel=document.getElementById('wpt-subtype');
-  sel.innerHTML=(SUBTYPES[type]||['AUTRE']).map(v=>`<option>${v}</option>`).join('');
+  const selEl = document.getElementById('wpt-subtype');
+  selEl.innerHTML = (SUBTYPES[type]||['AUTRE']).map(v=>`<option>${v}</option>`).join('');
   document.getElementById('wpt-modal').classList.add('open');
   setTimeout(()=>document.getElementById('wpt-name').focus(),120);
 }
 
 function closeWptModal(){
   document.getElementById('wpt-modal').classList.remove('open');
-  S.pendingType=null;
+  S.pendingType = null;
+  S.pendingPos  = null;
 }
 
 function saveWpt(){
-  if(!S.pos||!S.pendingType) return;
+  if(!S.pendingType) return;
+  const pos = S.pendingPos || S.pos; // position moyennée ou courante
+  if(!pos) return;
   const w={
-    id:   crypto.randomUUID?crypto.randomUUID():'wpt-'+Date.now(),
-    lat:  S.pos.lat, lon: S.pos.lon,
-    acc:  S.accuracy,
-    ts:   Date.now(),
-    type: S.pendingType,
-    name: document.getElementById('wpt-name').value.trim()||TYPE_LABELS[S.pendingType],
+    id:      crypto.randomUUID ? crypto.randomUUID() : 'wpt-'+Date.now(),
+    lat:     pos.lat,
+    lon:     pos.lon,
+    acc:     pos.acc || S.accuracy,
+    ts:      Date.now(),
+    type:    S.pendingType,
+    name:    document.getElementById('wpt-name').value.trim() || TYPE_LABELS[S.pendingType],
     subtype: document.getElementById('wpt-subtype').value,
-    desc: document.getElementById('wpt-desc').value.trim(),
+    desc:    document.getElementById('wpt-desc').value.trim(),
+    samples: AVG.samples.length, // conserver le nb de mesures dans les métadonnées
   };
   S.waypoints.push(w);
   closeWptModal();
-  showToast('📍 '+w.name,'green');
+  showToast('📍 '+w.name+' (±'+w.acc+' m)','green');
   saveLocal();
 }
 
@@ -619,21 +848,23 @@ function renderPointsList(){
       const c=TYPE_COLORS[obj.type]||'#888';
       return `<div class="wpt-list-item">
         <div class="wpt-dot" style="background:${c}"></div>
-        <div class="wpt-info">
+        <div class="wpt-info" onclick="editWpt('${obj.id}')" style="cursor:pointer">
           <div class="wpt-name">${esc(obj.name)}</div>
           <div class="wpt-meta">${obj.lat.toFixed(5)}, ${obj.lon.toFixed(5)} · ${obj.subtype||obj.type}</div>
           ${obj.desc?`<div class="wpt-meta" style="color:var(--txt2)">${esc(obj.desc)}</div>`:''}
         </div>
+        <button class="wpt-del" style="color:var(--acc2);font-size:16px;margin-right:4px" onclick="editWpt('${obj.id}')">✏</button>
         <button class="wpt-del" onclick="delWpt('${obj.id}')">✕</button>
       </div>`;
     } else {
       const d = obj.pts&&obj.pts.length>=2 ? Math.round(obj.pts.reduce((s,p,i)=>i?s+haversine(obj.pts[i-1],p):0,0)) : 0;
       return `<div class="wpt-list-item" style="border-color:#4ade8055">
         <div class="wpt-dot" style="background:#4ade80;border-radius:2px;width:18px;height:5px"></div>
-        <div class="wpt-info">
+        <div class="wpt-info" onclick="editTrackName(${obj._idx})" style="cursor:pointer">
           <div class="wpt-name">${esc(obj.name)}</div>
           <div class="wpt-meta">${obj.pts?obj.pts.length:0} pts · ${d} m · troncon_cheminement</div>
         </div>
+        <button class="wpt-del" style="color:var(--acc2);font-size:16px;margin-right:4px" onclick="editTrackName(${obj._idx})">✏</button>
         <button class="wpt-del" onclick="delTrack(${obj._idx})">✕</button>
       </div>`;
     }
@@ -649,6 +880,90 @@ function delTrack(idx){
   if(!confirm('Supprimer ce tronçon ?')) return;
   S.tracks.splice(idx,1);
   renderPointsList(); saveLocal();
+}
+
+// ══════════════════════════════════════════════
+// ÉDITION APRÈS COUP
+// ══════════════════════════════════════════════
+let EDIT_ID = null; // id du waypoint en cours d'édition
+
+function editWpt(id){
+  const w = S.waypoints.find(x=>x.id===id);
+  if(!w) return;
+  EDIT_ID = id;
+
+  // Coordonnées
+  document.getElementById('edit-coords').textContent =
+    w.lat.toFixed(6)+', '+w.lon.toFixed(6)+
+    (w.acc?' · ±'+w.acc+' m':'');
+
+  // Sélectionner le type courant
+  document.querySelectorAll('#edit-type-selector .type-opt').forEach(el=>{
+    el.classList.toggle('selected', el.dataset.type === w.type);
+  });
+
+  // Peupler les sous-types selon le type courant
+  populateEditSubtypes(w.type, w.subtype);
+
+  // Remplir nom et remarque
+  document.getElementById('edit-name').value = w.name || '';
+  document.getElementById('edit-desc').value = w.desc || '';
+
+  document.getElementById('edit-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('edit-name').focus(), 120);
+}
+
+function selectEditType(type, el){
+  document.querySelectorAll('#edit-type-selector .type-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  populateEditSubtypes(type, null);
+}
+
+function populateEditSubtypes(type, currentSubtype){
+  const sel = document.getElementById('edit-subtype');
+  const opts = SUBTYPES[type] || ['AUTRE'];
+  sel.innerHTML = opts.map(v=>
+    `<option ${v===currentSubtype?'selected':''}>${v}</option>`
+  ).join('');
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').classList.remove('open');
+  EDIT_ID = null;
+}
+
+function saveEdit(){
+  if(!EDIT_ID) return;
+  const idx = S.waypoints.findIndex(x=>x.id===EDIT_ID);
+  if(idx < 0) return;
+
+  const selType = document.querySelector('#edit-type-selector .type-opt.selected');
+  const newType = selType ? selType.dataset.type : S.waypoints[idx].type;
+
+  S.waypoints[idx] = {
+    ...S.waypoints[idx],
+    type:    newType,
+    subtype: document.getElementById('edit-subtype').value,
+    name:    document.getElementById('edit-name').value.trim() || S.waypoints[idx].name,
+    desc:    document.getElementById('edit-desc').value.trim(),
+  };
+
+  closeEditModal();
+  renderPointsList();
+  saveLocal();
+  showToast('Point mis à jour','green');
+}
+
+// Édition rapide du nom d'un tronçon
+function editTrackName(idx){
+  const trk = S.tracks[idx];
+  if(!trk) return;
+  const newName = prompt('Nom du tronçon :', trk.name);
+  if(newName === null) return; // annulé
+  S.tracks[idx].name = newName.trim() || trk.name;
+  renderPointsList();
+  saveLocal();
+  showToast('Tronçon renommé','green');
 }
 
 // ══════════════════════════════════════════════
