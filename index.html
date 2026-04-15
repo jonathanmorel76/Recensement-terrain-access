@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CNIG Terrain">
+<meta name="theme-color" content="#0c1017">
+<link rel="manifest" href="./manifest.json">
+<!-- Icône home screen iOS (inline SVG→PNG base64 n'est pas nécessaire, on utilise une couleur) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230c1017' rx='40'/%3E%3Ctext x='90' y='115' text-anchor='middle' font-size='80' font-family='system-ui'%3E📍%3C/text%3E%3C/svg%3E">
+<title>CNIG Terrain</title>
+<style>
+:root{
+  --bg0:#0c1017;--bg1:#131926;--bg2:#1c2537;--bg3:#243049;
+  --acc:#4ade80;--acc2:#60a5fa;--acc3:#f59e0b;
+  --txt:#e2e8f0;--txt2:#94a3b8;--txt3:#475569;
+  --brd:#2d3f5a;--brd2:#3d5070;
+  --red:#ef4444;--grn:#22c55e;
+  --r:12px;--font:'DM Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--txt);font-family:var(--font);font-size:16px}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none}
+
+/* ── LAYOUT ─────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+#topbar{background:var(--bg1);border-bottom:1px solid var(--brd);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.app-title{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--acc)}
+.app-title span{color:var(--txt2);font-weight:400}
+#gps-status{margin-left:auto;font-size:11px;display:flex;align-items:center;gap:5px}
+#gps-dot{width:8px;height:8px;border-radius:50%;background:var(--txt3);transition:background .3s}
+#gps-dot.fix{background:var(--grn);box-shadow:0 0 6px var(--grn)}
+#gps-dot.wait{background:var(--acc3);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── TABS ────────────────────────────────── */
+#tabs{display:flex;background:var(--bg1);border-bottom:1px solid var(--brd);flex-shrink:0}
+.tab{flex:1;padding:11px 4px;text-align:center;font-size:12px;font-weight:600;color:var(--txt3);border-bottom:2px solid transparent;background:none;letter-spacing:.04em;transition:all .15s}
+.tab.active{color:var(--acc);border-color:var(--acc)}
+
+/* ── CONTENT ─────────────────────────────── */
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.pane{display:none;padding:16px}
+.pane.active{display:block}
+
+/* ── GPS CARD ────────────────────────────── */
+#gps-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
+#coords-display{font-size:13px;font-family:'JetBrains Mono',Consolas,monospace;color:var(--acc2);margin-bottom:4px;line-height:1.6}
+#acc-display{font-size:11px;color:var(--txt3)}
+
+/* ── TRACK CARD ──────────────────────────── */
+#track-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
+.track-stats{display:flex;gap:16px;margin-bottom:12px}
+.tstat{text-align:center}
+.tstat .val{font-size:22px;font-weight:700;color:var(--acc);font-family:'JetBrains Mono',Consolas,monospace;line-height:1}
+.tstat .lbl{font-size:10px;color:var(--txt3);margin-top:2px}
+.track-name-row{margin-bottom:12px}
+.track-name-row label{font-size:11px;color:var(--txt3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px}
+.track-name-row input{width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:14px;padding:9px 12px;outline:none}
+.track-name-row input:focus{border-color:var(--acc2)}
+
+/* ── BIG BUTTONS ─────────────────────────── */
+.btn-big{width:100%;padding:16px;border-radius:var(--r);font-size:15px;font-weight:600;letter-spacing:.02em;transition:all .12s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px}
+.btn-rec{background:#7f1d1d;border:2px solid var(--red);color:#fca5a5}
+.btn-rec.recording{background:#dc2626;border-color:#ef4444;color:#fff;animation:recpulse 2s infinite}
+@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 #dc262666}50%{box-shadow:0 0 0 8px #dc262600}}
+.btn-stop{background:#1a3a2a;border:2px solid var(--grn);color:#86efac}
+.btn-pause{background:#1a1a2e;border:2px solid var(--acc2);color:#93c5fd}
+
+/* ── WPT TYPE GRID ───────────────────────── */
+.section-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
+.wpt-types{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.wpt-type-btn{background:var(--bg1);border:2px solid var(--brd);border-radius:var(--r);padding:14px 10px;text-align:center;transition:all .12s;display:flex;flex-direction:column;align-items:center;gap:6px}
+.wpt-type-btn .icon{font-size:26px;line-height:1}
+.wpt-type-btn .label{font-size:12px;font-weight:600;color:var(--txt2);line-height:1.3}
+.wpt-type-btn .sublabel{font-size:10px;color:var(--txt3);font-family:'JetBrains Mono',Consolas,monospace}
+.wpt-type-btn:active,.wpt-type-btn.pressed{transform:scale(.95)}
+.wpt-type-btn.entree{border-color:#9333ea;background:#3b076422}
+.wpt-type-btn.equip_comp{border-color:#0891b2;background:#08334422}
+.wpt-type-btn.noeud{border-color:var(--brd2);background:var(--bg2)}
+
+/* ── MODAL SAISIE WPT ────────────────────── */
+#wpt-modal{display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:flex-end}
+#wpt-modal.open{display:flex}
+#wpt-form{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:85vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--brd2);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--txt3);margin-bottom:16px;font-family:'JetBrains Mono',Consolas,monospace}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:15px;padding:10px 12px;outline:none;font-family:var(--font)}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--acc2)}
+.form-group textarea{height:72px;resize:none}
+.form-group select option{background:var(--bg2)}
+.modal-actions{display:flex;gap:10px;margin-top:4px}
+.btn-save{flex:2;background:var(--acc);color:#052e16;border-radius:10px;padding:14px;font-size:15px;font-weight:700}
+.btn-cancel{flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt2);border-radius:10px;padding:14px;font-size:15px}
+
+/* ── LISTE POINTS ────────────────────────── */
+.wpt-list-item{background:var(--bg1);border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.wpt-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.wpt-info{flex:1;min-width:0}
+.wpt-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wpt-meta{font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',Consolas,monospace;margin-top:2px}
+.wpt-del{background:none;color:var(--txt3);font-size:18px;padding:4px 6px;border-radius:6px;flex-shrink:0}
+.wpt-del:active{color:var(--red)}
+.empty-msg{text-align:center;color:var(--txt3);padding:32px 16px;font-size:14px}
+
+/* ── EXPORT ─────────────────────────────── */
+.export-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.export-card-title{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
+.stat-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.stat-chip{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:8px 12px;font-size:13px;display:flex;align-items:center;gap:6px}
+.stat-chip .n{font-weight:700;font-size:16px;font-family:'JetBrains Mono',Consolas,monospace}
+.btn-export{width:100%;background:var(--acc);color:#052e16;border-radius:var(--r);padding:16px;font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-export-sec{width:100%;background:var(--bg2);border:1px solid var(--brd2);color:var(--txt);border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+.info-box{background:var(--bg2);border-left:3px solid var(--acc2);border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:var(--txt2);line-height:1.6}
+
+/* ── TOAST ───────────────────────────────── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--brd2);border-radius:20px;padding:10px 20px;font-size:13px;font-weight:500;z-index:300;transition:transform .25s;white-space:nowrap;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.green{border-color:var(--grn);color:#86efac}
+#toast.amber{border-color:var(--acc3);color:#fcd34d}
+#toast.red{border-color:var(--red);color:#fca5a5}
+
+/* ── SCROLLBAR ───────────────────────────── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div class="app-title">CNIG <span>Terrain</span></div>
+    <div id="gps-status">
+      <div id="gps-dot"></div>
+      <span id="gps-text" style="color:var(--txt3);font-size:11px">GPS…</span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <button class="tab active" onclick="showTab('capture')">📍 Capture</button>
+    <button class="tab" onclick="showTab('points')">📋 Points</button>
+    <button class="tab" onclick="showTab('export')">📤 Export</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ══ TAB CAPTURE ══ -->
+    <div id="pane-capture" class="pane active">
+
+      <!-- GPS fix card -->
+      <div id="gps-card">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:6px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Position GPS</div>
+        <div id="coords-display">En attente du signal GPS…</div>
+        <div id="acc-display">Précision : —</div>
+      </div>
+
+      <!-- Track recording card -->
+      <div id="track-card">
+        <div class="track-name-row">
+          <label>Nom du tronçon</label>
+          <input type="text" id="track-name" placeholder="Ex. Cheminement parvis gare" value="">
+        </div>
+        <div class="track-stats">
+          <div class="tstat"><div class="val" id="stat-pts">0</div><div class="lbl">points</div></div>
+          <div class="tstat"><div class="val" id="stat-dist">0</div><div class="lbl">mètres</div></div>
+          <div class="tstat"><div class="val" id="stat-time">00:00</div><div class="lbl">durée</div></div>
+        </div>
+        <button class="btn-big btn-rec" id="btn-rec" onclick="toggleRecording()">
+          <span id="rec-icon">⏺</span>
+          <span id="rec-label">Enregistrer un tronçon</span>
+        </button>
+        <button class="btn-big btn-stop" id="btn-finish-track" onclick="finishTrack()" style="display:none">
+          ✓ Terminer ce tronçon
+        </button>
+      </div>
+
+      <!-- Waypoint capture -->
+      <div class="section-title">Ajouter un point de levé</div>
+      <div class="wpt-types">
+        <button class="wpt-type-btn entree" onclick="openWptModal('entree')">
+          <div class="icon">🚪</div>
+          <div class="label">Entrée bâtiment</div>
+          <div class="sublabel">SiteEntrance</div>
+        </button>
+        <button class="wpt-type-btn equip_comp" onclick="openWptModal('equip_comp')">
+          <div class="icon">🖥</div>
+          <div class="label">Info voyageur</div>
+          <div class="sublabel">PassengerInfo</div>
+        </button>
+        <button class="wpt-type-btn noeud" onclick="openWptModal('noeud')">
+          <div class="icon">⬤</div>
+          <div class="label">Nœud cheminement</div>
+          <div class="sublabel">PathJunction</div>
+        </button>
+        <button class="wpt-type-btn noeud" style="border-color:var(--acc3);background:#1a120022" onclick="openWptModal('autre')">
+          <div class="icon">📌</div>
+          <div class="label">Autre / Remarque</div>
+          <div class="sublabel">À classifier</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ TAB POINTS ══ -->
+    <div id="pane-points" class="pane">
+      <div id="points-list"></div>
+    </div>
+
+    <!-- ══ TAB EXPORT ══ -->
+    <div id="pane-export" class="pane">
+      <div class="export-card">
+        <div class="export-card-title">Session en cours</div>
+        <div class="stat-row" id="export-stats"></div>
+        <button class="btn-export" onclick="exportGPX()">⬇ Exporter en GPX</button>
+        <button class="btn-export-sec" onclick="exportJSON()">⬇ Sauvegarder session (.json)</button>
+        <button class="btn-export-sec" onclick="loadSession()">⬆ Reprendre une session (.json)</button>
+      </div>
+      <div class="export-card">
+        <div class="export-card-title">Comment utiliser le GPX</div>
+        <div class="info-box">
+          1. Exportez le fichier <strong>.gpx</strong><br>
+          2. Transférez-le sur votre ordinateur<br>
+          3. Ouvrez <strong>cnig_accessibilite_vX.html</strong><br>
+          4. Glissez le GPX dans la zone d'import<br>
+          5. Les types sont pré-remplis automatiquement
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-title">Réinitialiser</div>
+        <button class="btn-export-sec" style="color:var(--red);border-color:var(--red)" onclick="resetSession()">🗑 Effacer toute la session</button>
+      </div>
+    </div>
+
+  </div><!-- content -->
+</div><!-- app -->
+
+<!-- MODAL SAISIE WPT -->
+<div id="wpt-modal">
+  <div id="wpt-form">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Entrée bâtiment</div>
+    <div class="modal-sub" id="modal-coords">—</div>
+    <div class="form-group">
+      <label>Nom / Identifiant</label>
+      <input type="text" id="wpt-name" placeholder="Ex. Entrée principale nord">
+    </div>
+    <div class="form-group" id="type-field-wrap">
+      <label>Sous-type</label>
+      <select id="wpt-subtype"></select>
+    </div>
+    <div class="form-group">
+      <label>Remarque terrain</label>
+      <textarea id="wpt-desc" placeholder="Observations, état, particularités…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeWptModal()">Annuler</button>
+      <button class="btn-save" onclick="saveWpt()">📍 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const S = {
+  pos:        null,   // dernière position GPS
+  accuracy:   null,
+  waypoints:  [],     // [{id,lat,lon,acc,ts,type,name,subtype,desc}]
+  tracks:     [],     // [{name,pts:[{lat,lon,ts}],startTs,endTs,paused}]
+  recording:  false,
+  paused:     false,
+  currentTrack: null, // index dans tracks en cours
+  recInterval:  null,
+  recStartTs:   null,
+  recElapsed:   0,
+  pendingType:  null,
+};
+
+// Sous-types par catégorie (alignés avec IHM desktop)
+const SUBTYPES = {
+  entree:     ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
+  equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
+  noeud:      ['INTERSECTION','CARREFOUR','ENTREE_ERP','ARRET_TC','AUTRE'],
+  autre:      ['A_CLASSIFIER','OBSTACLE','REMARQUE','PHOTO_REF'],
+};
+const TYPE_LABELS = {
+  entree:'Entrée bâtiment', equip_comp:'Info voyageur',
+  noeud:'Nœud cheminement', autre:'Autre',
+};
+const TYPE_COLORS = {
+  entree:'#a855f7', equip_comp:'#06b6d4',
+  noeud:'#60a5fa', autre:'#f59e0b',
+};
+
+// ══════════════════════════════════════════════
+// GPS
+// ══════════════════════════════════════════════
+let watchId = null;
+
+function startGPS(){
+  if(!navigator.geolocation){ showToast('GPS non disponible sur ce navigateur','red'); return; }
+
+  // Sur iOS, la géolocalisation nécessite HTTPS ou localhost
+  // Depuis un fichier local (file://), afficher un avertissement préalable
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isFileProtocol = location.protocol === 'file:';
+  if(isIOS && isFileProtocol){
+    document.getElementById('coords-display').textContent =
+      'Sur iOS : autorisez la localisation dans Réglages › Safari › Localisation';
+    document.getElementById('acc-display').textContent =
+      'Si le GPS ne démarre pas : transférez ce fichier vers un serveur local ou iCloud Drive';
+  }
+
+  const dot = document.getElementById('gps-dot');
+  const txt = document.getElementById('gps-text');
+  dot.className='wait'; txt.textContent='Recherche…';
+
+  watchId = navigator.geolocation.watchPosition(
+    pos=>{
+      S.pos = {lat: pos.coords.latitude, lon: pos.coords.longitude};
+      S.accuracy = Math.round(pos.coords.accuracy);
+      dot.className='fix';
+      txt.textContent = S.accuracy+'m';
+      document.getElementById('coords-display').textContent =
+        S.pos.lat.toFixed(6)+', '+S.pos.lon.toFixed(6);
+      document.getElementById('acc-display').textContent =
+        'Précision : ±'+S.accuracy+' m'+(S.accuracy>15?' ⚠ Faible':'');
+      // Enregistrement de tronçon
+      if(S.recording && !S.paused){
+        const trk = S.tracks[S.currentTrack];
+        trk.pts.push({lat:S.pos.lat, lon:S.pos.lon, ts:Date.now()});
+        updateTrackStats();
+      }
+    },
+    err=>{
+      dot.className=''; txt.textContent='Erreur';
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      let msg = '';
+      if(err.code===1){
+        msg = isIOS
+          ? 'Autorisation refusée. Allez dans Réglages › Confidentialité › Service de localisation › Safari'
+          : 'Permission GPS refusée — vérifiez les paramètres du navigateur';
+      } else if(err.code===2){
+        msg = 'Signal GPS indisponible — êtes-vous à l\'extérieur ?';
+      } else {
+        msg = 'Timeout GPS — réessayez dans un espace ouvert';
+      }
+      document.getElementById('coords-display').textContent = msg;
+      document.getElementById('acc-display').textContent = '';
+    },
+    {enableHighAccuracy:true, timeout:30000, maximumAge:2000}
+  );
+}
+
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+function showTab(id){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pane-'+id).classList.add('active');
+  const idx = {capture:0,points:1,export:2}[id];
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if(id==='points') renderPointsList();
+  if(id==='export') renderExportStats();
+}
+
+// ══════════════════════════════════════════════
+// ENREGISTREMENT TRONÇON
+// ══════════════════════════════════════════════
+function toggleRecording(){
+  if(!S.pos){ showToast('Attendez le signal GPS','amber'); return; }
+  if(!S.recording){
+    startRecording();
+  } else if(!S.paused){
+    pauseRecording();
+  } else {
+    resumeRecording();
+  }
+}
+
+function startRecording(){
+  const name = document.getElementById('track-name').value.trim() || 'Tronçon '+(S.tracks.length+1);
+  S.tracks.push({name, pts:[{lat:S.pos.lat,lon:S.pos.lon,ts:Date.now()}], startTs:Date.now(), endTs:null});
+  S.currentTrack = S.tracks.length-1;
+  S.recording=true; S.paused=false;
+  S.recStartTs=Date.now(); S.recElapsed=0;
+  S.recInterval = setInterval(updateTimer,1000);
+  const btn=document.getElementById('btn-rec');
+  btn.className='btn-big btn-rec recording';
+  document.getElementById('rec-icon').textContent='⏸';
+  document.getElementById('rec-label').textContent='Pause';
+  document.getElementById('btn-finish-track').style.display='flex';
+  showToast('Enregistrement démarré','green');
+}
+
+function pauseRecording(){
+  S.paused=true;
+  S.recElapsed += Date.now()-S.recStartTs;
+  clearInterval(S.recInterval);
+  const btn=document.getElementById('btn-rec');
+  btn.className='btn-big btn-pause';
+  document.getElementById('rec-icon').textContent='▶';
+  document.getElementById('rec-label').textContent='Reprendre';
+  showToast('Enregistrement en pause','amber');
+}
+
+function resumeRecording(){
+  S.paused=false;
+  S.recStartTs=Date.now();
+  S.recInterval=setInterval(updateTimer,1000);
+  const btn=document.getElementById('btn-rec');
+  btn.className='btn-big btn-rec recording';
+  document.getElementById('rec-icon').textContent='⏸';
+  document.getElementById('rec-label').textContent='Pause';
+  showToast('Enregistrement repris','green');
+}
+
+function finishTrack(){
+  if(!S.recording) return;
+  const trk=S.tracks[S.currentTrack];
+  trk.endTs=Date.now();
+  S.recording=false; S.paused=false;
+  clearInterval(S.recInterval);
+  const btn=document.getElementById('btn-rec');
+  btn.className='btn-big btn-rec';
+  document.getElementById('rec-icon').textContent='⏺';
+  document.getElementById('rec-label').textContent='Enregistrer un tronçon';
+  document.getElementById('btn-finish-track').style.display='none';
+  document.getElementById('track-name').value='';
+  document.getElementById('stat-pts').textContent='0';
+  document.getElementById('stat-dist').textContent='0';
+  document.getElementById('stat-time').textContent='00:00';
+  showToast(`Tronçon "${trk.name}" sauvegardé (${trk.pts.length} pts)`,'green');
+  saveLocal();
+}
+
+function updateTimer(){
+  const elapsed = S.recElapsed+(Date.now()-S.recStartTs);
+  const s=Math.floor(elapsed/1000), m=Math.floor(s/60);
+  document.getElementById('stat-time').textContent=
+    String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+
+function updateTrackStats(){
+  if(S.currentTrack===null) return;
+  const trk=S.tracks[S.currentTrack];
+  document.getElementById('stat-pts').textContent=trk.pts.length;
+  if(trk.pts.length>=2){
+    let d=0;
+    for(let i=1;i<trk.pts.length;i++) d+=haversine(trk.pts[i-1],trk.pts[i]);
+    document.getElementById('stat-dist').textContent=Math.round(d);
+  }
+}
+
+function haversine(a,b){
+  const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180;
+  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+// ══════════════════════════════════════════════
+// WAYPOINTS
+// ══════════════════════════════════════════════
+function openWptModal(type){
+  if(!S.pos){ showToast('Attendez le signal GPS','amber'); return; }
+  S.pendingType=type;
+  document.getElementById('modal-title').textContent=TYPE_LABELS[type]||type;
+  document.getElementById('modal-coords').textContent=
+    S.pos.lat.toFixed(6)+', '+S.pos.lon.toFixed(6)+
+    (S.accuracy?' · ±'+S.accuracy+' m':'');
+  document.getElementById('wpt-name').value='';
+  document.getElementById('wpt-desc').value='';
+  // Peupler les sous-types
+  const sel=document.getElementById('wpt-subtype');
+  sel.innerHTML=(SUBTYPES[type]||['AUTRE']).map(v=>`<option>${v}</option>`).join('');
+  document.getElementById('wpt-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('wpt-name').focus(),120);
+}
+
+function closeWptModal(){
+  document.getElementById('wpt-modal').classList.remove('open');
+  S.pendingType=null;
+}
+
+function saveWpt(){
+  if(!S.pos||!S.pendingType) return;
+  const w={
+    id:   crypto.randomUUID?crypto.randomUUID():'wpt-'+Date.now(),
+    lat:  S.pos.lat, lon: S.pos.lon,
+    acc:  S.accuracy,
+    ts:   Date.now(),
+    type: S.pendingType,
+    name: document.getElementById('wpt-name').value.trim()||TYPE_LABELS[S.pendingType],
+    subtype: document.getElementById('wpt-subtype').value,
+    desc: document.getElementById('wpt-desc').value.trim(),
+  };
+  S.waypoints.push(w);
+  closeWptModal();
+  showToast('📍 '+w.name,'green');
+  saveLocal();
+}
+
+// ══════════════════════════════════════════════
+// LISTE POINTS
+// ══════════════════════════════════════════════
+function renderPointsList(){
+  const el=document.getElementById('points-list');
+  const all=[
+    ...S.waypoints.map(w=>({...w,_kind:'wpt'})),
+    ...S.tracks.map((t,i)=>({...t,_kind:'trk',_idx:i})),
+  ].sort((a,b)=>(a.ts||a.startTs)-(b.ts||b.startTs));
+
+  if(all.length===0){
+    el.innerHTML='<div class="empty-msg">Aucun point ni tronçon enregistré.<br>Allez dans l\'onglet Capture.</div>';
+    return;
+  }
+  el.innerHTML=all.map((obj,i)=>{
+    if(obj._kind==='wpt'){
+      const c=TYPE_COLORS[obj.type]||'#888';
+      return `<div class="wpt-list-item">
+        <div class="wpt-dot" style="background:${c}"></div>
+        <div class="wpt-info">
+          <div class="wpt-name">${esc(obj.name)}</div>
+          <div class="wpt-meta">${obj.lat.toFixed(5)}, ${obj.lon.toFixed(5)} · ${obj.subtype||obj.type}</div>
+          ${obj.desc?`<div class="wpt-meta" style="color:var(--txt2)">${esc(obj.desc)}</div>`:''}
+        </div>
+        <button class="wpt-del" onclick="delWpt('${obj.id}')">✕</button>
+      </div>`;
+    } else {
+      const d = obj.pts&&obj.pts.length>=2 ? Math.round(obj.pts.reduce((s,p,i)=>i?s+haversine(obj.pts[i-1],p):0,0)) : 0;
+      return `<div class="wpt-list-item" style="border-color:#4ade8055">
+        <div class="wpt-dot" style="background:#4ade80;border-radius:2px;width:18px;height:5px"></div>
+        <div class="wpt-info">
+          <div class="wpt-name">${esc(obj.name)}</div>
+          <div class="wpt-meta">${obj.pts?obj.pts.length:0} pts · ${d} m · troncon_cheminement</div>
+        </div>
+        <button class="wpt-del" onclick="delTrack(${obj._idx})">✕</button>
+      </div>`;
+    }
+  }).join('');
+}
+
+function delWpt(id){
+  if(!confirm('Supprimer ce point ?')) return;
+  S.waypoints=S.waypoints.filter(w=>w.id!==id);
+  renderPointsList(); saveLocal();
+}
+function delTrack(idx){
+  if(!confirm('Supprimer ce tronçon ?')) return;
+  S.tracks.splice(idx,1);
+  renderPointsList(); saveLocal();
+}
+
+// ══════════════════════════════════════════════
+// EXPORT GPX
+// ══════════════════════════════════════════════
+function exportGPX(){
+  if(S.waypoints.length===0 && S.tracks.length===0){
+    showToast('Rien à exporter','amber'); return;
+  }
+  const ts=new Date().toISOString();
+  let gpx=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="CNIG Terrain App"
+  xmlns="http://www.topografix.com/GPX/1/1">
+<metadata>
+  <name>Session CNIG Accessibilite</name>
+  <time>${ts}</time>
+  <desc>Collecte terrain - ${S.waypoints.length} waypoints, ${S.tracks.length} troncons</desc>
+</metadata>\n`;
+
+  for(const w of S.waypoints){
+    const gpxName=`[${w.type.toUpperCase()}] ${w.name}`;
+    const desc=[w.subtype, w.desc].filter(Boolean).join(' | ');
+    gpx+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">
+  <name>${xmlEsc(gpxName)}</name>
+  <desc>${xmlEsc(desc)}</desc>
+  <time>${new Date(w.ts).toISOString()}</time>
+</wpt>\n`;
+  }
+
+  for(const trk of S.tracks){
+    if(!trk.pts||trk.pts.length<2) continue;
+    gpx+=`<trk>
+  <name>${xmlEsc(trk.name)}</name>
+  <trkseg>\n`;
+    for(const p of trk.pts){
+      gpx+=`    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">`;
+      if(p.ts) gpx+=`<time>${new Date(p.ts).toISOString()}</time>`;
+      gpx+=`</trkpt>\n`;
+    }
+    gpx+=`  </trkseg>\n</trk>\n`;
+  }
+  gpx+='</gpx>';
+
+  const fname=`CNIG_terrain_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`;
+  downloadText(gpx,'application/gpx+xml',fname,'GPX exporte');
+}
+
+// ══════════════════════════════════════════════
+// SAUVEGARDE SESSION JSON
+// ══════════════════════════════════════════════
+function exportJSON(){
+  const data=JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,exportedAt:Date.now()},null,2);
+  const fname=`session_cnig_${new Date().toISOString().slice(0,10)}.json`;
+  downloadText(data,'application/json',fname,'Session sauvegardée');
+  showToast('Session sauvegardée','green');
+}
+
+function loadSession(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const rd=new FileReader();
+    rd.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.waypoints||!d.tracks) throw new Error('Format invalide');
+        S.waypoints=d.waypoints||[];
+        S.tracks=d.tracks||[];
+        saveLocal();
+        renderPointsList();
+        renderExportStats();
+        showToast(`Session chargée — ${S.waypoints.length} pts, ${S.tracks.length} tronçons`,'green');
+      }catch(err){ showToast('Fichier invalide : '+err.message,'red'); }
+    };
+    rd.readAsText(file);
+  };
+  inp.click();
+}
+
+function resetSession(){
+  if(!confirm('Effacer toute la session ? Cette action est irréversible.')) return;
+  S.waypoints=[]; S.tracks=[];
+  localStorage.removeItem('cnig_terrain_session');
+  renderPointsList(); renderExportStats();
+  showToast('Session réinitialisée','amber');
+}
+
+// ══════════════════════════════════════════════
+// STATS EXPORT
+// ══════════════════════════════════════════════
+function renderExportStats(){
+  const counts={};
+  S.waypoints.forEach(w=>counts[w.type]=(counts[w.type]||0)+1);
+  const chips=Object.entries(counts).map(([t,n])=>`
+    <div class="stat-chip">
+      <span class="n" style="color:${TYPE_COLORS[t]||'#888'}">${n}</span>
+      <span style="font-size:12px;color:var(--txt2)">${TYPE_LABELS[t]||t}</span>
+    </div>`).join('');
+  const trkChip=S.tracks.length?`<div class="stat-chip">
+    <span class="n" style="color:#4ade80">${S.tracks.length}</span>
+    <span style="font-size:12px;color:var(--txt2)">tronçons</span>
+  </div>`:'';
+  document.getElementById('export-stats').innerHTML=
+    chips+trkChip||(chips+trkChip?'':'<span style="color:var(--txt3);font-size:13px">Aucune donnée</span>');
+}
+
+// ══════════════════════════════════════════════
+// PERSISTANCE LOCALE
+// ══════════════════════════════════════════════
+function saveLocal(){
+  try{
+    localStorage.setItem('cnig_terrain_session',
+      JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,savedAt:Date.now()}));
+  }catch(e){}
+}
+
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem('cnig_terrain_session');
+    if(!raw) return;
+    const d=JSON.parse(raw);
+    S.waypoints=d.waypoints||[];
+    S.tracks=d.tracks||[];
+    if(S.waypoints.length||S.tracks.length){
+      showToast(`Session restaurée — ${S.waypoints.length} pts, ${S.tracks.length} tronçons`,'amber');
+    }
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function xmlEsc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// ══════════════════════════════════════════════
+// TÉLÉCHARGEMENT — compatible iOS + Android
+// ══════════════════════════════════════════════
+async function downloadText(content, mime, filename, toastMsg){
+  const blob = new Blob([content], {type: mime});
+
+  // iOS Safari : Web Share API avec fichier (iOS 15+)
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if(isIOS){
+    // Tentative 1 : Web Share API (partage natif iOS → Fichiers, AirDrop, Mail…)
+    if(navigator.canShare && navigator.canShare({files:[new File([blob],filename,{type:mime})]})){
+      try{
+        await navigator.share({files:[new File([blob],filename,{type:mime})], title:'CNIG Terrain — '+filename});
+        if(toastMsg) showToast(toastMsg,'green');
+        return;
+      }catch(e){
+        if(e.name==='AbortError') return; // Utilisateur a annulé
+        // Continuer vers le fallback
+      }
+    }
+    // Tentative 2 : ouvrir dans un nouvel onglet (Safari affiche le fichier → partager depuis là)
+    const url = URL.createObjectURL(blob);
+    showShareModal(url, filename, content);
+    return;
+  }
+
+  // Android / Desktop : téléchargement standard
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  if(toastMsg) showToast(toastMsg,'green');
+}
+
+// Modal de partage iOS fallback (affiche le texte pour copier ou ouvrir)
+function showShareModal(url, filename, content){
+  // Ouvrir dans un nouvel onglet : sur iOS, l'utilisateur peut ensuite
+  // appuyer sur le bouton Partage ↑ → "Enregistrer dans Fichiers"
+  const w = window.open(url, '_blank');
+  if(!w){
+    // Popup bloqué → afficher le contenu dans une modale de copie
+    showCopyFallback(content, filename);
+  } else {
+    showToast('Fichier ouvert — appuyez sur ↑ Partager → "Enregistrer dans Fichiers"','amber');
+  }
+}
+
+function showCopyFallback(content, filename){
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:#000c;z-index:500;display:flex;align-items:flex-end;padding:0';
+  overlay.innerHTML=`
+    <div style="background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:70vh;overflow-y:auto">
+      <div style="font-weight:700;margin-bottom:8px;font-size:15px">Copier le contenu — ${filename}</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Copiez ce texte, ouvrez l'app Fichiers et créez un fichier .gpx</div>
+      <textarea readonly style="width:100%;height:160px;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:11px;font-family:monospace;padding:8px;margin-bottom:12px">${content.replace(/</g,'&lt;')}</textarea>
+      <div style="display:flex;gap:10px">
+        <button onclick="navigator.clipboard&&navigator.clipboard.writeText(this.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.value);showToast('Copié !','green')" style="flex:1;background:var(--acc);color:#052e16;border-radius:10px;padding:13px;font-size:14px;font-weight:700">⎘ Copier</button>
+        <button onclick="this.closest('div[style]').remove()" style="flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt);border-radius:10px;padding:13px;font-size:14px">Fermer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+}
+
+let toastTimer=null;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show '+(type||'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className='',2800);
+}
+
+// Fermer modal en cliquant dehors
+document.getElementById('wpt-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('wpt-modal')) closeWptModal();
+});
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+loadLocal();
+startGPS();
+</script>
+
+<!-- Service Worker — cache hors ligne -->
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        console.log('SW enregistré :', reg.scope);
+        // Notifier l'utilisateur quand une mise à jour est disponible
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          nw.addEventListener('statechange', () => {
+            if(nw.state === 'installed' && navigator.serviceWorker.controller){
+              showToast('Mise à jour disponible — relancez l\'app','amber');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('SW non enregistré :', err));
+  });
+}
+</script>
+</body>
+</html>
