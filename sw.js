@@ -1,59 +1,85 @@
-// CNIG Terrain — Service Worker
-// Stratégie : Cache First + mise à jour en arrière-plan
-const CACHE = 'cnig-terrain-v1';
-const SHELL = ['./','./index.html','./manifest.json'];
+// Recensement Terrain LDM — Service Worker v2
+// Cache app shell + tuiles OSM pour utilisation hors ligne
+const CACHE_APP   = 'ldm-app-v2';
+const CACHE_TILES = 'ldm-tiles-v1';
+const SHELL = ['./', './index.html', './manifest.json'];
 
-// Installation : mise en cache de l'app shell
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE)
+    caches.open(CACHE_APP)
       .then(c => c.addAll(SHELL))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activation : purge des anciens caches
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
-      ))
-      .then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== CACHE_APP && k !== CACHE_TILES)
+          .map(k => caches.delete(k))
+    )).then(() => self.clients.claim())
   );
 });
 
-// Fetch : cache en priorité, réseau en fallback
 self.addEventListener('fetch', e => {
-  // Ne pas intercepter les requêtes externes (GPS API, etc.)
-  if (!e.request.url.startsWith(self.location.origin)) return;
+  const url = e.request.url;
 
+  // Tuiles OSM + Leaflet JS/CSS → Cache First
+  if(url.includes('tile.openstreetmap.org') ||
+     url.includes('cdnjs.cloudflare.com/ajax/libs/leaflet')){
+    e.respondWith(cacheTile(e.request));
+    return;
+  }
+
+  // App shell → Cache First, réseau en fallback
+  if(e.request.mode === 'navigate' || SHELL.some(s => url.endsWith(s))){
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        const network = fetch(e.request).then(resp => {
+          if(resp && resp.ok)
+            caches.open(CACHE_APP).then(c => c.put(e.request, resp.clone()));
+          return resp;
+        }).catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // Requêtes cross-origin (Overpass API) → réseau uniquement
+  if(!url.startsWith(self.location.origin)) return;
+
+  // Autres ressources locales → Network First
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      // Retourner le cache immédiatement
-      if (cached) {
-        // Mettre à jour en arrière-plan si réseau disponible
-        fetch(e.request).then(fresh => {
-          if (fresh && fresh.ok) {
-            caches.open(CACHE).then(c => c.put(e.request, fresh));
-          }
-        }).catch(() => {});
-        return cached;
-      }
-      // Pas en cache : réseau
-      return fetch(e.request).then(resp => {
-        if (resp && resp.ok) {
-          const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return resp;
-      }).catch(() => {
-        // Hors ligne et pas en cache : page offline minimale
-        return new Response(
-          '<html><body style="background:#0c1017;color:#e2e8f0;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><div style="font-size:48px">📍</div><h2 style="margin:16px 0 8px">CNIG Terrain</h2><p style="color:#94a3b8">Hors ligne — données sauvegardées localement</p></div></body></html>',
-          { headers: { 'Content-Type': 'text/html' } }
-        );
-      });
-    })
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
+
+async function cacheTile(request){
+  const cache  = await caches.open(CACHE_TILES);
+  const cached = await cache.match(request);
+
+  if(cached){
+    // Retour immédiat + refresh silencieux en arrière-plan
+    fetch(request).then(r => { if(r && r.ok) cache.put(request, r); }).catch(()=>{});
+    return cached;
+  }
+
+  try {
+    const resp = await fetch(request);
+    if(resp && resp.ok && resp.headers.get('content-type')?.includes('image')){
+      cache.put(request, resp.clone());
+      // Limiter à ~2000 tuiles (~zone de travail typique)
+      const keys = await cache.keys();
+      if(keys.length > 2000)
+        await Promise.all(keys.slice(0, keys.length-2000).map(k=>cache.delete(k)));
+    }
+    return resp;
+  } catch(err) {
+    // Hors ligne, tuile absente → pixel transparent
+    return new Response(
+      Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), c=>c.charCodeAt(0)),
+      { headers: { 'Content-Type': 'image/png' } }
+    );
+  }
+}

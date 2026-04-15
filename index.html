@@ -166,29 +166,81 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
 
-/* ── CARTE CAPTURE ───────────────────────── */
-#capture-map-wrap{display:none;position:relative;flex:1;min-height:0}
-#capture-map-wrap.visible{display:flex;flex-direction:column}
-#capture-map{width:100%;flex:1;min-height:240px}
-/* Boutons flottants sur la carte capture */
-#capture-map-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;background:var(--bg1);border-top:1px solid var(--brd);flex-shrink:0}
-.cap-map-btn{background:var(--bg2);border:2px solid var(--brd);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .12s;display:flex;flex-direction:column;align-items:center;gap:4px}
-.cap-map-btn .icon{font-size:22px;line-height:1}
-.cap-map-btn .label{font-size:11px;font-weight:600;color:var(--txt2)}
-.cap-map-btn.entree{border-color:#9333ea;background:#3b076422}
-.cap-map-btn.equip_comp{border-color:#0891b2;background:#08334422}
-.cap-map-btn.noeud{border-color:var(--brd2);background:var(--bg2)}
-.cap-map-btn.rec-active{border-color:var(--red);background:#7f1d1d44;animation:recpulse 2s infinite}
-/* Barre GPS flottante sur la carte capture */
-#cap-map-gps{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--bg1);border:1px solid var(--brd2);border-radius:16px;padding:5px 12px;font-size:11px;font-family:monospace;color:var(--txt2);white-space:nowrap;box-shadow:0 2px 8px #0007;pointer-events:none}
-/* Toggle vue */
-#view-toggle{display:flex;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;overflow:hidden;margin:0 16px 12px}
-.view-toggle-btn{flex:1;padding:7px;font-size:12px;font-weight:600;background:none;border:none;color:var(--txt3);cursor:pointer;transition:all .15s}
-.view-toggle-btn.active{background:var(--bg3);color:var(--txt)}
-/* pane-capture flex column quand carte active */
-#pane-capture.map-mode{display:flex;flex-direction:column;padding:0;overflow:hidden}
-#pane-capture.map-mode #capture-form-wrap{display:none}
-#pane-capture.map-mode #capture-map-wrap{display:flex}
+/* ── CARTE CAPTURE UNIFIÉE ───────────────── */
+/* Le pane capture = carte plein écran */
+#pane-capture{padding:0!important;overflow:hidden;position:relative;display:none}
+#pane-capture.active{display:flex;flex-direction:column}
+#capture-map{flex:1;width:100%;min-height:0}
+/* Tuiles OSM assombries */
+#capture-map .leaflet-tile{filter:brightness(.82) saturate(.72)}
+
+/* Barre GPS flottante — haut */
+#cap-gps-bar{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  z-index:1000;display:flex;align-items:center;gap:8px;
+  background:rgba(19,25,38,.88);backdrop-filter:blur(8px);
+  border:1px solid var(--brd2);border-radius:20px;
+  padding:6px 14px;box-shadow:0 2px 12px #0009;
+  pointer-events:none;white-space:nowrap
+}
+#cap-gps-acc{font-size:12px;font-family:monospace;color:var(--txt2)}
+#cap-gps-bar-fill-wrap{width:60px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+#cap-gps-bar-fill{height:100%;border-radius:3px;transition:width .4s,background .4s;width:0%}
+
+/* Panneau de contrôle flottant — bas */
+#cap-panel{
+  position:absolute;bottom:0;left:0;right:0;z-index:1000;
+  background:rgba(13,16,23,.92);backdrop-filter:blur(12px);
+  border-top:1px solid var(--brd2);
+  padding:10px 12px 16px;
+  transition:transform .25s ease
+}
+/* Ligne track en cours */
+#cap-track-bar{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg2);border:1px solid var(--brd);border-radius:10px;
+  padding:8px 12px;margin-bottom:10px
+}
+#cap-track-bar input{
+  flex:1;background:none;border:none;color:var(--txt);
+  font-size:13px;font-family:var(--font);outline:none
+}
+#cap-track-bar input::placeholder{color:var(--txt3)}
+#cap-track-stats{display:flex;gap:12px;flex-shrink:0}
+.cap-tstat{text-align:center;line-height:1}
+.cap-tstat .v{font-size:14px;font-weight:700;color:var(--acc);font-family:monospace}
+.cap-tstat .l{font-size:9px;color:var(--txt3)}
+/* Grille boutons */
+#cap-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.cb{
+  background:var(--bg2);border:1.5px solid var(--brd);
+  border-radius:10px;padding:9px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;transition:all .12s
+}
+.cb:active{transform:scale(.94)}
+.cb .i{font-size:20px;line-height:1}
+.cb .l{font-size:10px;font-weight:600;color:var(--txt2);text-align:center;line-height:1.2}
+.cb.entree{border-color:#9333ea;background:#3b076430}
+.cb.equip_comp{border-color:#0891b2;background:#08334430}
+.cb.noeud{border-color:#3d5070}
+.cb.autre{border-color:#d97706;background:#1a120030}
+/* Bouton tronçon pleine largeur */
+#cap-btn-rec{
+  width:100%;padding:12px;border-radius:10px;
+  font-size:13px;font-weight:700;letter-spacing:.02em;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:#1a0a0a;border:2px solid var(--red);color:#fca5a5;
+  transition:all .15s
+}
+#cap-btn-rec.recording{background:#dc2626;border-color:#ef4444;color:#fff;animation:recpulse 2s infinite}
+#cap-btn-rec.paused{background:#1a1a2e;border-color:var(--acc2);color:#93c5fd}
+#cap-btn-finish{
+  width:100%;padding:10px;border-radius:10px;margin-top:6px;
+  font-size:13px;font-weight:700;
+  background:#0d2618;border:2px solid var(--grn);color:#86efac;
+  display:none
+}
 #pane-map{padding:0 !important;position:relative}
 #terrain-map{width:100%;height:100%;min-height:calc(100dvh - 112px);background:var(--bg2)}
 /* Tuiles légèrement assombries */
@@ -231,110 +283,47 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
   <!-- CONTENT -->
   <div id="content">
 
-    <!-- ══ TAB CAPTURE ══ -->
+    <!-- ══ TAB CAPTURE — carte + overlay ══ -->
     <div id="pane-capture" class="pane active">
 
-      <!-- Toggle vue formulaire / carte -->
-      <div id="view-toggle" style="margin-top:12px">
-        <button class="view-toggle-btn active" id="vt-form" onclick="setCaptureView('form')">☰ Formulaire</button>
-        <button class="view-toggle-btn" id="vt-map"  onclick="setCaptureView('map')">🗺 Carte + levé</button>
+      <!-- Carte plein écran -->
+      <div id="capture-map"></div>
+
+      <!-- Barre GPS flottante haut -->
+      <div id="cap-gps-bar">
+        <div id="cap-gps-bar-fill-wrap"><div id="cap-gps-bar-fill"></div></div>
+        <span id="cap-gps-acc">GPS…</span>
       </div>
 
-      <!-- VUE FORMULAIRE (existante) -->
-      <div id="capture-form-wrap">
+      <!-- Panneau de contrôle flottant bas -->
+      <div id="cap-panel">
 
-        <!-- GPS fix card -->
-        <div id="gps-card">
-          <div style="font-size:11px;color:var(--txt3);margin-bottom:6px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Position GPS</div>
-          <div id="coords-display">En attente du signal GPS…</div>
-          <div id="acc-display" style="display:none"></div>
-          <!-- Jauge de précision -->
-          <div id="acc-bar-wrap">
-            <div id="acc-label-row">
-              <span id="acc-label" style="color:var(--txt3)">Précision</span>
-              <span id="acc-value" style="color:var(--txt3)">—</span>
-            </div>
-            <div id="acc-bar-bg">
-              <div id="acc-bar-fill" style="width:0%;background:var(--txt3)"></div>
-            </div>
-            <div id="acc-lock-msg" style="color:var(--txt3)">En attente du GPS…</div>
+        <!-- Track bar : nom + stats -->
+        <div id="cap-track-bar">
+          <input type="text" id="track-name" placeholder="Nom du tronçon…">
+          <div id="cap-track-stats">
+            <div class="cap-tstat"><div class="v" id="stat-pts">0</div><div class="l">pts</div></div>
+            <div class="cap-tstat"><div class="v" id="stat-dist">0</div><div class="l">m</div></div>
+            <div class="cap-tstat"><div class="v" id="stat-time">00:00</div><div class="l">dur.</div></div>
           </div>
         </div>
 
-        <!-- Track recording card -->
-        <div id="track-card">
-          <div class="track-name-row">
-            <label>Nom du tronçon</label>
-            <input type="text" id="track-name" placeholder="Ex. Cheminement parvis gare" value="">
-          </div>
-          <div class="track-stats">
-            <div class="tstat"><div class="val" id="stat-pts">0</div><div class="lbl">points</div></div>
-            <div class="tstat"><div class="val" id="stat-dist">0</div><div class="lbl">mètres</div></div>
-            <div class="tstat"><div class="val" id="stat-time">00:00</div><div class="lbl">durée</div></div>
-          </div>
-          <button class="btn-big btn-rec" id="btn-rec" onclick="toggleRecording()">
-            <span id="rec-icon">⏺</span>
-            <span id="rec-label">Enregistrer un tronçon</span>
-          </button>
-          <button class="btn-big btn-stop" id="btn-finish-track" onclick="finishTrack()" style="display:none">
-            ✓ Terminer ce tronçon
-          </button>
+        <!-- Boutons de levé -->
+        <div id="cap-btns">
+          <button class="cb entree"    onclick="openWptModal('entree')">    <div class="i">🚪</div><div class="l">Entrée</div></button>
+          <button class="cb equip_comp" onclick="openWptModal('equip_comp')"><div class="i">🖥</div><div class="l">Info<br>voyageur</div></button>
+          <button class="cb noeud"     onclick="openWptModal('noeud')">     <div class="i">⬤</div><div class="l">Nœud</div></button>
+          <button class="cb autre"     onclick="openWptModal('autre')">     <div class="i">📌</div><div class="l">Autre</div></button>
         </div>
 
-        <!-- Waypoint capture -->
-        <div class="section-title">Ajouter un point de levé</div>
-        <div class="wpt-types">
-          <button class="wpt-type-btn entree" onclick="openWptModal('entree')">
-            <div class="icon">🚪</div>
-            <div class="label">Entrée bâtiment</div>
-            <div class="sublabel">SiteEntrance</div>
-          </button>
-          <button class="wpt-type-btn equip_comp" onclick="openWptModal('equip_comp')">
-            <div class="icon">🖥</div>
-            <div class="label">Info voyageur</div>
-            <div class="sublabel">PassengerInfo</div>
-          </button>
-          <button class="wpt-type-btn noeud" onclick="openWptModal('noeud')">
-            <div class="icon">⬤</div>
-            <div class="label">Nœud cheminement</div>
-            <div class="sublabel">PathJunction</div>
-          </button>
-          <button class="wpt-type-btn noeud" style="border-color:var(--acc3);background:#1a120022" onclick="openWptModal('autre')">
-            <div class="icon">📌</div>
-            <div class="label">Autre / Remarque</div>
-            <div class="sublabel">À classifier</div>
-          </button>
-        </div>
+        <!-- Bouton tronçon -->
+        <button id="cap-btn-rec" onclick="toggleRecording()">
+          <span id="cap-rec-icon">⏺</span>
+          <span id="cap-rec-label">Enregistrer un tronçon</span>
+        </button>
+        <button id="cap-btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
 
-      </div><!-- capture-form-wrap -->
-
-      <!-- VUE CARTE + LEVÉ -->
-      <div id="capture-map-wrap">
-        <!-- Mini carte Leaflet -->
-        <div id="capture-map" style="flex:1"></div>
-        <!-- GPS overlay -->
-        <div id="cap-map-gps">En attente GPS…</div>
-        <!-- Boutons de levé compacts + tronçon -->
-        <div id="capture-map-btns">
-          <button class="cap-map-btn entree" onclick="openWptModal('entree')">
-            <div class="icon">🚪</div><div class="label">Entrée</div>
-          </button>
-          <button class="cap-map-btn equip_comp" onclick="openWptModal('equip_comp')">
-            <div class="icon">🖥</div><div class="label">Info voyageur</div>
-          </button>
-          <button class="cap-map-btn noeud" onclick="openWptModal('noeud')">
-            <div class="icon">⬤</div><div class="label">Nœud</div>
-          </button>
-          <button class="cap-map-btn noeud" style="border-color:var(--acc3);background:#1a120022" onclick="openWptModal('autre')">
-            <div class="icon">📌</div><div class="label">Autre</div>
-          </button>
-          <button class="cap-map-btn" id="cap-btn-rec" onclick="toggleRecording()" style="border-color:var(--red);background:#7f1d1d22;grid-column:span 2">
-            <div class="icon" id="cap-rec-icon">⏺</div>
-            <div class="label" id="cap-rec-label">Enregistrer tronçon</div>
-          </button>
-        </div>
-      </div><!-- capture-map-wrap -->
-
+      </div><!-- cap-panel -->
     </div>
 
     <!-- ══ TAB POINTS ══ -->
@@ -526,22 +515,17 @@ let watchId = null;
 function startGPS(){
   if(!navigator.geolocation){ showToast('GPS non disponible sur ce navigateur','red'); return; }
 
-  // Sur iOS, la géolocalisation nécessite HTTPS ou localhost
-  // Depuis un fichier local (file://), afficher un avertissement préalable
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const isFileProtocol = location.protocol === 'file:';
   if(isIOS && isFileProtocol){
-    document.getElementById('coords-display').textContent =
-      'Sur iOS : autorisez la localisation dans Réglages › Safari › Localisation';
-    document.getElementById('acc-display').textContent =
-      'Si le GPS ne démarre pas : transférez ce fichier vers un serveur local ou iCloud Drive';
+    updateCapGpsBar(null, 5);
   }
 
   const dot = document.getElementById('gps-dot');
   const txt = document.getElementById('gps-text');
   dot.className='wait'; txt.textContent='Recherche…';
 
-  const GPS_SEUIL = 5; // mètres — seuil de validation
+  const GPS_SEUIL = 5;
 
   watchId = navigator.geolocation.watchPosition(
     pos=>{
@@ -549,11 +533,9 @@ function startGPS(){
       S.accuracy = Math.round(pos.coords.accuracy);
       dot.className = S.accuracy <= GPS_SEUIL ? 'fix' : 'wait';
       txt.textContent = S.accuracy+'m';
-      document.getElementById('coords-display').textContent =
-        S.pos.lat.toFixed(6)+', '+S.pos.lon.toFixed(6);
 
-      // Mise à jour jauge — informative seulement, plus de blocage
-      updateAccBar(S.accuracy, GPS_SEUIL);
+      // Barre GPS flottante sur la carte capture
+      updateCapGpsBar(S.accuracy, GPS_SEUIL);
       // Déverrouiller toujours les boutons (le moyennage gère la qualité)
       updateWptLock(0, GPS_SEUIL);
 
@@ -587,52 +569,35 @@ function startGPS(){
       } else {
         msg = 'Timeout GPS — réessayez dans un espace ouvert';
       }
-      document.getElementById('coords-display').textContent = msg;
-      updateAccBar(null, GPS_SEUIL);
+      document.getElementById('cap-gps-acc').textContent = 'Erreur GPS';
+      updateCapGpsBar(null, GPS_SEUIL);
       updateWptLock(999, GPS_SEUIL);
     },
     {enableHighAccuracy:true, timeout:30000, maximumAge:2000}
   );
 }
 
-// ── Jauge de précision ──────────────────────────
-function updateAccBar(acc, seuil){
-  const fill  = document.getElementById('acc-bar-fill');
-  const label = document.getElementById('acc-label');
-  const val   = document.getElementById('acc-value');
-  const msg   = document.getElementById('acc-lock-msg');
-
+// ── Barre GPS flottante (nouvelle UI) ──────────
+function updateCapGpsBar(acc, seuil){
+  const fill = document.getElementById('cap-gps-bar-fill');
+  const txt  = document.getElementById('cap-gps-acc');
+  if(!fill) return;
   if(acc === null){
     fill.style.width='0%'; fill.style.background='var(--txt3)';
-    label.style.color='var(--txt3)'; val.textContent='—';
-    msg.textContent='En attente du GPS…'; msg.style.color='var(--txt3)';
+    txt.textContent='GPS…'; txt.style.color='var(--txt3)';
     return;
   }
-
-  // Largeur inversée : 5 m = 100%, 20 m = 25%, >30 m = 5%
-  const pct = Math.max(5, Math.min(100, Math.round((seuil / acc) * 100)));
-
-  let color, labelTxt, msgTxt, msgColor;
-  if(acc <= seuil){
-    color='#22c55e'; labelTxt='Précision excellente'; msgTxt='✓ Prêt — levé autorisé';
-    msgColor='#86efac';
-  } else if(acc <= seuil * 2){
-    color='#f59e0b'; labelTxt='Précision moyenne'; msgTxt='⏳ Attendez… (±'+acc+' m > '+seuil+' m)';
-    msgColor='#fcd34d';
-  } else {
-    color='#ef4444'; labelTxt='Précision insuffisante'; msgTxt='✕ Signal trop faible (±'+acc+' m)';
-    msgColor='#fca5a5';
-  }
-
-  fill.style.width = pct+'%';
-  fill.style.background = color;
-  label.textContent = labelTxt;
-  label.style.color = color;
-  val.textContent = '±'+acc+' m';
-  val.style.color = color;
-  msg.textContent = msgTxt;
-  msg.style.color = msgColor;
+  const pct   = Math.max(5, Math.min(100, Math.round((seuil/acc)*100)));
+  const color = acc<=seuil ? '#22c55e' : acc<=seuil*2 ? '#f59e0b' : '#ef4444';
+  fill.style.width     = pct+'%';
+  fill.style.background= color;
+  txt.textContent = '±'+acc+' m'+
+    (S.pos ? '  '+S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5) : '');
+  txt.style.color = color;
 }
+
+// Stub updateAccBar pour compatibilité résiduelle
+function updateAccBar(acc, seuil){ updateCapGpsBar(acc, seuil); }
 
 // ── Verrouillage des boutons de levé ────────────
 function updateWptLock(acc, seuil){
@@ -657,6 +622,7 @@ function showTab(id){
   if(id==='points') renderPointsList();
   if(id==='export') renderExportStats();
   if(id==='map')    initTerrainMap();
+  if(id==='capture'){ setTimeout(()=>{ initCaptureMap(); if(CMAP) CMAP.invalidateSize(); },300); }
 }
 
 // ══════════════════════════════════════════════
@@ -680,37 +646,24 @@ function startRecording(){
   S.recording=true; S.paused=false;
   S.recStartTs=Date.now(); S.recElapsed=0;
   S.recInterval = setInterval(updateTimer,1000);
-  const btn=document.getElementById('btn-rec');
-  btn.className='btn-big btn-rec recording';
-  document.getElementById('rec-icon').textContent='⏸';
-  document.getElementById('rec-label').textContent='Pause';
-  document.getElementById('btn-finish-track').style.display='flex';
-  showToast('Enregistrement démarré','green');
   syncRecButtons();
+  showToast('Enregistrement démarré','green');
 }
 
 function pauseRecording(){
   S.paused=true;
   S.recElapsed += Date.now()-S.recStartTs;
   clearInterval(S.recInterval);
-  const btn=document.getElementById('btn-rec');
-  btn.className='btn-big btn-pause';
-  document.getElementById('rec-icon').textContent='▶';
-  document.getElementById('rec-label').textContent='Reprendre';
-  showToast('Enregistrement en pause','amber');
   syncRecButtons();
+  showToast('Enregistrement en pause','amber');
 }
 
 function resumeRecording(){
   S.paused=false;
   S.recStartTs=Date.now();
   S.recInterval=setInterval(updateTimer,1000);
-  const btn=document.getElementById('btn-rec');
-  btn.className='btn-big btn-rec recording';
-  document.getElementById('rec-icon').textContent='⏸';
-  document.getElementById('rec-label').textContent='Pause';
-  showToast('Enregistrement repris','green');
   syncRecButtons();
+  showToast('Enregistrement repris','green');
 }
 
 function finishTrack(){
@@ -719,18 +672,13 @@ function finishTrack(){
   trk.endTs=Date.now();
   S.recording=false; S.paused=false;
   clearInterval(S.recInterval);
-  const btn=document.getElementById('btn-rec');
-  btn.className='btn-big btn-rec';
-  document.getElementById('rec-icon').textContent='⏺';
-  document.getElementById('rec-label').textContent='Enregistrer un tronçon';
-  document.getElementById('btn-finish-track').style.display='none';
   document.getElementById('track-name').value='';
   document.getElementById('stat-pts').textContent='0';
   document.getElementById('stat-dist').textContent='0';
   document.getElementById('stat-time').textContent='00:00';
-  showToast(`Tronçon "${trk.name}" sauvegardé (${trk.pts.length} pts)`,'green');
   syncRecButtons();
   if(CMAP_INIT) refreshCaptureMap();
+  showToast(`Tronçon "${trk.name}" sauvegardé (${trk.pts.length} pts)`,'green');
   saveLocal();
 }
 
@@ -1310,22 +1258,12 @@ let CMAP_POS  = null;  // marqueur position
 let CMAP_POLYLINE = null; // tracé en cours
 let CMAP_WPT_LAYERS = [];
 
-function setCaptureView(mode){
-  const pane = document.getElementById('pane-capture');
-  document.getElementById('vt-form').classList.toggle('active', mode==='form');
-  document.getElementById('vt-map').classList.toggle('active',  mode==='map');
-  pane.classList.toggle('map-mode', mode==='map');
-  if(mode==='map'){
-    initCaptureMap();
-    setTimeout(()=>{ if(CMAP) CMAP.invalidateSize(); }, 320);
-  }
-}
+function setCaptureView(_){ /* plus de toggle — carte unifiée */ }
 
 function initCaptureMap(){
   if(CMAP_INIT){ refreshCaptureMap(); return; }
   CMAP = L.map('capture-map',{zoomControl:false, attributionControl:false});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(CMAP);
-  // Zoom minimal (+/-)
   L.control.zoom({position:'topright'}).addTo(CMAP);
   CMAP_INIT = true;
   refreshCaptureMap();
@@ -1401,24 +1339,28 @@ function updateCaptureMapTrack(){
   if(S.pos) CMAP.panTo([S.pos.lat,S.pos.lon], {animate:true, duration:.5});
 }
 
-// Synchroniser les boutons d'enregistrement (formulaire + carte)
+// Synchroniser le bouton d'enregistrement (nouvelle UI unifiée)
 function syncRecButtons(){
-  const isRec     = S.recording && !S.paused;
-  const isPaused  = S.recording && S.paused;
-  const capBtn    = document.getElementById('cap-btn-rec');
-  const capIcon   = document.getElementById('cap-rec-icon');
-  const capLabel  = document.getElementById('cap-rec-label');
-  if(!capBtn) return;
+  const btn   = document.getElementById('cap-btn-rec');
+  const icon  = document.getElementById('cap-rec-icon');
+  const label = document.getElementById('cap-rec-label');
+  const fin   = document.getElementById('cap-btn-finish');
+  if(!btn) return;
   if(!S.recording){
-    capBtn.className='cap-map-btn';
-    capBtn.style.cssText='border-color:var(--red);background:#7f1d1d22;grid-column:span 2';
-    capIcon.textContent='⏺'; capLabel.textContent='Enregistrer tronçon';
-  } else if(isRec){
-    capBtn.style.borderColor='#ef4444'; capBtn.style.background='#dc262644';
-    capIcon.textContent='⏸'; capLabel.textContent='Pause enregistrement';
-  } else if(isPaused){
-    capBtn.style.borderColor='#60a5fa'; capBtn.style.background='#1e3a5f44';
-    capIcon.textContent='▶'; capLabel.textContent='Reprendre';
+    btn.className=''; // reset inline
+    btn.removeAttribute('class');
+    btn.id='cap-btn-rec';
+    icon.textContent='⏺'; label.textContent='Enregistrer un tronçon';
+    if(fin) fin.style.display='none';
+  } else if(!S.paused){
+    btn.classList.add('recording');
+    btn.classList.remove('paused');
+    icon.textContent='⏸'; label.textContent='Pause';
+    if(fin) fin.style.display='block';
+  } else {
+    btn.classList.remove('recording');
+    btn.classList.add('paused');
+    icon.textContent='▶'; label.textContent='Reprendre';
   }
 }
 let TMAP       = null;   // instance Leaflet
