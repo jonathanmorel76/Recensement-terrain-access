@@ -81,6 +81,18 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 .wpt-type-btn.entree{border-color:#9333ea;background:#3b076422}
 .wpt-type-btn.equip_comp{border-color:#0891b2;background:#08334422}
 .wpt-type-btn.noeud{border-color:var(--brd2);background:var(--bg2)}
+/* État verrouillé — précision insuffisante */
+.wpt-type-btn.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}
+.wpt-types.locked-all .wpt-type-btn{opacity:.38;pointer-events:none;filter:grayscale(.6)}
+
+/* ── JAUGE DE PRÉCISION ──────────────────── */
+#acc-bar-wrap{margin-top:10px}
+#acc-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+#acc-label{font-size:12px;font-weight:600}
+#acc-value{font-size:12px;font-family:'JetBrains Mono',Consolas,monospace}
+#acc-bar-bg{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+#acc-bar-fill{height:100%;border-radius:4px;transition:width .4s ease,background .4s}
+#acc-lock-msg{margin-top:8px;font-size:12px;text-align:center;min-height:18px;font-weight:500}
 
 /* ── MODAL SAISIE WPT ────────────────────── */
 #wpt-modal{display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:flex-end}
@@ -160,7 +172,18 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
       <div id="gps-card">
         <div style="font-size:11px;color:var(--txt3);margin-bottom:6px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Position GPS</div>
         <div id="coords-display">En attente du signal GPS…</div>
-        <div id="acc-display">Précision : —</div>
+        <div id="acc-display" style="display:none"></div>
+        <!-- Jauge de précision -->
+        <div id="acc-bar-wrap">
+          <div id="acc-label-row">
+            <span id="acc-label" style="color:var(--txt3)">Précision</span>
+            <span id="acc-value" style="color:var(--txt3)">—</span>
+          </div>
+          <div id="acc-bar-bg">
+            <div id="acc-bar-fill" style="width:0%;background:var(--txt3)"></div>
+          </div>
+          <div id="acc-lock-msg" style="color:var(--txt3)">En attente du GPS…</div>
+        </div>
       </div>
 
       <!-- Track recording card -->
@@ -327,21 +350,30 @@ function startGPS(){
   const txt = document.getElementById('gps-text');
   dot.className='wait'; txt.textContent='Recherche…';
 
+  const GPS_SEUIL = 5; // mètres — seuil de validation
+
   watchId = navigator.geolocation.watchPosition(
     pos=>{
       S.pos = {lat: pos.coords.latitude, lon: pos.coords.longitude};
       S.accuracy = Math.round(pos.coords.accuracy);
-      dot.className='fix';
+      dot.className = S.accuracy <= GPS_SEUIL ? 'fix' : 'wait';
       txt.textContent = S.accuracy+'m';
       document.getElementById('coords-display').textContent =
         S.pos.lat.toFixed(6)+', '+S.pos.lon.toFixed(6);
-      document.getElementById('acc-display').textContent =
-        'Précision : ±'+S.accuracy+' m'+(S.accuracy>15?' ⚠ Faible':'');
-      // Enregistrement de tronçon
+
+      // Mise à jour jauge
+      updateAccBar(S.accuracy, GPS_SEUIL);
+
+      // Verrouillage/déverrouillage des boutons de levé
+      updateWptLock(S.accuracy, GPS_SEUIL);
+
+      // Enregistrement tronçon : filtrer les points avec précision insuffisante
       if(S.recording && !S.paused){
-        const trk = S.tracks[S.currentTrack];
-        trk.pts.push({lat:S.pos.lat, lon:S.pos.lon, ts:Date.now()});
-        updateTrackStats();
+        if(S.accuracy <= GPS_SEUIL * 3){ // tolérance x3 pour les tracks (moins critique)
+          const trk = S.tracks[S.currentTrack];
+          trk.pts.push({lat:S.pos.lat, lon:S.pos.lon, ts:Date.now(), acc:S.accuracy});
+          updateTrackStats();
+        }
       }
     },
     err=>{
@@ -358,10 +390,61 @@ function startGPS(){
         msg = 'Timeout GPS — réessayez dans un espace ouvert';
       }
       document.getElementById('coords-display').textContent = msg;
-      document.getElementById('acc-display').textContent = '';
+      updateAccBar(null, GPS_SEUIL);
+      updateWptLock(999, GPS_SEUIL);
     },
     {enableHighAccuracy:true, timeout:30000, maximumAge:2000}
   );
+}
+
+// ── Jauge de précision ──────────────────────────
+function updateAccBar(acc, seuil){
+  const fill  = document.getElementById('acc-bar-fill');
+  const label = document.getElementById('acc-label');
+  const val   = document.getElementById('acc-value');
+  const msg   = document.getElementById('acc-lock-msg');
+
+  if(acc === null){
+    fill.style.width='0%'; fill.style.background='var(--txt3)';
+    label.style.color='var(--txt3)'; val.textContent='—';
+    msg.textContent='En attente du GPS…'; msg.style.color='var(--txt3)';
+    return;
+  }
+
+  // Largeur inversée : 5 m = 100%, 20 m = 25%, >30 m = 5%
+  const pct = Math.max(5, Math.min(100, Math.round((seuil / acc) * 100)));
+
+  let color, labelTxt, msgTxt, msgColor;
+  if(acc <= seuil){
+    color='#22c55e'; labelTxt='Précision excellente'; msgTxt='✓ Prêt — levé autorisé';
+    msgColor='#86efac';
+  } else if(acc <= seuil * 2){
+    color='#f59e0b'; labelTxt='Précision moyenne'; msgTxt='⏳ Attendez… (±'+acc+' m > '+seuil+' m)';
+    msgColor='#fcd34d';
+  } else {
+    color='#ef4444'; labelTxt='Précision insuffisante'; msgTxt='✕ Signal trop faible (±'+acc+' m)';
+    msgColor='#fca5a5';
+  }
+
+  fill.style.width = pct+'%';
+  fill.style.background = color;
+  label.textContent = labelTxt;
+  label.style.color = color;
+  val.textContent = '±'+acc+' m';
+  val.style.color = color;
+  msg.textContent = msgTxt;
+  msg.style.color = msgColor;
+}
+
+// ── Verrouillage des boutons de levé ────────────
+function updateWptLock(acc, seuil){
+  const grid = document.querySelector('.wpt-types');
+  const locked = acc > seuil;
+  if(locked){
+    grid.classList.add('locked-all');
+  } else {
+    grid.classList.remove('locked-all');
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -476,6 +559,10 @@ function haversine(a,b){
 // ══════════════════════════════════════════════
 function openWptModal(type){
   if(!S.pos){ showToast('Attendez le signal GPS','amber'); return; }
+  if(S.accuracy > 5){
+    showToast('Précision insuffisante (±'+S.accuracy+' m) — attendez le verrou vert','amber');
+    return;
+  }
   S.pendingType=type;
   document.getElementById('modal-title').textContent=TYPE_LABELS[type]||type;
   document.getElementById('modal-coords').textContent=
