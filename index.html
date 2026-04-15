@@ -42,13 +42,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 .tab{flex:1;padding:11px 4px;text-align:center;font-size:12px;font-weight:600;color:var(--txt3);border-bottom:2px solid transparent;background:none;letter-spacing:.04em;transition:all .15s}
 .tab.active{color:var(--acc);border-color:var(--acc)}
 
-/* ── CONTENT ─────────────────────────────── */
-#content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
-.pane{display:none;padding:16px;overflow-y:auto;flex:1}
-.pane.active{display:block}
-/* Le pane terrain est plein écran, sans padding */
-#pane-terrain{padding:0!important;overflow:hidden;position:relative}
-#pane-terrain.active{display:flex;flex-direction:column}
+/* (layout défini plus bas) */
 
 /* ── GPS CARD ────────────────────────────── */
 #gps-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
@@ -170,8 +164,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
 
 /* ── CARTE TERRAIN UNIFIÉE ───────────────── */
-#terrain-map{flex:1;width:100%;min-height:0}
-#terrain-map .leaflet-tile{filter:brightness(.82) saturate(.72)}
+/* (styles définis plus bas dans LAYOUT FIXES) */
 /* Supprimer anciens styles capture-map */
 
 /* Barre GPS flottante — haut */
@@ -256,9 +249,26 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
   display:none
 }
 
-#terrain-map{width:100%;height:100%;min-height:calc(100dvh - 112px);background:var(--bg2)}
-/* Tuiles légèrement assombries */
-.leaflet-tile{filter:brightness(.85) saturate(.75)}
+/* ── LAYOUT FIXES ────────────────────────── */
+/* Tabs au-dessus de la carte Leaflet */
+#tabs{position:relative;z-index:500}
+#topbar{position:relative;z-index:500}
+/* Content : flex pour le pane-terrain, scroll pour Points/Export */
+#content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1}
+.pane{display:none;padding:16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.pane.active{display:block}
+#pane-terrain{padding:0!important;overflow:hidden;position:relative}
+#pane-terrain.active{display:flex;flex-direction:column}
+
+/* terrain-map remplit le flex restant */
+#terrain-map{flex:1;width:100%;min-height:0;background:var(--bg2)}
+
+/* CRITIQUE — éléments flottants cliquables au-dessus de Leaflet */
+#cap-panel,#map-bar,#cap-gps-bar{pointer-events:auto!important}
+#cap-panel *,#map-bar *{pointer-events:auto!important;touch-action:manipulation}
+
+/* Tuiles assombries */
+#terrain-map .leaflet-tile{filter:brightness(.82) saturate(.72)}
 /* Popup dark */
 .leaflet-popup-content-wrapper{background:var(--bg1)!important;color:var(--txt)!important;border:1px solid var(--brd2)!important;border-radius:8px!important;box-shadow:0 4px 16px #0009!important;font-family:'DM Sans',system-ui,sans-serif}
 .leaflet-popup-tip{background:var(--bg1)!important}
@@ -1344,6 +1354,16 @@ function initTerrainMap(){
       attribution:'© OpenStreetMap', maxZoom:19
     }).addTo(TMAP);
     TMAP_INIT = true;
+    // CRITIQUE : empêcher Leaflet d'intercepter les clics sur les panels flottants
+    const panel = document.getElementById('cap-panel');
+    const bar   = document.getElementById('map-bar');
+    const gps   = document.getElementById('cap-gps-bar');
+    [panel, bar].forEach(el=>{
+      if(el){
+        L.DomEvent.disableClickPropagation(el);
+        L.DomEvent.disableScrollPropagation(el);
+      }
+    });
   }
   refreshTerrainMap();
   setTimeout(()=>{ if(TMAP) TMAP.invalidateSize(); }, 300);
