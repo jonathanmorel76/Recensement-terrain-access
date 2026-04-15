@@ -43,9 +43,12 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 .tab.active{color:var(--acc);border-color:var(--acc)}
 
 /* ── CONTENT ─────────────────────────────── */
-#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.pane{display:none;padding:16px}
+#content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.pane{display:none;padding:16px;overflow-y:auto;flex:1}
 .pane.active{display:block}
+/* Le pane terrain est plein écran, sans padding */
+#pane-terrain{padding:0!important;overflow:hidden;position:relative}
+#pane-terrain.active{display:flex;flex-direction:column}
 
 /* ── GPS CARD ────────────────────────────── */
 #gps-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
@@ -166,13 +169,10 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
 
-/* ── CARTE CAPTURE UNIFIÉE ───────────────── */
-/* Le pane capture = carte plein écran */
-#pane-capture{padding:0!important;overflow:hidden;position:relative;display:none}
-#pane-capture.active{display:flex;flex-direction:column}
-#capture-map{flex:1;width:100%;min-height:0}
-/* Tuiles OSM assombries */
-#capture-map .leaflet-tile{filter:brightness(.82) saturate(.72)}
+/* ── CARTE TERRAIN UNIFIÉE ───────────────── */
+#terrain-map{flex:1;width:100%;min-height:0}
+#terrain-map .leaflet-tile{filter:brightness(.82) saturate(.72)}
+/* Supprimer anciens styles capture-map */
 
 /* Barre GPS flottante — haut */
 #cap-gps-bar{
@@ -186,6 +186,20 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 #cap-gps-acc{font-size:12px;font-family:monospace;color:var(--txt2)}
 #cap-gps-bar-fill-wrap{width:60px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
 #cap-gps-bar-fill{height:100%;border-radius:3px;transition:width .4s,background .4s;width:0%}
+/* Filtres — haut gauche */
+#map-bar{
+  position:absolute;top:10px;left:10px;z-index:1000;
+  display:flex;gap:4px;
+  background:rgba(19,25,38,.88);backdrop-filter:blur(8px);
+  border:1px solid var(--brd2);border-radius:16px;
+  padding:4px 8px;box-shadow:0 2px 8px #0007
+}
+#map-bar button{
+  background:none;border:none;color:var(--txt3);
+  font-size:13px;font-weight:600;padding:3px 6px;
+  border-radius:10px;cursor:pointer;font-family:var(--font)
+}
+#map-bar button.active,#map-bar button:hover{background:var(--bg3);color:var(--acc2)}
 
 /* Panneau de contrôle flottant — bas */
 #cap-panel{
@@ -241,7 +255,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
   background:#0d2618;border:2px solid var(--grn);color:#86efac;
   display:none
 }
-#pane-map{padding:0 !important;position:relative}
+
 #terrain-map{width:100%;height:100%;min-height:calc(100dvh - 112px);background:var(--bg2)}
 /* Tuiles légèrement assombries */
 .leaflet-tile{filter:brightness(.85) saturate(.75)}
@@ -253,11 +267,6 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 .pop-name{font-weight:700;margin-bottom:3px}
 .pop-type{font-size:11px;color:var(--txt3);font-family:monospace;margin-bottom:6px}
 .pop-acc{font-size:11px;color:var(--txt2)}
-/* Barre flottante en bas de la carte */
-#map-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:8px;background:var(--bg1);border:1px solid var(--brd2);border-radius:20px;padding:6px 12px;box-shadow:0 2px 12px #0007;white-space:nowrap}
-#map-bar button{background:none;border:none;color:var(--txt2);font-size:12px;font-weight:600;padding:3px 8px;border-radius:12px;cursor:pointer;font-family:'DM Sans',system-ui,sans-serif}
-#map-bar button.active,#map-bar button:hover{background:var(--bg3);color:var(--acc2)}
-#map-pos-dot{position:absolute;top:12px;right:12px;z-index:1000;background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:5px 10px;font-size:11px;font-family:monospace;color:var(--txt2)}
 </style>
 </head>
 <body>
@@ -274,31 +283,39 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 
   <!-- TABS -->
   <div id="tabs">
-    <button class="tab active" onclick="showTab('capture')">📍 Capture</button>
+    <button class="tab active" onclick="showTab('terrain')">🗺 Terrain</button>
     <button class="tab" onclick="showTab('points')">📋 Points</button>
     <button class="tab" onclick="showTab('export')">📤 Export</button>
-    <button class="tab" onclick="showTab('map')">🗺 Carte</button>
   </div>
 
   <!-- CONTENT -->
   <div id="content">
 
-    <!-- ══ TAB CAPTURE — carte + overlay ══ -->
-    <div id="pane-capture" class="pane active">
+    <!-- ══ TAB TERRAIN — carte + contrôles flottants ══ -->
+    <div id="pane-terrain" class="pane active">
 
-      <!-- Carte plein écran -->
-      <div id="capture-map"></div>
+      <!-- Carte plein écran (instance TMAP unique) -->
+      <div id="terrain-map"></div>
 
-      <!-- Barre GPS flottante haut -->
+      <!-- Barre GPS flottante — haut centre -->
       <div id="cap-gps-bar">
         <div id="cap-gps-bar-fill-wrap"><div id="cap-gps-bar-fill"></div></div>
         <span id="cap-gps-acc">GPS…</span>
       </div>
 
-      <!-- Panneau de contrôle flottant bas -->
+      <!-- Filtres flottants — haut droite -->
+      <div id="map-bar">
+        <button id="mf-all"        class="active" onclick="setMapFilter('all')">Tout</button>
+        <button id="mf-entree"     onclick="setMapFilter('entree')">🚪</button>
+        <button id="mf-equip"      onclick="setMapFilter('equip_comp')">🖥</button>
+        <button id="mf-noeud"      onclick="setMapFilter('noeud')">⬤</button>
+        <button id="mf-track"      onclick="setMapFilter('track')">〰</button>
+      </div>
+
+      <!-- Panneau de contrôle flottant — bas -->
       <div id="cap-panel">
 
-        <!-- Track bar : nom + stats -->
+        <!-- Nom tronçon + stats -->
         <div id="cap-track-bar">
           <input type="text" id="track-name" placeholder="Nom du tronçon…">
           <div id="cap-track-stats">
@@ -310,10 +327,10 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 
         <!-- Boutons de levé -->
         <div id="cap-btns">
-          <button class="cb entree"    onclick="openWptModal('entree')">    <div class="i">🚪</div><div class="l">Entrée</div></button>
+          <button class="cb entree"     onclick="openWptModal('entree')">    <div class="i">🚪</div><div class="l">Entrée</div></button>
           <button class="cb equip_comp" onclick="openWptModal('equip_comp')"><div class="i">🖥</div><div class="l">Info<br>voyageur</div></button>
-          <button class="cb noeud"     onclick="openWptModal('noeud')">     <div class="i">⬤</div><div class="l">Nœud</div></button>
-          <button class="cb autre"     onclick="openWptModal('autre')">     <div class="i">📌</div><div class="l">Autre</div></button>
+          <button class="cb noeud"      onclick="openWptModal('noeud')">     <div class="i">⬤</div><div class="l">Nœud</div></button>
+          <button class="cb autre"      onclick="openWptModal('autre')">     <div class="i">📌</div><div class="l">Autre</div></button>
         </div>
 
         <!-- Bouton tronçon -->
@@ -324,7 +341,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
         <button id="cap-btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
 
       </div><!-- cap-panel -->
-    </div>
+    </div><!-- pane-terrain -->
 
     <!-- ══ TAB POINTS ══ -->
     <div id="pane-points" class="pane">
@@ -354,21 +371,6 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
         <div class="export-card-title">Réinitialiser</div>
         <button class="btn-export-sec" style="color:var(--red);border-color:var(--red)" onclick="resetSession()">🗑 Effacer toute la session</button>
       </div>
-    </div>
-
-    <!-- ══ TAB CARTE ══ -->
-    <div id="pane-map" class="pane">
-      <div id="terrain-map"></div>
-      <!-- Barre de filtres flottante -->
-      <div id="map-bar">
-        <button id="mf-all"     class="active" onclick="setMapFilter('all')">Tout</button>
-        <button id="mf-entree"  onclick="setMapFilter('entree')">🚪 Entrées</button>
-        <button id="mf-equip"   onclick="setMapFilter('equip_comp')">🖥 Info</button>
-        <button id="mf-noeud"   onclick="setMapFilter('noeud')">⬤ Nœuds</button>
-        <button id="mf-track"   onclick="setMapFilter('track')">〰 Tracés</button>
-      </div>
-      <!-- Position GPS courante -->
-      <div id="map-pos-dot">—</div>
     </div>
 
   </div><!-- content -->
@@ -545,14 +547,14 @@ function startGPS(){
           const trk = S.tracks[S.currentTrack];
           trk.pts.push({lat:S.pos.lat, lon:S.pos.lon, ts:Date.now(), acc:S.accuracy});
           updateTrackStats();
-          updateCaptureMapTrack(); // mise à jour tracé live
+          updateTerrainMapTrack(); // mise à jour tracé live
         }
       }
       // Mise à jour position sur carte capture
-      if(CMAP_INIT && S.pos){
-        if(CMAP_POS){ try{ CMAP.removeLayer(CMAP_POS); }catch(e){} }
-        CMAP_POS = L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(CMAP);
-        document.getElementById('cap-map-gps').textContent =
+      if(TMAP_INIT && S.pos){
+        if(TMAP_POS_MK){ try{ TMAP.removeLayer(TMAP_POS_MK); }catch(e){} }
+        TMAP_POS_MK = L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(TMAP);
+        document.getElementById('cap-gps-acc').textContent =
           '±'+S.accuracy+' m · '+S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5);
       }
     },
@@ -617,12 +619,12 @@ function showTab(id){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('pane-'+id).classList.add('active');
-  const idx = {capture:0,points:1,export:2,map:3}[id];
+  const idx = {terrain:0, points:1, export:2}[id] ?? 0;
   document.querySelectorAll('.tab')[idx].classList.add('active');
-  if(id==='points') renderPointsList();
-  if(id==='export') renderExportStats();
-  if(id==='map')    initTerrainMap();
-  if(id==='capture'){ setTimeout(()=>{ initCaptureMap(); if(CMAP) CMAP.invalidateSize(); },300); }
+  if(id==='points')  renderPointsList();
+  if(id==='export')  renderExportStats();
+  if(id==='terrain'){ setTimeout(()=>{ initTerrainMap(); if(TMAP) TMAP.invalidateSize(); }, 200); }
+}
 }
 
 // ══════════════════════════════════════════════
@@ -677,7 +679,7 @@ function finishTrack(){
   document.getElementById('stat-dist').textContent='0';
   document.getElementById('stat-time').textContent='00:00';
   syncRecButtons();
-  if(CMAP_INIT) refreshCaptureMap();
+  if(TMAP_INIT) refreshTerrainMap();
   showToast(`Tronçon "${trk.name}" sauvegardé (${trk.pts.length} pts)`,'green');
   saveLocal();
 }
@@ -885,7 +887,7 @@ function saveWpt(){
   S.waypoints.push(w);
   closeWptModal();
   showToast('📍 '+w.name+' (±'+w.acc+' m)','green');
-  if(CMAP_INIT) refreshCaptureMap();
+  if(TMAP_INIT) refreshTerrainMap();
   saveLocal();
 }
 
@@ -1245,6 +1247,8 @@ document.getElementById('wpt-modal').addEventListener('click',e=>{
 // ══════════════════════════════════════════════
 loadLocal();
 startGPS();
+// Init carte au chargement (onglet Terrain actif par défaut)
+window.addEventListener('load', ()=>{ setTimeout(initTerrainMap, 400); });
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -1252,91 +1256,24 @@ startGPS();
 // ══════════════════════════════════════════════
 // VUE CAPTURE — TOGGLE FORMULAIRE / CARTE
 // ══════════════════════════════════════════════
-let CMAP      = null;  // carte capture Leaflet
-let CMAP_INIT = false;
-let CMAP_POS  = null;  // marqueur position
-let CMAP_POLYLINE = null; // tracé en cours
-let CMAP_WPT_LAYERS = [];
+// CMAP merged into TMAP
+// (les variables TMAP_INIT, TMAP_POS_MK, TMAP_LAYERS sont définies plus bas)
+let TMAP_REC_LINE = null; // tracé enregistrement live
 
 function setCaptureView(_){ /* plus de toggle — carte unifiée */ }
 
-function initCaptureMap(){
-  if(CMAP_INIT){ refreshCaptureMap(); return; }
-  CMAP = L.map('capture-map',{zoomControl:false, attributionControl:false});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(CMAP);
-  L.control.zoom({position:'topright'}).addTo(CMAP);
-  CMAP_INIT = true;
-  refreshCaptureMap();
-}
-
-function refreshCaptureMap(){
-  if(!CMAP) return;
-  // Supprimer les anciens marqueurs wpt
-  CMAP_WPT_LAYERS.forEach(l=>{ try{ CMAP.removeLayer(l); }catch(e){} });
-  CMAP_WPT_LAYERS = [];
-  // Supprimer la polyline existante
-  if(CMAP_POLYLINE){ try{ CMAP.removeLayer(CMAP_POLYLINE); }catch(e){} CMAP_POLYLINE=null; }
-
-  const bounds = [];
-
-  // Tronçons terminés
-  S.tracks.forEach(trk=>{
-    if(!trk.pts || trk.pts.length < 2) return;
-    const pl = L.polyline(trk.pts.map(p=>[p.lat,p.lon]),{color:'#4ade80',weight:3,opacity:.8}).addTo(CMAP);
-    CMAP_WPT_LAYERS.push(pl);
-    trk.pts.forEach(p=>bounds.push([p.lat,p.lon]));
-  });
-
-  // Tronçon en cours d'enregistrement (tracé live)
-  if(S.recording && S.currentTrack !== null){
-    const trk = S.tracks[S.currentTrack];
-    if(trk && trk.pts.length >= 2){
-      CMAP_POLYLINE = L.polyline(trk.pts.map(p=>[p.lat,p.lon]),
-        {color:'#ef4444',weight:4,opacity:1,dashArray:'6 4'}).addTo(CMAP);
-    }
-  }
-
-  // Waypoints
-  S.waypoints.forEach(w=>{
-    const color  = TMAP_COLORS[w.type]||'#888';
-    const letter = {entree:'E',equip_comp:'I',noeud:'N',autre:'?'}[w.type]||'?';
-    const mk = L.marker([w.lat,w.lon],{icon: mkTIcon(color,letter)}).addTo(CMAP);
-    mk.bindPopup(`<div class="pop-name">${esc(w.name)}</div>
-      <div class="pop-type">${w.subtype||w.type}</div>`);
-    CMAP_WPT_LAYERS.push(mk);
-    bounds.push([w.lat,w.lon]);
-  });
-
-  // Position GPS courante
-  if(S.pos){
-    if(CMAP_POS){ try{ CMAP.removeLayer(CMAP_POS); }catch(e){} }
-    CMAP_POS = L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(), zIndexOffset:1000}).addTo(CMAP);
-    bounds.push([S.pos.lat,S.pos.lon]);
-    document.getElementById('cap-map-gps').textContent =
-      '±'+(S.accuracy||'?')+' m · '+S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5);
-  }
-
-  if(bounds.length > 0){
-    try{ CMAP.fitBounds(bounds,{padding:[50,50],maxZoom:18}); }
-    catch(e){ if(bounds[0]) CMAP.setView(bounds[0],17); }
-  } else if(S.pos){
-    CMAP.setView([S.pos.lat,S.pos.lon],17);
-  }
-}
-
 // Mettre à jour le tracé live en temps réel pendant l'enregistrement
-function updateCaptureMapTrack(){
-  if(!CMAP_INIT || !S.recording || S.currentTrack===null) return;
+function updateTerrainMapTrack(){
+  if(!TMAP_INIT || !S.recording || S.currentTrack===null) return;
   const trk = S.tracks[S.currentTrack];
   if(!trk || trk.pts.length < 2) return;
   const lls = trk.pts.map(p=>[p.lat,p.lon]);
-  if(CMAP_POLYLINE){
-    CMAP_POLYLINE.setLatLngs(lls);
+  if(TMAP_REC_LINE){
+    TMAP_REC_LINE.setLatLngs(lls);
   } else {
-    CMAP_POLYLINE = L.polyline(lls,{color:'#ef4444',weight:4,opacity:1,dashArray:'6 4'}).addTo(CMAP);
+    TMAP_REC_LINE = L.polyline(lls,{color:'#ef4444',weight:4,opacity:1,dashArray:'6 4'}).addTo(TMAP);
   }
-  // Suivre la position GPS courante
-  if(S.pos) CMAP.panTo([S.pos.lat,S.pos.lon], {animate:true, duration:.5});
+  if(S.pos) TMAP.panTo([S.pos.lat,S.pos.lon], {animate:true, duration:.4});
 }
 
 // Synchroniser le bouton d'enregistrement (nouvelle UI unifiée)
@@ -1402,15 +1339,13 @@ function mkPosIcon(){
 
 function initTerrainMap(){
   if(!TMAP_INIT){
-    TMAP = L.map('terrain-map',{zoomControl:true,attributionControl:true});
+    TMAP = L.map('terrain-map',{zoomControl:true, attributionControl:true});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OpenStreetMap',
-      maxZoom:19
+      attribution:'© OpenStreetMap', maxZoom:19
     }).addTo(TMAP);
     TMAP_INIT = true;
   }
   refreshTerrainMap();
-  // Invalider la taille après animation CSS
   setTimeout(()=>{ if(TMAP) TMAP.invalidateSize(); }, 300);
 }
 
@@ -1422,10 +1357,13 @@ function clearTMapLayers(){
 function refreshTerrainMap(){
   if(!TMAP) return;
   clearTMapLayers();
+  // Supprimer tracé live précédent
+  if(TMAP_REC_LINE){ try{ TMAP.removeLayer(TMAP_REC_LINE); }catch(e){} TMAP_REC_LINE=null; }
+
   const bounds = [];
   const f = TMAP_FILTER;
 
-  // ── Tronçons ──
+  // ── Tronçons terminés ──
   if(f==='all' || f==='track'){
     S.tracks.forEach(trk=>{
       if(!trk.pts || trk.pts.length < 2) return;
@@ -1434,14 +1372,18 @@ function refreshTerrainMap(){
       pl.bindPopup(`<div class="pop-name">${esc(trk.name)}</div>
         <div class="pop-type">troncon_cheminement</div>
         <div class="pop-acc">${trk.pts.length} points</div>`);
-      // Flèches de direction sur le tracé
-      if(lls.length >= 2){
-        const mid = lls[Math.floor(lls.length/2)];
-        bounds.push(mid);
-      }
       lls.forEach(ll=>bounds.push(ll));
       TMAP_LAYERS.push(pl);
     });
+  }
+
+  // ── Tracé en cours (rouge pointillé) ──
+  if(S.recording && S.currentTrack !== null){
+    const trk = S.tracks[S.currentTrack];
+    if(trk && trk.pts.length >= 2){
+      TMAP_REC_LINE = L.polyline(trk.pts.map(p=>[p.lat,p.lon]),
+        {color:'#ef4444',weight:4,opacity:1,dashArray:'6 4'}).addTo(TMAP);
+    }
   }
 
   // ── Waypoints ──
@@ -1477,7 +1419,7 @@ function refreshTerrainMap(){
     }).addTo(TMAP);
     TMAP_POS_MK.bindTooltip('Vous êtes ici',{permanent:false});
     bounds.push([S.pos.lat,S.pos.lon]);
-    document.getElementById('map-pos-dot').textContent =
+    document.getElementById('cap-gps-acc').textContent =
       S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5);
   }
 
@@ -1514,7 +1456,7 @@ const _origSaveLocal = saveLocal;
 saveLocal = function(){
   _origSaveLocal();
   // Si la carte est visible, la rafraîchir
-  if(TMAP_INIT && document.getElementById('pane-map').classList.contains('active')){
+  if(TMAP_INIT && document.getElementById('pane-terrain').classList.contains('active')){
     refreshTerrainMap();
   }
 };
