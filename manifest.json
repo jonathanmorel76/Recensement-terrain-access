@@ -1,7 +1,7 @@
 {
-  "name": "CNIG Terrain",
-  "short_name": "CNIG Terrain",
-  "description": "Collecte terrain accessibilité CNIG — gares et pôles d'échange",
+  "name": "Recensement Terrain LDM",
+  "short_name": "Terrain LDM",
+  "description": "Collecte terrain accessibilité — recensement des pôles d'échange LDM",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -17,6 +17,9 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["utilities", "navigation"],
+  "categories": [
+    "utilities",
+    "navigation"
+  ],
   "prefer_related_applications": false
 }
