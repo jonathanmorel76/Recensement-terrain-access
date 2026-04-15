@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="CNIG Terrain">
 <meta name="theme-color" content="#0c1017">
 <link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <!-- Icône home screen iOS (inline SVG→PNG base64 n'est pas nécessaire, on utilise une couleur) -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230c1017' rx='40'/%3E%3Ctext x='90' y='115' text-anchor='middle' font-size='80' font-family='system-ui'%3E📍%3C/text%3E%3C/svg%3E">
 <title>CNIG Terrain</title>
@@ -164,6 +165,25 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
 /* ── SCROLLBAR ───────────────────────────── */
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+
+/* ── CARTE ───────────────────────────────── */
+#pane-map{padding:0 !important;position:relative}
+#terrain-map{width:100%;height:100%;min-height:calc(100dvh - 112px);background:var(--bg2)}
+/* Tuiles légèrement assombries */
+.leaflet-tile{filter:brightness(.85) saturate(.75)}
+/* Popup dark */
+.leaflet-popup-content-wrapper{background:var(--bg1)!important;color:var(--txt)!important;border:1px solid var(--brd2)!important;border-radius:8px!important;box-shadow:0 4px 16px #0009!important;font-family:'DM Sans',system-ui,sans-serif}
+.leaflet-popup-tip{background:var(--bg1)!important}
+.leaflet-popup-content{margin:10px 14px!important;font-size:13px}
+.leaflet-popup-close-button{color:var(--txt3)!important}
+.pop-name{font-weight:700;margin-bottom:3px}
+.pop-type{font-size:11px;color:var(--txt3);font-family:monospace;margin-bottom:6px}
+.pop-acc{font-size:11px;color:var(--txt2)}
+/* Barre flottante en bas de la carte */
+#map-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:8px;background:var(--bg1);border:1px solid var(--brd2);border-radius:20px;padding:6px 12px;box-shadow:0 2px 12px #0007;white-space:nowrap}
+#map-bar button{background:none;border:none;color:var(--txt2);font-size:12px;font-weight:600;padding:3px 8px;border-radius:12px;cursor:pointer;font-family:'DM Sans',system-ui,sans-serif}
+#map-bar button.active,#map-bar button:hover{background:var(--bg3);color:var(--acc2)}
+#map-pos-dot{position:absolute;top:12px;right:12px;z-index:1000;background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:5px 10px;font-size:11px;font-family:monospace;color:var(--txt2)}
 </style>
 </head>
 <body>
@@ -183,6 +203,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
     <button class="tab active" onclick="showTab('capture')">📍 Capture</button>
     <button class="tab" onclick="showTab('points')">📋 Points</button>
     <button class="tab" onclick="showTab('export')">📤 Export</button>
+    <button class="tab" onclick="showTab('map')">🗺 Carte</button>
   </div>
 
   <!-- CONTENT -->
@@ -283,6 +304,21 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none}
         <div class="export-card-title">Réinitialiser</div>
         <button class="btn-export-sec" style="color:var(--red);border-color:var(--red)" onclick="resetSession()">🗑 Effacer toute la session</button>
       </div>
+    </div>
+
+    <!-- ══ TAB CARTE ══ -->
+    <div id="pane-map" class="pane">
+      <div id="terrain-map"></div>
+      <!-- Barre de filtres flottante -->
+      <div id="map-bar">
+        <button id="mf-all"     class="active" onclick="setMapFilter('all')">Tout</button>
+        <button id="mf-entree"  onclick="setMapFilter('entree')">🚪 Entrées</button>
+        <button id="mf-equip"   onclick="setMapFilter('equip_comp')">🖥 Info</button>
+        <button id="mf-noeud"   onclick="setMapFilter('noeud')">⬤ Nœuds</button>
+        <button id="mf-track"   onclick="setMapFilter('track')">〰 Tracés</button>
+      </div>
+      <!-- Position GPS courante -->
+      <div id="map-pos-dot">—</div>
     </div>
 
   </div><!-- content -->
@@ -547,10 +583,11 @@ function showTab(id){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('pane-'+id).classList.add('active');
-  const idx = {capture:0,points:1,export:2}[id];
+  const idx = {capture:0,points:1,export:2,map:3}[id];
   document.querySelectorAll('.tab')[idx].classList.add('active');
   if(id==='points') renderPointsList();
   if(id==='export') renderExportStats();
+  if(id==='map')    initTerrainMap();
 }
 
 // ══════════════════════════════════════════════
@@ -1185,6 +1222,168 @@ document.getElementById('wpt-modal').addEventListener('click',e=>{
 // ══════════════════════════════════════════════
 loadLocal();
 startGPS();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ══════════════════════════════════════════════
+// CARTE TERRAIN
+// ══════════════════════════════════════════════
+let TMAP       = null;   // instance Leaflet
+let TMAP_INIT  = false;
+let TMAP_FILTER= 'all';
+let TMAP_LAYERS= [];     // couches actives
+let TMAP_POS_MK= null;   // marqueur position courante
+
+const TMAP_COLORS = {
+  entree:    '#a855f7',
+  equip_comp:'#06b6d4',
+  noeud:     '#60a5fa',
+  autre:     '#f59e0b',
+};
+
+function mkTIcon(color, letter){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:26px;height:26px;border-radius:50%;
+      background:${color};border:3px solid #fff;
+      box-shadow:0 2px 8px #0009;
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:800;color:#fff">${letter}</div>`,
+    iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-16]
+  });
+}
+
+function mkPosIcon(){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:18px;height:18px;border-radius:50%;
+      background:#22c55e;border:3px solid #fff;
+      box-shadow:0 0 0 4px #22c55e44;
+      animation:posping 2s infinite"></div>
+      <style>@keyframes posping{0%,100%{box-shadow:0 0 0 4px #22c55e44}50%{box-shadow:0 0 0 8px #22c55e11}}</style>`,
+    iconSize:[18,18], iconAnchor:[9,9]
+  });
+}
+
+function initTerrainMap(){
+  if(!TMAP_INIT){
+    TMAP = L.map('terrain-map',{zoomControl:true,attributionControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© OpenStreetMap',
+      maxZoom:19
+    }).addTo(TMAP);
+    TMAP_INIT = true;
+  }
+  refreshTerrainMap();
+  // Invalider la taille après animation CSS
+  setTimeout(()=>{ if(TMAP) TMAP.invalidateSize(); }, 300);
+}
+
+function clearTMapLayers(){
+  TMAP_LAYERS.forEach(l=>{ try{ TMAP.removeLayer(l); }catch(e){} });
+  TMAP_LAYERS = [];
+}
+
+function refreshTerrainMap(){
+  if(!TMAP) return;
+  clearTMapLayers();
+  const bounds = [];
+  const f = TMAP_FILTER;
+
+  // ── Tronçons ──
+  if(f==='all' || f==='track'){
+    S.tracks.forEach(trk=>{
+      if(!trk.pts || trk.pts.length < 2) return;
+      const lls = trk.pts.map(p=>[p.lat,p.lon]);
+      const pl = L.polyline(lls,{color:'#4ade80',weight:4,opacity:.9}).addTo(TMAP);
+      pl.bindPopup(`<div class="pop-name">${esc(trk.name)}</div>
+        <div class="pop-type">troncon_cheminement</div>
+        <div class="pop-acc">${trk.pts.length} points</div>`);
+      // Flèches de direction sur le tracé
+      if(lls.length >= 2){
+        const mid = lls[Math.floor(lls.length/2)];
+        bounds.push(mid);
+      }
+      lls.forEach(ll=>bounds.push(ll));
+      TMAP_LAYERS.push(pl);
+    });
+  }
+
+  // ── Waypoints ──
+  const typeLetters = {entree:'E', equip_comp:'I', noeud:'N', autre:'?'};
+  S.waypoints.forEach((w,i)=>{
+    if(f!=='all' && f!==w.type) return;
+    const color  = TMAP_COLORS[w.type] || '#888';
+    const letter = typeLetters[w.type] || '?';
+    const mk = L.marker([w.lat,w.lon],{
+      icon: mkTIcon(color, letter),
+      zIndexOffset: 200
+    }).addTo(TMAP);
+
+    const qualLabel = !w.acc ? '' : w.acc<=3 ? '✓ Excellente' : w.acc<=5 ? '✓ Bonne' : w.acc<=10 ? '⚠ Acceptable' : '⚠ Dégradée';
+    mk.bindPopup(`
+      <div class="pop-name">${esc(w.name)}</div>
+      <div class="pop-type">${w.subtype||w.type}</div>
+      ${w.acc?`<div class="pop-acc">±${w.acc} m — ${qualLabel}</div>`:''}
+      ${w.desc?`<div class="pop-acc" style="margin-top:4px;color:var(--txt)">${esc(w.desc)}</div>`:''}
+      <div style="margin-top:8px">
+        <button onclick="TMAP.closePopup();showTab('points');editWpt('${w.id}')"
+          style="background:var(--bg3);border:1px solid var(--brd2);color:var(--acc2);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">✏ Modifier</button>
+      </div>`);
+    TMAP_LAYERS.push(mk);
+    bounds.push([w.lat,w.lon]);
+  });
+
+  // ── Position GPS courante ──
+  if(S.pos){
+    if(TMAP_POS_MK) try{ TMAP.removeLayer(TMAP_POS_MK); }catch(e){}
+    TMAP_POS_MK = L.marker([S.pos.lat,S.pos.lon],{
+      icon: mkPosIcon(), zIndexOffset:1000
+    }).addTo(TMAP);
+    TMAP_POS_MK.bindTooltip('Vous êtes ici',{permanent:false});
+    bounds.push([S.pos.lat,S.pos.lon]);
+    document.getElementById('map-pos-dot').textContent =
+      S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5);
+  }
+
+  // Fit bounds
+  if(bounds.length > 0){
+    try{
+      TMAP.fitBounds(bounds,{padding:[40,40],maxZoom:18,animate:true});
+    }catch(e){
+      if(bounds[0]) TMAP.setView(bounds[0],17);
+    }
+  } else {
+    // Aucune donnée : centrer sur la France
+    TMAP.setView([46.8,2.3],6);
+  }
+}
+
+function setMapFilter(f){
+  TMAP_FILTER = f;
+  // Surligner le bouton actif
+  document.querySelectorAll('#map-bar button').forEach(b=>b.classList.remove('active'));
+  const map = {all:'mf-all',entree:'mf-entree',equip_comp:'mf-equip',noeud:'mf-noeud',track:'mf-track'};
+  const btn = document.getElementById(map[f]);
+  if(btn) btn.classList.add('active');
+  refreshTerrainMap();
+}
+
+// Rafraîchir la carte quand un point est ajouté ou modifié
+const _origSaveWpt = saveWpt;
+saveWpt = function(){
+  _origSaveWpt();
+  if(TMAP_INIT) refreshTerrainMap();
+};
+const _origSaveLocal = saveLocal;
+saveLocal = function(){
+  _origSaveLocal();
+  // Si la carte est visible, la rafraîchir
+  if(TMAP_INIT && document.getElementById('pane-map').classList.contains('active')){
+    refreshTerrainMap();
+  }
+};
 </script>
 
 <!-- Service Worker — cache hors ligne -->
