@@ -110,18 +110,16 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 /* ── OVERLAYS FLOTTANTS ─ */
 /* Tous en position:absolute dans pane-terrain, z-index > Leaflet (400) */
 
-/* Barre GPS — haut centre, entre les filtres et le zoom */
+/* Barre GPS — haut, pleine largeur, ne chevauche rien */
 #gps-bar{
   position:absolute;
-  /* Laisse 120px à gauche (filtres ~110px) et 50px à droite (zoom Leaflet) */
-  left:120px;right:50px;top:10px;
+  top:10px;left:10px;right:10px;
   z-index:800;
-  display:flex;align-items:center;gap:6px;justify-content:center;
+  display:flex;align-items:center;gap:8px;
   background:rgba(13,16,23,.92);
   border:1px solid var(--brd2);border-radius:20px;
-  padding:5px 10px;
+  padding:6px 14px;
   pointer-events:none;
-  /* Pas de white-space:nowrap — on laisse le texte se couper */
   overflow:hidden
 }
 #gps-bar-track{width:44px;height:4px;flex-shrink:0;background:var(--bg3);border-radius:2px;overflow:hidden}
@@ -129,29 +127,25 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 #gps-bar-txt{
   font-size:11px;font-family:monospace;color:var(--txt2);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  min-width:0
+  min-width:0;flex:1
 }
 
-/* Filtres — haut gauche, largeur fixe pour ne pas empiéter */
+/* Filtres — dans le panel bas, ligne horizontale scrollable */
 #filters{
-  position:absolute;top:10px;left:10px;
-  z-index:800;
-  display:flex;gap:2px;
-  background:rgba(13,16,23,.92);
-  border:1px solid var(--brd2);border-radius:14px;
-  padding:4px 6px;
-  pointer-events:auto;touch-action:manipulation;
-  /* Largeur max garantie : 5 × 28px + paddings ≈ 110px */
+  display:flex;gap:6px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding-bottom:8px;margin-bottom:6px;
+  scrollbar-width:none
 }
+#filters::-webkit-scrollbar{display:none}
 #filters button{
-  /* Taille uniforme pour tous les boutons */
-  width:28px;height:28px;
-  display:flex;align-items:center;justify-content:center;
-  border-radius:10px;font-size:12px;font-weight:600;color:var(--txt3);
-  background:none;border:none;cursor:pointer;touch-action:manipulation;
-  flex-shrink:0
+  flex-shrink:0;
+  background:var(--bg2);border:1px solid var(--brd);
+  border-radius:20px;padding:5px 12px;
+  font-size:12px;font-weight:600;color:var(--txt3);
+  cursor:pointer;touch-action:manipulation;white-space:nowrap
 }
-#filters button.active,#filters button:active{background:var(--bg3);color:var(--acc2)}
+#filters button.active{background:var(--bg3);border-color:var(--acc2);color:var(--acc2)}
 
 /* Zoom Leaflet — haut droite, ne pas masquer */
 /* Leaflet place le zoom à top:10,right:10 par défaut — on le laisse */
@@ -325,23 +319,23 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   <div id="pane-terrain" class="active">
     <div id="map"></div>
 
-    <!-- GPS bar -->
+    <!-- Barre GPS — haut, pleine largeur -->
     <div id="gps-bar">
       <div id="gps-bar-track"><div id="gps-bar-fill"></div></div>
       <span id="gps-bar-txt">GPS…</span>
     </div>
 
-    <!-- Filtres -->
-    <div id="filters">
-      <button class="active" data-f="all"   onclick="applyFilter('all',this)">Tout</button>
-      <button data-f="entree"               onclick="applyFilter('entree',this)">🚪</button>
-      <button data-f="equip_comp"           onclick="applyFilter('equip_comp',this)">🖥</button>
-      <button data-f="noeud"               onclick="applyFilter('noeud',this)">⬤</button>
-      <button data-f="track"               onclick="applyFilter('track',this)">〰</button>
-    </div>
-
     <!-- Panel bas -->
     <div id="panel">
+
+      <!-- Filtres carte — intégrés dans le panel -->
+      <div id="filters">
+        <button class="active" data-f="all"        onclick="applyFilter('all',this)">Tout</button>
+        <button data-f="entree"                    onclick="applyFilter('entree',this)">🚪 Entrées</button>
+        <button data-f="equip_comp"                onclick="applyFilter('equip_comp',this)">🖥 Info</button>
+        <button data-f="noeud"                     onclick="applyFilter('noeud',this)">⬤ Nœuds</button>
+        <button data-f="track"                     onclick="applyFilter('track',this)">〰 Tracés</button>
+      </div>
       <div id="trk-row">
         <input id="trk-name" type="text" placeholder="Nom du tronçon…">
         <div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div>
