@@ -6,347 +6,396 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Terrain LDM">
-<meta name="theme-color" content="#0c1017">
+<meta name="theme-color" content="#000000">
 <link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230c1017' rx='40'/%3E%3Ctext x='90' y='115' text-anchor='middle' font-size='80' font-family='system-ui'%3E📍%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23000' rx='40'/%3E%3Ccircle cx='90' cy='90' r='40' fill='%230A84FF'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <title>Recensement Terrain LDM</title>
 <style>
-/* ── RESET ─────────────────────────────── */
+/* ── RESET ─── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-
-/* ── TOKENS IOS DARK ───────────────────── */
 :root{
-  --bg0:#000000;
-  --bg1:#1c1c1e;
-  --bg2:#2c2c2e;
-  --bg3:#3a3a3c;
-  --txt:rgba(255,255,255,.96);
-  --txt2:rgba(235,235,245,.6);
-  --txt3:rgba(235,235,245,.3);
-  --blue:#0a84ff;
-  --green:#30d158;
-  --orange:#ff9f0a;
-  --red:#ff453a;
-  --purple:#bf5af2;
-  --cyan:#64d2ff;
-  --sep:rgba(84,84,88,.65);
-  --sep2:rgba(84,84,88,.35);
-  --glass-bg:rgba(28,28,30,.82);
-  --glass-border:rgba(255,255,255,.10);
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;
-  --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,monospace
+  --glass:     rgba(20,20,22,.82);
+  --glass2:    rgba(30,30,32,.78);
+  --glass3:    rgba(44,44,46,.72);
+  --brd:       rgba(255,255,255,.09);
+  --brd2:      rgba(255,255,255,.05);
+  --txt:       rgba(255,255,255,.95);
+  --txt2:      rgba(255,255,255,.50);
+  --txt3:      rgba(255,255,255,.28);
+  --blue:      #0A84FF;
+  --green:     #30D158;
+  --orange:    #FF9F0A;
+  --red:       #FF453A;
+  --purple:    #BF5AF2;
+  --teal:      #5AC8FA;
+  --blur:      blur(24px) saturate(200%);
+  --r:         16px;
+  --font:      -apple-system,"SF Pro Display","SF Pro Text",system-ui,sans-serif
 }
-html,body{height:100%;width:100%;overflow:hidden;background:var(--bg0);color:var(--txt);font-family:var(--font);font-size:16px;-webkit-font-smoothing:antialiased}
+html,body{
+  height:100%;width:100%;overflow:hidden;
+  background:#000;color:var(--txt);
+  font-family:var(--font);font-size:16px;
+  -webkit-font-smoothing:antialiased
+}
 button{font-family:var(--font);cursor:pointer;border:none;outline:none;background:none;color:inherit}
 
-/* ── SHELL ─────────────────────────────── */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;height:100dvh}
+/* ── LAYOUT — carte plein écran bord à bord ─── */
+#app{position:fixed;inset:0;height:100dvh;overflow:hidden}
 
-/* ── TOPBAR ─────────────────────────────  */
+/* La carte prend TOUT l'écran */
+#map{
+  position:absolute;inset:0;
+  /* On laisse de la place pour le sheet en bas, dynamiquement ajusté */
+  bottom:260px
+}
+
+/* ── OVERLAY TOPBAR — translucide, au-dessus de la carte ─── */
 #topbar{
-  flex-shrink:0;
-  height:calc(52px + env(safe-area-inset-top,0px));
-  padding-top:env(safe-area-inset-top,0px);
-  background:var(--glass-bg);
-  backdrop-filter:blur(24px) saturate(180%);
-  -webkit-backdrop-filter:blur(24px) saturate(180%);
-  border-bottom:1px solid var(--sep2);
-  padding-left:18px;padding-right:18px;
-  display:flex;align-items:flex-end;padding-bottom:10px;gap:10px;
-  z-index:600;position:relative
+  position:absolute;
+  top:0;left:0;right:0;
+  z-index:700;
+  /* Hauteur barre de statut safe */
+  padding-top:env(safe-area-inset-top,14px);
+  padding-left:16px;padding-right:14px;padding-bottom:10px;
+  display:flex;align-items:flex-end;justify-content:space-between;
+  /* Léger dégradé top pour lisibilité — pas de fond solide */
+  background:linear-gradient(to bottom, rgba(0,0,0,.52) 0%, transparent 100%);
+  pointer-events:none
 }
-.app-title{font-size:15px;font-weight:600;color:var(--txt);letter-spacing:-.2px}
-.app-title span{color:var(--txt2);font-weight:400}
-#gps-status{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2)}
-#gps-dot{width:7px;height:7px;border-radius:50%;background:var(--txt3);transition:background .3s}
-#gps-dot.fix{background:var(--green);box-shadow:0 0 5px var(--green)}
-#gps-dot.wait{background:var(--orange);animation:blink 1.2s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-#gps-mode{font-size:9px;background:var(--bg3);border-radius:4px;padding:1px 5px;color:var(--txt3)}
-
-/* ── TABS ───────────────────────────────── */
-#tabs{
-  flex-shrink:0;
-  background:var(--glass-bg);
-  backdrop-filter:blur(24px) saturate(180%);
-  -webkit-backdrop-filter:blur(24px) saturate(180%);
-  border-bottom:1px solid var(--sep2);
-  padding:8px 16px 0;
-  display:flex;z-index:600;position:relative
+.app-title{
+  font-size:14px;font-weight:600;letter-spacing:-.02em;
+  color:rgba(255,255,255,.92);text-shadow:0 1px 4px rgba(0,0,0,.6)
 }
-.tab{
-  flex:1;padding:8px 4px 10px;
-  font-size:13px;font-weight:500;color:var(--txt3);
-  background:none;border:none;border-bottom:2px solid transparent;
-  transition:color .15s,border-color .15s;
-  touch-action:manipulation;letter-spacing:-.1px
+.app-title span{color:rgba(255,255,255,.55);font-weight:400}
+#gps-status{
+  display:flex;align-items:center;gap:5px;pointer-events:none
 }
-.tab.active{color:var(--blue);border-color:var(--blue);font-weight:600}
+#gps-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--txt3);transition:background .4s,box-shadow .4s
+}
+#gps-dot.fix{background:var(--green);box-shadow:0 0 8px var(--green)}
+#gps-dot.wait{background:var(--orange);animation:blink 1.4s ease infinite}
+#gps-txt{font-size:12px;color:rgba(255,255,255,.65);text-shadow:0 1px 3px rgba(0,0,0,.7)}
+#gps-mode{
+  font-size:9px;font-weight:600;
+  color:rgba(255,255,255,.45);
+  background:rgba(0,0,0,.35);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:4px;padding:1px 5px
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
-/* ── CONTENT ────────────────────────────── */
-#content{flex:1;min-height:0;position:relative;overflow:hidden}
-.pane{display:none;position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;background:var(--bg0)}
-.pane.active{display:block}
-#pane-terrain{display:none;position:absolute;inset:0;overflow:hidden}
-#pane-terrain.active{display:block}
-
-/* ── CARTE ──────────────────────────────── */
-#map{position:absolute;top:0;left:0;right:0;bottom:0}
-
-/* ── GPS BAR ────────────────────────────── */
+/* ── BARRE GPS — pillule top ─── */
 #gps-bar{
-  position:absolute;top:12px;left:12px;right:12px;z-index:800;
+  position:absolute;
+  top:calc(env(safe-area-inset-top,14px) + 44px);
+  left:12px;right:68px;
+  z-index:700;
   display:flex;align-items:center;gap:8px;
-  background:var(--glass-bg);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
-  border:1px solid var(--glass-border);
-  border-radius:14px;padding:8px 14px;
+  background:var(--glass);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--brd);border-radius:22px;
+  padding:6px 14px;
   pointer-events:none;overflow:hidden;
-  box-shadow:0 2px 16px rgba(0,0,0,.35)
+  box-shadow:0 2px 20px rgba(0,0,0,.45)
 }
-#gps-bar-track{width:40px;height:3px;flex-shrink:0;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
-#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .4s,background .4s;background:var(--txt3)}
-#gps-bar-txt{font-size:11px;font-family:var(--mono);color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+#gps-bar-track{
+  width:36px;height:3px;flex-shrink:0;
+  background:rgba(255,255,255,.10);border-radius:2px;overflow:hidden
+}
+#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .5s,background .5s;background:var(--txt3)}
+#gps-bar-txt{
+  font-size:12px;color:var(--txt2);
+  font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1
+}
 
-/* ── BOUTON GÉOLOC ──────────────────────── */
-#btn-geolocate{
-  position:absolute;top:58px;right:12px;z-index:800;
-  width:36px;height:36px;border-radius:50%;
-  background:var(--glass-bg);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
-  border:1px solid var(--glass-border);
+/* ── PILL DROITE — géolocalisation + couche ─── */
+#right-pill{
+  position:absolute;
+  top:calc(env(safe-area-inset-top,14px) + 44px);
+  right:12px;
+  z-index:700;
+  display:flex;flex-direction:column;gap:1px;
+  background:var(--glass);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--brd);border-radius:22px;
+  overflow:hidden;
+  box-shadow:0 2px 20px rgba(0,0,0,.45)
+}
+.rpill-btn{
+  width:44px;height:44px;
   display:flex;align-items:center;justify-content:center;
-  color:var(--blue);
-  box-shadow:0 2px 12px rgba(0,0,0,.3);
-  touch-action:manipulation
+  color:var(--blue);touch-action:manipulation;
+  transition:background .12s
 }
-#btn-geolocate:active{background:var(--bg3)}
+.rpill-btn:active{background:rgba(255,255,255,.10)}
+.rpill-sep{height:1px;background:var(--brd);margin:0 10px}
+.rpill-btn.aerial{color:var(--orange)}
 
-/* ── PANEL BAS ──────────────────────────── */
-#panel{
-  position:absolute;left:0;right:0;bottom:0;z-index:800;
-  background:var(--glass-bg);
-  backdrop-filter:blur(28px) saturate(200%);
-  -webkit-backdrop-filter:blur(28px) saturate(200%);
-  border-top:1px solid var(--glass-border);
-  border-radius:16px 16px 0 0;
-  padding:12px 14px;
-  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
-  pointer-events:auto;touch-action:manipulation;
-  box-shadow:0 -4px 24px rgba(0,0,0,.4)
+/* ── SHEET BAS — le cœur de l'UI ─── */
+#sheet{
+  position:absolute;left:0;right:0;bottom:0;
+  z-index:800;
+  background:var(--glass);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--brd);
+  border-radius:22px 22px 0 0;
+  padding-bottom:env(safe-area-inset-bottom,16px);
+  box-shadow:0 -6px 40px rgba(0,0,0,.5);
+  pointer-events:auto;touch-action:manipulation
 }
-#panel *{pointer-events:auto;touch-action:manipulation}
-#panel::before{content:'';display:block;width:36px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;margin:0 auto 10px}
+#sheet *{pointer-events:auto;touch-action:manipulation}
 
-/* ── FILTRES ────────────────────────────── */
-#top-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-#filters{flex:1;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0}
+/* Poignée */
+#sheet-handle{
+  width:36px;height:4px;border-radius:2px;
+  background:rgba(255,255,255,.20);
+  margin:10px auto 0
+}
+
+/* Onglets dans le sheet */
+#sheet-tabs{
+  display:flex;gap:0;padding:8px 12px 0;
+  border-bottom:1px solid var(--brd2);
+  margin-bottom:0
+}
+.stab{
+  flex:1;padding:8px 4px;
+  font-size:13px;font-weight:500;color:var(--txt3);
+  border:none;background:none;
+  border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;
+  letter-spacing:-.01em
+}
+.stab.active{color:var(--blue);border-color:var(--blue)}
+
+/* Contenu du sheet */
+#sheet-content{
+  overflow:hidden;
+  /* Hauteur calculée pour laisser la map visible */
+}
+
+/* Pane terrain dans le sheet */
+#spane-terrain{display:block;padding:10px 12px 8px}
+#spane-points{display:none;overflow-y:auto;max-height:55vh;padding:12px}
+#spane-export{display:none;overflow-y:auto;max-height:55vh;padding:12px}
+
+/* ── FILTRES ─── */
+#filters{
+  display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;padding-bottom:8px;margin-bottom:8px
+}
 #filters::-webkit-scrollbar{display:none}
 #filters button{
   flex-shrink:0;
-  background:rgba(255,255,255,.08);border:1px solid var(--sep2);
-  border-radius:20px;padding:5px 13px;
+  background:var(--glass3);border:1px solid var(--brd2);
+  border-radius:16px;padding:5px 12px;
   font-size:12px;font-weight:500;color:var(--txt2);
-  touch-action:manipulation;white-space:nowrap;transition:all .15s
+  touch-action:manipulation;white-space:nowrap;
+  transition:all .12s
 }
-#filters button.active{background:var(--blue);border-color:transparent;color:#fff;font-weight:600}
-
-/* ── BOUTON COUCHE ──────────────────────── */
-#btn-layer{
-  flex-shrink:0;width:34px;height:30px;border-radius:8px;
-  background:rgba(255,255,255,.08);border:1px solid var(--sep2);
-  display:flex;align-items:center;justify-content:center;
-  color:var(--txt2);touch-action:manipulation;transition:all .15s
+#filters button.active{
+  background:rgba(10,132,255,.18);
+  border-color:rgba(10,132,255,.4);color:var(--blue)
 }
-#btn-layer:active,#btn-layer.aerial{background:rgba(10,132,255,.2);border-color:var(--blue);color:var(--blue)}
 
-/* ── TRONÇON ────────────────────────────── */
+/* ── LIGNE TRONÇON ─── */
 #trk-row{
   display:flex;align-items:center;gap:8px;
-  background:rgba(255,255,255,.06);border:1px solid var(--sep2);
-  border-radius:10px;padding:8px 11px;margin-bottom:8px
+  background:var(--glass3);border:1px solid var(--brd2);
+  border-radius:12px;padding:8px 12px;margin-bottom:10px
 }
-#trk-row input{flex:1;background:none;border:none;color:var(--txt);font-size:13px;font-family:var(--font);outline:none;min-width:0}
+#trk-row input{
+  flex:1;background:none;border:none;color:var(--txt);
+  font-size:13px;font-family:var(--font);outline:none;min-width:0
+}
 #trk-row input::placeholder{color:var(--txt3)}
 .trkstat{text-align:center;flex-shrink:0;min-width:28px}
-.trkstat .v{font-size:13px;font-weight:700;color:var(--blue);font-family:var(--mono);line-height:1}
-.trkstat .l{font-size:9px;color:var(--txt3);letter-spacing:.03em}
+.trkstat .v{font-size:14px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums;line-height:1}
+.trkstat .l{font-size:9px;color:var(--txt3);margin-top:1px;text-transform:uppercase;letter-spacing:.04em}
 
-/* ── BOUTONS LEVÉ ───────────────────────── */
-#wpt-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+/* ── BOUTONS LEVÉ ─── */
+#wpt-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
 .wb{
-  background:rgba(255,255,255,.06);border:1px solid var(--sep2);
+  background:var(--glass3);border:1px solid var(--brd2);
   border-radius:12px;padding:9px 3px;
-  display:flex;flex-direction:column;align-items:center;gap:4px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
   touch-action:manipulation;transition:opacity .1s
 }
 .wb:active{opacity:.55}
-.wb .wi{width:20px;height:20px;flex-shrink:0}
-.wb .l{font-size:9px;font-weight:500;color:var(--txt2);text-align:center;line-height:1.2;letter-spacing:-.1px}
-.wb.e{border-color:rgba(191,90,242,.5);background:rgba(191,90,242,.1)}
+.wb .wi{width:20px;height:20px;display:block;flex-shrink:0}
+.wb .l{font-size:10px;font-weight:500;color:var(--txt2);text-align:center;line-height:1.2}
+.wb.e{border-color:rgba(191,90,242,.3);background:rgba(191,90,242,.07)}
 .wb.e .wi{stroke:var(--purple)}
-.wb.q{border-color:rgba(100,210,255,.4);background:rgba(100,210,255,.08)}
-.wb.q .wi{stroke:var(--cyan)}
-.wb.n{border-color:rgba(10,132,255,.4);background:rgba(10,132,255,.08)}
+.wb.q{border-color:rgba(90,200,250,.3);background:rgba(90,200,250,.07)}
+.wb.q .wi{stroke:var(--teal)}
+.wb.n{border-color:rgba(10,132,255,.25);background:rgba(10,132,255,.06)}
 .wb.n .wi{stroke:var(--blue)}
-.wb.a{border-color:rgba(255,159,10,.4);background:rgba(255,159,10,.08)}
+.wb.a{border-color:rgba(255,159,10,.28);background:rgba(255,159,10,.06)}
 .wb.a .wi{stroke:var(--orange)}
 
-/* ── BTN TRONÇON ────────────────────────── */
+/* ── BOUTON TRONÇON ─── */
 #btn-rec{
-  width:100%;padding:12px;border-radius:12px;
-  font-size:14px;font-weight:600;
+  width:100%;padding:13px;border-radius:12px;
+  font-size:14px;font-weight:600;letter-spacing:-.01em;
   display:flex;align-items:center;justify-content:center;gap:8px;
-  background:rgba(255,69,58,.12);border:1.5px solid rgba(255,69,58,.5);color:var(--red);
-  touch-action:manipulation;transition:all .15s
+  background:rgba(255,69,58,.10);border:1px solid rgba(255,69,58,.30);color:var(--red);
+  touch-action:manipulation;transition:all .18s
 }
-#btn-rec.on{background:var(--red);border-color:var(--red);color:#fff;animation:recpulse 2s infinite}
-#btn-rec.pause{background:rgba(10,132,255,.12);border-color:rgba(10,132,255,.5);color:var(--blue)}
-@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,69,58,.4)}50%{box-shadow:0 0 0 8px rgba(255,69,58,0)}}
+#btn-rec.on{background:var(--red);border-color:var(--red);color:#fff}
+@media(prefers-reduced-motion:no-preference){#btn-rec.on{animation:recpulse 2s ease infinite}}
+#btn-rec.pause{background:rgba(10,132,255,.10);border-color:rgba(10,132,255,.35);color:var(--blue)}
+@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,69,58,.3)}50%{box-shadow:0 0 0 10px rgba(255,69,58,0)}}
 #btn-finish{
-  width:100%;padding:10px;border-radius:12px;margin-top:6px;
-  font-size:13px;font-weight:600;
-  background:rgba(48,209,88,.12);border:1.5px solid rgba(48,209,88,.4);color:var(--green);
+  width:100%;padding:11px;border-radius:12px;margin-top:6px;
+  font-size:14px;font-weight:600;
+  background:rgba(48,209,88,.10);border:1px solid rgba(48,209,88,.30);color:var(--green);
   display:none;touch-action:manipulation
 }
 
-/* ── POINTS & EXPORT ────────────────────── */
-.card{background:var(--bg1);border-radius:14px;overflow:hidden;margin-bottom:12px}
-.card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);padding:14px 16px 8px}
-.wpt-item{padding:11px 14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--sep2)}
+/* ── POINTS & EXPORT ─── */
+.card{background:var(--glass2);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px}
+.wpt-item{background:var(--glass3);border:1px solid var(--brd2);border-radius:12px;padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
 .wdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .winfo{flex:1;min-width:0}
-.wname{font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wmeta{font-size:11px;color:var(--txt3);font-family:var(--mono);margin-top:2px}
-.wdesc{font-size:12px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wbtn{padding:4px 8px;font-size:15px;color:var(--txt3);touch-action:manipulation}
+.wname{font-weight:500;font-size:13px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmeta{font-size:11px;color:var(--txt3);margin-top:2px;font-variant-numeric:tabular-nums}
+.wdesc{font-size:11px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wbtn{padding:5px 8px;font-size:14px;color:var(--txt3);touch-action:manipulation}
 .wbtn:active{color:var(--blue)}
-.empty{text-align:center;color:var(--txt3);padding:36px 16px;font-size:14px;line-height:1.5}
-.btn-main{width:100%;background:var(--blue);color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:600;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
-.btn-sec{width:100%;background:var(--bg2);border:none;color:var(--txt);border-radius:12px;padding:13px;font-size:14px;font-weight:500;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
-.info-box{background:var(--bg2);border-left:3px solid var(--blue);border-radius:0 10px 10px 0;padding:11px 14px;font-size:13px;color:var(--txt2);line-height:1.7}
+.empty{text-align:center;color:var(--txt3);padding:36px 16px;font-size:14px;line-height:1.7}
+.btn-main{width:100%;background:var(--blue);color:#fff;border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
+.btn-sec{width:100%;background:var(--glass3);border:1px solid var(--brd);color:var(--txt);border-radius:var(--r);padding:12px;font-size:13px;font-weight:500;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
+.info-box{background:rgba(10,132,255,.07);border-left:3px solid rgba(10,132,255,.45);border-radius:0 10px 10px 0;padding:10px 14px;font-size:12px;color:var(--txt2);line-height:1.8}
 .stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.stat-chip{background:var(--bg2);border-radius:10px;padding:8px 13px;display:flex;align-items:center;gap:6px}
-.stat-chip .n{font-size:16px;font-weight:700;font-family:var(--mono)}
+.stat-chip{background:var(--glass3);border:1px solid var(--brd2);border-radius:10px;padding:7px 12px;display:flex;align-items:center;gap:7px}
+.stat-chip .n{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
 
-/* ── MODALES ────────────────────────────── */
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-end}
+/* ── MODALES ─── */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.60);z-index:1000;align-items:flex-end}
 .modal.open{display:flex}
-.modal-box{background:var(--bg1);border-radius:20px 20px 0 0;padding:0 16px calc(28px + env(safe-area-inset-bottom,0px));width:100%;max-height:90vh;overflow-y:auto}
-.mhandle{width:36px;height:4px;background:var(--bg3);border-radius:2px;margin:12px auto 16px}
-.mtitle{font-size:17px;font-weight:600;margin-bottom:3px;padding:0 2px}
-.msub{font-size:12px;color:var(--txt3);margin-bottom:16px;padding:0 2px;font-family:var(--mono)}
-.fg{margin-bottom:14px}
-.fg label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;padding-left:2px}
-.fg input,.fg select,.fg textarea{width:100%;background:var(--bg2);border:none;border-radius:10px;color:var(--txt);font-size:15px;padding:11px 14px;outline:none;font-family:var(--font)}
-.fg input:focus,.fg select:focus,.fg textarea:focus{box-shadow:0 0 0 2px var(--blue)}
-.fg textarea{height:70px;resize:none}
-.fg select option{background:var(--bg2)}
-.mbtns{display:flex;gap:8px;margin-top:6px}
+.modal-box{
+  background:var(--glass);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--brd);border-radius:24px 24px 0 0;
+  padding:10px 16px calc(24px + env(safe-area-inset-bottom,12px));
+  width:100%;max-height:90vh;overflow-y:auto
+}
+.mhandle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.2);margin:0 auto 16px}
+.mtitle{font-size:17px;font-weight:600;margin-bottom:3px;letter-spacing:-.02em}
+.msub{font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:12px;font-weight:500;color:var(--txt3);margin-bottom:5px;letter-spacing:.01em}
+.fg input,.fg select,.fg textarea{
+  width:100%;background:var(--glass3);border:1px solid var(--brd);
+  border-radius:12px;color:var(--txt);font-size:15px;
+  padding:10px 12px;outline:none;font-family:var(--font)
+}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:rgba(10,132,255,.6)}
+.fg textarea{height:68px;resize:none}
+.fg select option{background:#1c1c1e}
+.mbtns{display:flex;gap:8px;margin-top:8px}
 .mbtn-ok{flex:2;background:var(--blue);color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:600;touch-action:manipulation}
-.mbtn-cancel{flex:1;background:var(--bg2);color:var(--txt2);border-radius:12px;padding:14px;font-size:15px;touch-action:manipulation}
-#avg-prog-bg{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:8px}
-#avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s,background .3s}
-#avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-family:var(--mono)}
-.type-sel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
-.topt{background:var(--bg2);border:1.5px solid transparent;border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}
-.topt.sel{border-color:var(--blue);background:rgba(10,132,255,.15)}
-.topt .ti{font-size:18px;line-height:1;margin-bottom:3px}
-.topt .tl{font-size:11px;font-weight:600;color:var(--txt2)}
-.topt .ts{font-size:9px;color:var(--txt3);font-family:var(--mono)}
+.mbtn-cancel{flex:1;background:var(--glass3);border:1px solid var(--brd);color:var(--txt2);border-radius:12px;padding:14px;font-size:15px;touch-action:manipulation}
+#avg-prog-bg{height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-bottom:10px}
+#avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s,background .4s}
+#avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
+.type-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.topt{background:var(--glass3);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}
+.topt.sel{border-color:rgba(10,132,255,.6);background:rgba(10,132,255,.12)}
+.topt .ti{font-size:20px;line-height:1;margin-bottom:3px}
+.topt .tl{font-size:11px;font-weight:500;color:var(--txt2);letter-spacing:-.01em}
+.topt .ts{font-size:10px;color:var(--txt3);margin-top:1px}
 
-/* ── LEAFLET ────────────────────────────── */
-#map .leaflet-tile{filter:brightness(.88) saturate(.8)}
-.leaflet-popup-content-wrapper{background:var(--bg1)!important;color:var(--txt)!important;border:none!important;border-radius:12px!important;box-shadow:0 8px 28px rgba(0,0,0,.5)!important;font-family:var(--font)}
-.leaflet-popup-tip{background:var(--bg1)!important}
-.leaflet-popup-content{margin:12px 16px!important;font-size:14px}
-.leaflet-popup-close-button{color:var(--txt3)!important;font-size:18px!important;top:8px!important;right:10px!important}
-.pop-n{font-weight:600;margin-bottom:3px}
-.pop-t{font-size:11px;color:var(--txt3);font-family:var(--mono);margin-bottom:5px}
-.pop-a{font-size:12px;color:var(--txt2);margin-bottom:8px}
-.pop-btn{background:rgba(10,132,255,.15);border:none;color:var(--blue);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:500;touch-action:manipulation;font-family:var(--font)}
-.leaflet-control-zoom{border:none!important;box-shadow:0 2px 12px rgba(0,0,0,.35)!important}
-.leaflet-control-zoom a{background:var(--glass-bg)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border:1px solid var(--glass-border)!important;color:var(--txt)!important;font-size:18px!important;line-height:28px!important;width:32px!important;height:32px!important}
-.leaflet-control-zoom-in{border-radius:10px 10px 0 0!important}
-.leaflet-control-zoom-out{border-radius:0 0 10px 10px!important}
-.leaflet-control-attribution{background:rgba(0,0,0,.4)!important;color:rgba(255,255,255,.45)!important;font-size:9px!important;border-radius:6px 0 0 0!important}
-.leaflet-control-attribution a{color:rgba(255,255,255,.6)!important}
-
-/* ── PRÉCACHE ───────────────────────────── */
-#precache-bar{position:absolute;bottom:0;left:0;right:0;z-index:900;background:var(--glass-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--sep2);padding:10px 16px;font-size:12px;color:var(--txt2);display:none;align-items:center;gap:10px}
+/* Pré-cache bar */
+#precache-bar{position:absolute;top:calc(env(safe-area-inset-top,14px)+48px);left:12px;right:68px;z-index:710;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:12px;padding:8px 14px;font-size:12px;color:var(--txt2);display:none;align-items:center;gap:10px}
 #precache-bar.show{display:flex}
-#precache-prog{flex:1;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+#precache-prog{flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
 #precache-fill{height:100%;background:var(--blue);border-radius:2px;width:0%;transition:width .2s}
 
-/* ── TOAST ──────────────────────────────── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--bg2);border-radius:20px;padding:10px 20px;font-size:13px;font-weight:500;z-index:1200;transition:transform .2s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.4)}
-#toast.show{transform:translateX(-50%) translateY(0)}
-#toast.g{background:rgba(48,209,88,.18);color:var(--green)}
-#toast.a{background:rgba(255,159,10,.18);color:var(--orange)}
-#toast.r{background:rgba(255,69,58,.18);color:var(--red)}
+/* Leaflet */
+.leaflet-popup-content-wrapper{background:var(--glass)!important;-webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important;color:var(--txt)!important;border:1px solid var(--brd)!important;border-radius:16px!important;box-shadow:0 8px 40px rgba(0,0,0,.55)!important;font-family:var(--font)}
+.leaflet-popup-tip{background:rgba(20,20,22,.85)!important}
+.leaflet-popup-content{margin:12px 14px!important;font-size:13px}
+.leaflet-popup-close-button{color:var(--txt3)!important;font-size:18px!important}
+.pop-n{font-weight:600;font-size:14px;margin-bottom:2px;letter-spacing:-.01em}
+.pop-t{font-size:11px;color:var(--txt3);margin-bottom:4px}
+.pop-a{font-size:11px;color:var(--txt2);margin-bottom:8px}
+.pop-btn{background:rgba(10,132,255,.14);border:1px solid rgba(10,132,255,.32);color:var(--blue);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:500;touch-action:manipulation;font-family:var(--font)}
 
-::-webkit-scrollbar{width:0}
+/* Toast */
+#toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(70px);background:rgba(44,44,46,.92);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px;padding:9px 18px;font-size:13px;font-weight:500;letter-spacing:-.01em;z-index:1200;transition:transform .22s ease;white-space:nowrap;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.g{border-color:rgba(48,209,88,.4);color:var(--green)}
+#toast.a{border-color:rgba(255,159,10,.4);color:var(--orange)}
+#toast.r{border-color:rgba(255,69,58,.4);color:var(--red)}
+::-webkit-scrollbar{display:none}
 </style>
 </head>
 <body>
 <div id="app">
 
+<!-- Carte plein écran -->
+<div id="map"></div>
+
+<!-- Overlay topbar transparent -->
 <div id="topbar">
   <div class="app-title">Recensement <span>Terrain LDM</span></div>
   <div id="gps-status">
     <div id="gps-dot"></div>
     <span id="gps-txt" style="color:var(--txt3)">GPS…</span>
-    <span id="gps-mode" style="font-size:9px;color:var(--txt3);background:var(--bg3);border:1px solid var(--brd);border-radius:4px;padding:1px 4px;margin-left:2px" title="Mode GPS">E</span>
+    <span id="gps-mode">E</span>
   </div>
 </div>
 
-<div id="tabs">
-  <button class="tab active" onclick="goTab('terrain')">Terrain</button>
-  <button class="tab"        onclick="goTab('points')">Points</button>
-  <button class="tab"        onclick="goTab('export')">Export</button>
+<!-- Barre GPS pillule -->
+<div id="gps-bar">
+  <div id="gps-bar-track"><div id="gps-bar-fill"></div></div>
+  <span id="gps-bar-txt">GPS…</span>
 </div>
 
-<div id="content">
+<!-- Pill droite : géolocalisation + couche -->
+<div id="right-pill">
+  <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()" title="Centrer">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+    </svg>
+  </button>
+  <div class="rpill-sep"></div>
+  <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()" title="Fond de carte">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+    </svg>
+  </button>
+</div>
 
-  <!-- ── TERRAIN ── -->
-  <div id="pane-terrain" class="active">
-    <div id="map"></div>
+<!-- Sheet bas -->
+<div id="sheet">
+  <div id="sheet-handle"></div>
 
-    <!-- Barre GPS — haut, pleine largeur -->
-    <div id="gps-bar">
-      <div id="gps-bar-track"><div id="gps-bar-fill"></div></div>
-      <span id="gps-bar-txt">GPS…</span>
-    </div>
+  <!-- Onglets dans le sheet -->
+  <div id="sheet-tabs">
+    <button class="stab active" onclick="goTab('terrain',this)">Terrain</button>
+    <button class="stab"        onclick="goTab('points',this)">Points</button>
+    <button class="stab"        onclick="goTab('export',this)">Export</button>
+  </div>
 
-    <!-- Bouton géolocalisation — icône type Apple/Google Maps -->
-    <button id="btn-geolocate" onclick="gotoGPS()" title="Centrer sur ma position">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-      </svg>
-    </button>
+  <div id="sheet-content">
 
-    <!-- Panel bas -->
-    <div id="panel">
-
-      <!-- Ligne filtres + switcher fond de carte -->
-      <div id="top-bar-row">
-        <div id="filters">
-          <button class="active" data-f="all"      onclick="applyFilter('all',this)">Tout</button>
-          <button data-f="entree"                  onclick="applyFilter('entree',this)">Entrées</button>
-          <button data-f="equip_comp"              onclick="applyFilter('equip_comp',this)">Info</button>
-          <button data-f="equip_acces"             onclick="applyFilter('equip_acces',this)">Accès</button>
-          <button data-f="noeud"                   onclick="applyFilter('noeud',this)">Nœuds</button>
-          <button data-f="track"                   onclick="applyFilter('track',this)">Tracés</button>
-        </div>
-        <!-- Switcher fond de carte : icône calques sobre -->
-        <button id="btn-layer" onclick="toggleLayer()" title="Changer le fond de carte">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
-          </svg>
-        </button>
+    <!-- Terrain -->
+    <div id="spane-terrain">
+      <div id="filters">
+        <button class="active" data-f="all"       onclick="applyFilter('all',this)">Tout</button>
+        <button data-f="entree"                   onclick="applyFilter('entree',this)">Entrées</button>
+        <button data-f="equip_comp"               onclick="applyFilter('equip_comp',this)">Info</button>
+        <button data-f="equip_acces"              onclick="applyFilter('equip_acces',this)">Accès</button>
+        <button data-f="noeud"                    onclick="applyFilter('noeud',this)">Nœuds</button>
+        <button data-f="track"                    onclick="applyFilter('track',this)">Tracés</button>
       </div>
       <div id="trk-row">
         <input id="trk-name" type="text" placeholder="Nom du tronçon…">
@@ -363,8 +412,8 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
           <svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <div class="l">Info<br>voyageur</div>
         </button>
-        <button class="wb" style="border-color:#f97316;background:#7c2d1230" onclick="startCapture('equip_acces')">
-          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="10" x2="12" y2="16"/><circle cx="12" cy="18" r="1.5" fill="#f97316" stroke="none"/></svg>
+        <button class="wb" style="border-color:rgba(255,159,10,.3);background:rgba(255,159,10,.07)" onclick="startCapture('equip_acces')">
+          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2" stroke="var(--orange)"/><line x1="12" y1="2" x2="12" y2="6" stroke="var(--orange)"/><line x1="9" y1="10" x2="15" y2="10" stroke="var(--orange)"/><line x1="12" y1="10" x2="12" y2="16" stroke="var(--orange)"/><circle cx="12" cy="18" r="1.5" fill="var(--orange)"/></svg>
           <div class="l">Accès</div>
         </button>
         <button class="wb n" onclick="startCapture('noeud')">
@@ -376,47 +425,41 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
           <div class="l">Autre</div>
         </button>
       </div>
-      <button id="btn-rec"    onclick="toggleRec()"><span id="ri">⏺</span><span id="rl"> Enregistrer un tronçon</span></button>
+      <button id="btn-rec" onclick="toggleRec()"><span id="ri">⏺</span><span id="rl"> Enregistrer un tronçon</span></button>
       <button id="btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
     </div>
 
-    <!-- Barre progression pré-cache tuiles Normandie -->
-    <div id="precache-bar">
-      <span id="precache-txt">Préchargement Normandie…</span>
-      <div id="precache-prog"><div id="precache-fill"></div></div>
-      <span id="precache-pct">0%</span>
-    </div>
-  </div>
+    <!-- Points -->
+    <div id="spane-points"><div id="pts-list"></div></div>
 
-  <!-- ── POINTS ── -->
-  <div id="pane-points" class="pane">
-    <div id="pts-list"></div>
-  </div>
-
-  <!-- ── EXPORT ── -->
-  <div id="pane-export" class="pane">
-    <div class="card">
-      <div class="card-title">Session</div>
-      <div class="stat-row" id="exp-stats"></div>
-      <button class="btn-main" onclick="exportGPX()">⬇ Exporter en GPX</button>
-      <button class="btn-sec"  onclick="exportJSON()">⬇ Sauvegarder session (.json)</button>
-      <button class="btn-sec"  onclick="loadSession()">⬆ Reprendre une session</button>
-    </div>
-    <div class="card">
-      <div class="card-title">Utiliser dans l'IHM desktop</div>
-      <div class="info-box">
-        1. Exportez le fichier <strong>.gpx</strong><br>
-        2. Transférez sur votre ordinateur<br>
-        3. Ouvrez <strong>cnig_accessibilite_v8.html</strong><br>
-        4. Glissez le GPX → types pré-classifiés auto.
+    <!-- Export -->
+    <div id="spane-export">
+      <div class="card">
+        <div class="card-title">Session</div>
+        <div class="stat-row" id="exp-stats"></div>
+        <button class="btn-main" onclick="exportGPX()">Exporter en GPX</button>
+        <button class="btn-sec"  onclick="exportJSON()">Sauvegarder session (.json)</button>
+        <button class="btn-sec"  onclick="loadSession()">Reprendre une session</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Utiliser dans l'IHM desktop</div>
+        <div class="info-box">1. Exportez le fichier <strong>.gpx</strong><br>2. Transférez sur votre ordinateur<br>3. Ouvrez <strong>cnig_accessibilite_v8.html</strong><br>4. Glissez le GPX → types pré-classifiés auto.</div>
+      </div>
+      <div class="card">
+        <button class="btn-sec" style="color:var(--red);border-color:rgba(255,69,58,.3)" onclick="resetSession()">Effacer la session</button>
       </div>
     </div>
-    <div class="card">
-      <button class="btn-sec" style="color:var(--red);border-color:var(--red)" onclick="resetSession()">🗑 Effacer la session</button>
-    </div>
-  </div>
 
-</div><!-- #content -->
+  </div><!-- sheet-content -->
+</div><!-- sheet -->
+
+<!-- Pré-cache bar -->
+<div id="precache-bar">
+  <span id="precache-txt">Préchargement Normandie…</span>
+  <div id="precache-prog"><div id="precache-fill"></div></div>
+  <span id="precache-pct">0%</span>
+</div>
+
 </div><!-- #app -->
 
 <!-- MODAL MOYENNAGE -->
@@ -516,21 +559,18 @@ const SUBS = {
 // ══════════════════════════════
 // ONGLETS
 // ══════════════════════════════
-function goTab(id){
-  document.querySelectorAll('.tab').forEach((b,i)=>{
-    b.classList.toggle('active', ['terrain','points','export'][i]===id);
+function goTab(id, btn){
+  // Onglets sheet
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  // Panes
+  ['terrain','points','export'].forEach(t=>{
+    const el=document.getElementById('spane-'+t);
+    if(el) el.style.display = t===id ? 'block' : 'none';
   });
-  // Masquer tous les panes
-  document.getElementById('pane-terrain').classList.remove('active');
-  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
-  if(id==='terrain'){
-    document.getElementById('pane-terrain').classList.add('active');
-    initMap();
-  } else {
-    document.getElementById('pane-'+id).classList.add('active');
-    if(id==='points') renderPts();
-    if(id==='export') renderExp();
-  }
+  if(id==='terrain') initMap();
+  if(id==='points')  renderPts();
+  if(id==='export')  renderExp();
 }
 
 // ══════════════════════════════
@@ -552,7 +592,7 @@ function initMap(){
     // Zoom bas droite
     L.control.zoom({position:'bottomright'}).addTo(MAP);
     // Désactiver propagation sur les overlays
-    ['panel','btn-geolocate','btn-layer'].forEach(id=>{
+    ['sheet','right-pill'].forEach(id=>{
       const el=document.getElementById(id);
       if(el){ L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); }
     });
@@ -743,8 +783,8 @@ function applyFilter(f, btn){
 // Ajuster la hauteur de la carte selon la hauteur du panel
 function resizeMap(){
   if(!MAP_OK)return;
-  const panel=document.getElementById('panel');
-  const ph=panel?panel.offsetHeight:180;
+  const sheet=document.getElementById('sheet');
+  const ph=sheet?sheet.offsetHeight:260;
   document.getElementById('map').style.bottom=ph+'px';
   MAP.invalidateSize();
 }
@@ -1186,7 +1226,7 @@ window.addEventListener('load',()=>{
     initMap();
     // Ajuster la carte quand le panel change de taille
     resizeMap();
-    new ResizeObserver(resizeMap).observe(document.getElementById('panel'));
+    new ResizeObserver(resizeMap).observe(document.getElementById('sheet'));
   },300);
 });
 // Fermer modales en cliquant le fond
@@ -1198,6 +1238,728 @@ window.addEventListener('load',()=>{
     }
   });
 });
+</script>
+
+<script>
+
+<script>
+
+// ══════════════════════════════
+// ÉTAT
+// ══════════════════════════════
+const S = {
+  pos:null, acc:null,
+  waypoints:[], tracks:[],
+  recording:false, paused:false,
+  curTrack:null,
+  recStart:null, recElapsed:0, recTimer:null,
+  pendingType:null, pendingPos:null
+};
+const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20 };
+let EDIT_ID = null;
+let MAP = null, MAP_OK = false;
+let MAP_LAYER_OSM = null, MAP_LAYER_AERIAL = null, MAP_AERIAL = false;
+
+// URLs des fonds de carte
+const TILE_OSM    = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+// IGN Géoplateforme — orthophotographie France (20cm, sans clé API)
+const TILE_AERIAL = 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
+let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null;
+let MAP_FILTER = 'all';
+
+const COLORS = { entree:'#a855f7', equip_comp:'#06b6d4', equip_acces:'#f97316', noeud:'#60a5fa', autre:'#f59e0b' };
+const LABELS = { entree:'Entrée bâtiment', equip_comp:'Info voyageur', equip_acces:'Équip. d\'accès', noeud:'Nœud cheminement', autre:'Autre' };
+const SUBS = {
+  entree:     ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
+  equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
+  equip_acces:['ESCALIER','ASCENSEUR','RAMPE_ACCES','TRAVERSEE_PIETONS','ABAISSEMENT_TROTTOIR','RESSAUT','AUTRE'],
+  noeud:      ['INTERSECTION','CARREFOUR','ENTREE_ERP','ARRET_TC','AUTRE'],
+  autre:      ['A_CLASSIFIER','OBSTACLE','REMARQUE','PHOTO_REF']
+};
+
+// ══════════════════════════════
+// ONGLETS
+// ══════════════════════════════
+function goTab(id, btn){
+  // Onglets sheet
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  // Panes
+  ['terrain','points','export'].forEach(t=>{
+    const el=document.getElementById('spane-'+t);
+    if(el) el.style.display = t===id ? 'block' : 'none';
+  });
+  if(id==='terrain') initMap();
+  if(id==='points')  renderPts();
+  if(id==='export')  renderExp();
+}
+
+// ══════════════════════════════
+// CARTE
+// ══════════════════════════════
+function initMap(){
+  if(!MAP_OK){
+    MAP = L.map('map',{zoomControl:false, attributionControl:true});
+    // Couche OSM par défaut
+    MAP_LAYER_OSM = L.tileLayer(TILE_OSM,{
+      attribution:'© <a href="https://openstreetmap.org">OSM</a>',
+      maxZoom:19
+    }).addTo(MAP);
+    // Couche aérienne (créée mais non ajoutée)
+    MAP_LAYER_AERIAL = L.tileLayer(TILE_AERIAL,{
+      attribution:'© <a href="https://www.ign.fr">IGN</a> — Géoplateforme',
+      maxZoom:19
+    });
+    // Zoom bas droite
+    L.control.zoom({position:'bottomright'}).addTo(MAP);
+    // Désactiver propagation sur les overlays
+    ['panel','btn-geolocate','btn-layer'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){ L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); }
+    });
+    MAP_OK = true;
+    // Lancer le pré-cache Normandie en arrière-plan
+    precacheNormandie();
+  }
+  setTimeout(()=>{ MAP.invalidateSize(); refreshMap(); }, 150);
+}
+
+// ── Géolocalisation ──────────────────────────
+function gotoGPS(){
+  if(!S.pos){ toast('Signal GPS non disponible','a'); return; }
+  MAP.setView([S.pos.lat, S.pos.lon], 17, {animate:true});
+}
+
+// ── Switcher fond de carte ───────────────────
+const SVG_LAYERS = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`;
+const SVG_MAP    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`;
+
+function toggleLayer(){
+  MAP_AERIAL = !MAP_AERIAL;
+  const btn = document.getElementById('btn-layer');
+  if(MAP_AERIAL){
+    MAP.removeLayer(MAP_LAYER_OSM);
+    MAP_LAYER_AERIAL.addTo(MAP);
+    btn.innerHTML = SVG_MAP;
+    btn.classList.add('aerial');
+    btn.title='Vue plan';
+  } else {
+    MAP.removeLayer(MAP_LAYER_AERIAL);
+    MAP_LAYER_OSM.addTo(MAP);
+    btn.innerHTML = SVG_LAYERS;
+    btn.classList.remove('aerial');
+    btn.title='Vue aérienne IGN';
+  }
+}
+
+// ── Pré-cache tuiles Normandie (z8-z11) ──────
+// BBox Normandie : lat 48.05-50.05, lon -2.05-2.25
+const NORMANDIE = { minLat:48.05, maxLat:50.05, minLon:-2.05, maxLon:2.25 };
+const PRECACHE_ZOOM = [8,9,10,11]; // ~500 tuiles, ~4 Mo
+
+function latLonToTileXY(lat, lon, z){
+  const n = Math.pow(2, z);
+  const x = Math.floor((lon + 180) / 360 * n);
+  const latR = lat * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(latR) + 1/Math.cos(latR)) / Math.PI) / 2 * n);
+  return {x, y};
+}
+
+async function precacheNormandie(){
+  // Ne lancer qu'une seule fois (vérifier flag en localStorage)
+  if(localStorage.getItem('ldm_precache_done') === '1') return;
+
+  const bar  = document.getElementById('precache-bar');
+  const fill = document.getElementById('precache-fill');
+  const pct  = document.getElementById('precache-pct');
+  const txt  = document.getElementById('precache-txt');
+  bar.classList.add('show');
+
+  // Calculer toutes les URLs de tuiles
+  const urls = [];
+  for(const z of PRECACHE_ZOOM){
+    const {x:x1, y:y1} = latLonToTileXY(NORMANDIE.maxLat, NORMANDIE.minLon, z); // NW
+    const {x:x2, y:y2} = latLonToTileXY(NORMANDIE.minLat, NORMANDIE.maxLon, z); // SE
+    for(let x=x1; x<=x2; x++){
+      for(let y=y1; y<=y2; y++){
+        // Sous-domaines OSM a/b/c
+        const s = ['a','b','c'][Math.abs(x+y)%3];
+        urls.push(`https://${s}.tile.openstreetmap.org/${z}/${x}/${y}.png`);
+      }
+    }
+  }
+
+  const total = urls.length;
+  let done = 0;
+  txt.textContent = `Préchargement Normandie (${total} tuiles)…`;
+
+  // Cache en cache API (même cache que le SW)
+  const cache = await caches.open('ldm-tiles-v1').catch(()=>null);
+  if(!cache){ bar.classList.remove('show'); return; }
+
+  // Télécharger par lots de 6 pour ne pas saturer la connexion
+  const BATCH = 6;
+  for(let i=0; i<urls.length; i+=BATCH){
+    const batch = urls.slice(i, i+BATCH);
+    await Promise.allSettled(batch.map(async url=>{
+      try{
+        const existing = await cache.match(url);
+        if(existing) return; // déjà en cache
+        const resp = await fetch(url);
+        if(resp.ok) await cache.put(url, resp);
+      }catch(e){}
+      done++;
+      const p = Math.round(done/total*100);
+      fill.style.width = p+'%';
+      pct.textContent = p+'%';
+    }));
+  }
+
+  bar.classList.remove('show');
+  localStorage.setItem('ldm_precache_done', '1');
+  toast('Tuiles Normandie en cache ✓','g');
+}
+
+function mkIcon(color, letter){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:26px;height:26px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px #0009;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">${letter}</div>`,
+    iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-16]
+  });
+}
+function mkPosIcon(){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:16px;height:16px;border-radius:50%;background:#22c55e;border:3px solid #fff;box-shadow:0 0 0 4px #22c55e44"></div>`,
+    iconSize:[16,16], iconAnchor:[8,8]
+  });
+}
+
+function refreshMap(){
+  if(!MAP_OK) return;
+  MAP_LAYERS.forEach(l=>{ try{MAP.removeLayer(l);}catch(e){} });
+  MAP_LAYERS=[];
+  if(MAP_REC_LINE){try{MAP.removeLayer(MAP_REC_LINE);}catch(e){}MAP_REC_LINE=null;}
+
+  const bounds=[], f=MAP_FILTER;
+  const letters={entree:'E',equip_comp:'I',equip_acces:'A',noeud:'N',autre:'?'};
+
+  // Tronçons terminés
+  if(f==='all'||f==='track'){
+    S.tracks.forEach(t=>{
+      if(!t.pts||t.pts.length<2)return;
+      const pl=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#4ade80',weight:4,opacity:.9}).addTo(MAP);
+      pl.bindPopup(`<div class="pop-n">${esc(t.name)}</div><div class="pop-t">troncon_cheminement</div><div class="pop-a">${t.pts.length} pts</div>`);
+      t.pts.forEach(p=>bounds.push([p.lat,p.lon]));
+      MAP_LAYERS.push(pl);
+    });
+  }
+  // Tracé live
+  if(S.recording&&S.curTrack!==null){
+    const t=S.tracks[S.curTrack];
+    if(t&&t.pts.length>=2)
+      MAP_REC_LINE=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#ef4444',weight:4,dashArray:'6 4'}).addTo(MAP);
+  }
+  // Waypoints
+  S.waypoints.forEach((w,i)=>{
+    if(f!=='all'&&f!==w.type)return;
+    const mk=L.marker([w.lat,w.lon],{icon:mkIcon(COLORS[w.type]||'#888',letters[w.type]||'?'),zIndexOffset:200}).addTo(MAP);
+    mk.bindPopup(`<div class="pop-n">${esc(w.name)}</div><div class="pop-t">${w.subtype||w.type}</div>${w.acc?`<div class="pop-a">±${w.acc} m</div>`:''}<button class="pop-btn" onclick="MAP.closePopup();goTab('points');editWpt('${w.id}')">✏ Modifier</button>`);
+    MAP_LAYERS.push(mk);
+    bounds.push([w.lat,w.lon]);
+  });
+  // Position GPS
+  if(S.pos){
+    if(MAP_POS){try{MAP.removeLayer(MAP_POS);}catch(e){}}
+    MAP_POS=L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(MAP);
+    bounds.push([S.pos.lat,S.pos.lon]);
+  }
+  if(bounds.length>0){
+    try{MAP.fitBounds(bounds,{padding:[60,60],maxZoom:18});}
+    catch(e){if(bounds[0])MAP.setView(bounds[0],16);}
+  } else if(S.pos){
+    MAP.setView([S.pos.lat,S.pos.lon],16);
+  } else {
+    MAP.setView([46.8,2.3],6);
+  }
+}
+
+function updateMapLive(){
+  if(!MAP_OK||!S.recording||S.curTrack===null)return;
+  const t=S.tracks[S.curTrack];
+  if(!t||t.pts.length<2)return;
+  const lls=t.pts.map(p=>[p.lat,p.lon]);
+  if(MAP_REC_LINE) MAP_REC_LINE.setLatLngs(lls);
+  else MAP_REC_LINE=L.polyline(lls,{color:'#ef4444',weight:4,dashArray:'6 4'}).addTo(MAP);
+  if(S.pos) MAP.panTo([S.pos.lat,S.pos.lon],{animate:true,duration:.3});
+}
+
+function applyFilter(f, btn){
+  MAP_FILTER=f;
+  document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshMap();
+}
+
+// Ajuster la hauteur de la carte selon la hauteur du panel
+function resizeMap(){
+  if(!MAP_OK)return;
+  const sheet=document.getElementById('sheet');
+  const ph=sheet?sheet.offsetHeight:260;
+  document.getElementById('map').style.bottom=ph+'px';
+  MAP.invalidateSize();
+}
+
+// ══════════════════════════════
+// GPS — MODE ADAPTATIF
+// ══════════════════════════════
+// Haute précision : uniquement en enregistrement actif et moyennage
+// Basse précision : au repos (5x moins de batterie)
+let GPS_WATCH_ID = null;
+let GPS_LAST_MAP = 0; // timestamp dernier rafraîchissement carte
+
+function startGPS(){
+  if(!navigator.geolocation){toast('GPS non disponible','r');return;}
+  const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
+  dot.className='wait'; txt.textContent='Recherche…';
+  launchWatch(false); // démarrer en mode économique
+}
+
+function launchWatch(highAccuracy){
+  if(GPS_WATCH_ID!==null){
+    navigator.geolocation.clearWatch(GPS_WATCH_ID);
+    GPS_WATCH_ID=null;
+  }
+  const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
+  GPS_WATCH_ID = navigator.geolocation.watchPosition(
+    pos=>{
+      S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude};
+      S.acc=Math.round(pos.coords.accuracy);
+      dot.className=S.acc<=5?'fix':'wait';
+      txt.textContent=S.acc+'m';
+      updateGpsBar(S.acc);
+
+      // Carte : mise à jour max toutes les 5s en veille, 2s en enregistrement
+      const now=Date.now();
+      const mapThrottle = (S.recording&&!S.paused) ? 2000 : 5000;
+      if(MAP_OK&&S.pos&&(now-GPS_LAST_MAP)>mapThrottle){
+        GPS_LAST_MAP=now;
+        if(MAP_POS){try{MAP.removeLayer(MAP_POS);}catch(e){}}
+        MAP_POS=L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(MAP);
+      }
+
+      // Enregistrement tronçon
+      if(S.recording&&!S.paused&&S.acc<=15){
+        const t=S.tracks[S.curTrack];
+        t.pts.push({lat:S.pos.lat,lon:S.pos.lon,ts:Date.now(),acc:S.acc});
+        updateTrkStats();
+        updateMapLive();
+      }
+      // Moyennage
+      if(AVG.active&&S.acc<=AVG.maxAcc){
+        AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
+        updateAvgUI();
+        if(AVG.samples.length>=AVG.target) commitAvg();
+      }
+    },
+    err=>{
+      const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
+      dot.className=''; txt.textContent='Err';
+      const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+      if(err.code===1) toast(ios?'Autorisez la localisation dans Réglages › Safari':'Permission GPS refusée','r');
+    },
+    highAccuracy
+      ? {enableHighAccuracy:true,  timeout:20000, maximumAge:1000}   // enregistrement
+      : {enableHighAccuracy:false, timeout:30000, maximumAge:8000}   // veille (GPS réseau)
+  );
+}
+
+function adaptGPS(){
+  const needHigh = S.recording&&!S.paused || AVG.active;
+  const isHigh   = S.gpsHighMode||false;
+  if(needHigh && !isHigh){ S.gpsHighMode=true;  launchWatch(true); }
+  if(!needHigh && isHigh){ S.gpsHighMode=false; launchWatch(false); }
+  // Indicateur visuel mode GPS
+  const badge = document.getElementById('gps-mode');
+  if(badge){
+    badge.textContent = needHigh ? 'H' : 'E';
+    badge.style.color = needHigh ? '#fcd34d' : 'var(--txt3)';
+    badge.style.borderColor = needHigh ? '#d97706' : 'var(--brd)';
+    badge.title = needHigh ? 'GPS haute précision (enregistrement)' : 'GPS économique (veille)';
+  }
+}
+
+function updateGpsBar(acc){
+  const fill=document.getElementById('gps-bar-fill');
+  const txt=document.getElementById('gps-bar-txt');
+  const pct=Math.max(5,Math.min(100,Math.round(5/acc*100)));
+  const color=acc<=5?'#22c55e':acc<=10?'#f59e0b':'#ef4444';
+  fill.style.width=pct+'%'; fill.style.background=color;
+  txt.style.color=color;
+  txt.textContent='±'+acc+'m'+(S.pos?' · '+S.pos.lat.toFixed(4)+','+S.pos.lon.toFixed(4):'');
+}
+
+// ══════════════════════════════
+// ENREGISTREMENT TRONÇON
+// ══════════════════════════════
+function toggleRec(){
+  if(!S.pos){toast('Attendez le GPS','a');return;}
+  if(!S.recording) startRec();
+  else if(!S.paused) pauseRec();
+  else resumeRec();
+}
+function startRec(){
+  const name=document.getElementById('trk-name').value.trim()||'Tronçon '+(S.tracks.length+1);
+  S.tracks.push({name,pts:[{lat:S.pos.lat,lon:S.pos.lon,ts:Date.now()}],startTs:Date.now(),endTs:null});
+  S.curTrack=S.tracks.length-1; S.recording=true; S.paused=false;
+  S.recStart=Date.now(); S.recElapsed=0;
+  S.recTimer=setInterval(tickTimer,1000);
+  adaptGPS();    // passer en haute précision
+  requestWakeLock(); // garder l'écran allumé
+  syncBtn(); toast('Enregistrement démarré','g');
+}
+function pauseRec(){
+  S.paused=true; S.recElapsed+=Date.now()-S.recStart;
+  clearInterval(S.recTimer);
+  adaptGPS();    // repasser en basse précision pendant la pause
+  releaseWakeLock();
+  syncBtn(); toast('Pause','a');
+}
+function resumeRec(){
+  S.paused=false; S.recStart=Date.now();
+  S.recTimer=setInterval(tickTimer,1000);
+  adaptGPS();    // haute précision à nouveau
+  requestWakeLock();
+  syncBtn(); toast('Reprise','g');
+}
+function finishTrack(){
+  if(!S.recording)return;
+  const t=S.tracks[S.curTrack]; t.endTs=Date.now();
+  S.recording=false; S.paused=false;
+  clearInterval(S.recTimer);
+  adaptGPS();    // retour basse précision
+  releaseWakeLock();
+  document.getElementById('trk-name').value='';
+  document.getElementById('s-pts').textContent='0';
+  document.getElementById('s-dst').textContent='0';
+  document.getElementById('s-tim').textContent='00:00';
+  syncBtn(); refreshMap(); save();
+  toast(`"${t.name}" sauvegardé (${t.pts.length} pts)`,'g');
+}
+function syncBtn(){
+  const b=document.getElementById('btn-rec');
+  const f=document.getElementById('btn-finish');
+  document.getElementById('ri').textContent=!S.recording?'⏺':S.paused?'▶':'⏸';
+  document.getElementById('rl').textContent=!S.recording?' Enregistrer un tronçon':S.paused?' Reprendre':' Pause';
+  b.className=!S.recording?'':S.paused?'pause':'on';
+  if(f) f.style.display=S.recording?'block':'none';
+}
+function tickTimer(){
+  const e=S.recElapsed+(Date.now()-S.recStart);
+  const s=Math.floor(e/1000),m=Math.floor(s/60);
+  document.getElementById('s-tim').textContent=String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+function updateTrkStats(){
+  if(S.curTrack===null)return;
+  const t=S.tracks[S.curTrack];
+  document.getElementById('s-pts').textContent=t.pts.length;
+  if(t.pts.length>=2){
+    let d=0; for(let i=1;i<t.pts.length;i++)d+=hav(t.pts[i-1],t.pts[i]);
+    document.getElementById('s-dst').textContent=Math.round(d);
+  }
+}
+
+// ══════════════════════════════
+// CAPTURE WAYPOINT + MOYENNAGE
+// ══════════════════════════════
+function startCapture(type){
+  if(!S.pos){toast('Attendez le GPS','a');return;}
+  AVG.type=type; AVG.active=true; AVG.samples=[];
+  if(S.acc<=AVG.maxAcc) AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
+  document.getElementById('avg-title').textContent='Capture — '+LABELS[type];
+  document.getElementById('avg-modal').classList.add('open');
+  adaptGPS(); // haute précision pour le moyennage
+  updateAvgUI();
+}
+function updateAvgUI(){
+  const n=AVG.samples.length, t=AVG.target;
+  const pct=Math.min(100,Math.round(n/t*100));
+  const avgAcc=n>0?Math.round(AVG.samples.reduce((s,p)=>s+p.acc,0)/n):null;
+  const color=pct>=100?'#22c55e':pct>=50?'#f59e0b':'#60a5fa';
+  document.getElementById('avg-prog-fill').style.width=pct+'%';
+  document.getElementById('avg-prog-fill').style.background=color;
+  document.getElementById('avg-n').textContent=n+'/'+t+' mesures';
+  document.getElementById('avg-acc').textContent=avgAcc?'±'+avgAcc+' m (moy)':'±— m';
+  const fb=document.getElementById('avg-force');
+  fb.disabled=n<1; fb.style.opacity=n>=1?'1':'.4';
+  if(n>=1) fb.textContent='⚡ Forcer ('+n+')';
+}
+function commitAvg(){
+  const s=AVG.samples;
+  if(s.length===0)return;
+  let wlat=0,wlon=0,ws=0;
+  s.forEach(p=>{const w=1/Math.max(1,p.acc);wlat+=p.lat*w;wlon+=p.lon*w;ws+=w;});
+  const meanAcc=s.reduce((a,p)=>a+p.acc,0)/s.length;
+  AVG.active=false;
+  document.getElementById('avg-modal').classList.remove('open');
+  adaptGPS(); // retour basse précision si pas en enregistrement
+  openWptForm(AVG.type,{lat:wlat/ws,lon:wlon/ws,acc:Math.round(meanAcc/Math.sqrt(s.length))});
+}
+function forceAvg(){
+  if(AVG.samples.length===0&&S.pos) AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc||99});
+  commitAvg();
+}
+function cancelAvg(){
+  AVG.active=false; AVG.samples=[]; AVG.type=null;
+  document.getElementById('avg-modal').classList.remove('open');
+  adaptGPS(); // retour basse précision
+}
+function openWptForm(type, pos){
+  S.pendingType=type; S.pendingPos=pos;
+  const q=pos.acc<=3?'✓ Excellente':pos.acc<=5?'✓ Bonne':pos.acc<=10?'⚠ Acceptable':'⚠ Dégradée';
+  document.getElementById('wm-title').textContent=LABELS[type];
+  document.getElementById('wm-coords').textContent=pos.lat.toFixed(6)+', '+pos.lon.toFixed(6)+' · ±'+pos.acc+' m — '+q+' ('+AVG.samples.length+' mes.)';
+  document.getElementById('wm-name').value='';
+  document.getElementById('wm-desc').value='';
+  document.getElementById('wm-sub').innerHTML=(SUBS[type]||['AUTRE']).map(v=>`<option>${v}</option>`).join('');
+  document.getElementById('wpt-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('wm-name').focus(),100);
+}
+function closeWptModal(){
+  document.getElementById('wpt-modal').classList.remove('open');
+  S.pendingType=null; S.pendingPos=null;
+}
+function saveWpt(){
+  if(!S.pendingType||!S.pendingPos)return;
+  const w={
+    id:crypto.randomUUID?crypto.randomUUID():'w'+Date.now(),
+    lat:S.pendingPos.lat, lon:S.pendingPos.lon, acc:S.pendingPos.acc,
+    ts:Date.now(), type:S.pendingType,
+    name:document.getElementById('wm-name').value.trim()||LABELS[S.pendingType],
+    subtype:document.getElementById('wm-sub').value,
+    desc:document.getElementById('wm-desc').value.trim(),
+    samples:AVG.samples.length
+  };
+  S.waypoints.push(w);
+  closeWptModal(); refreshMap(); save();
+  toast('📍 '+w.name+' ±'+w.acc+'m','g');
+}
+
+// ══════════════════════════════
+// LISTE POINTS
+// ══════════════════════════════
+function renderPts(){
+  const el=document.getElementById('pts-list');
+  const all=[
+    ...S.waypoints.map(w=>({...w,_k:'w'})),
+    ...S.tracks.map((t,i)=>({...t,_k:'t',_i:i}))
+  ].sort((a,b)=>(a.ts||a.startTs)-(b.ts||b.startTs));
+  if(!all.length){el.innerHTML='<div class="empty">Aucun point enregistré.<br>Allez dans Terrain pour commencer.</div>';return;}
+  el.innerHTML=all.map(obj=>{
+    if(obj._k==='w'){
+      const c=COLORS[obj.type]||'#888';
+      return `<div class="wpt-item">
+        <div class="wdot" style="background:${c}"></div>
+        <div class="winfo" onclick="editWpt('${obj.id}')" style="cursor:pointer">
+          <div class="wname">${esc(obj.name)}</div>
+          <div class="wmeta">${obj.lat.toFixed(5)}, ${obj.lon.toFixed(5)} · ${obj.subtype||obj.type}</div>
+          ${obj.desc?`<div class="wdesc">${esc(obj.desc)}</div>`:''}
+        </div>
+        <button class="wbtn" onclick="editWpt('${obj.id}')" style="color:var(--acc2)">✏</button>
+        <button class="wbtn" onclick="delWpt('${obj.id}')">✕</button>
+      </div>`;
+    } else {
+      const d=obj.pts&&obj.pts.length>=2?Math.round(obj.pts.reduce((s,p,i)=>i?s+hav(obj.pts[i-1],p):0,0)):0;
+      return `<div class="wpt-item" style="border-color:#4ade8055">
+        <div class="wdot" style="background:#4ade80;border-radius:2px;width:18px;height:5px"></div>
+        <div class="winfo" onclick="editTrk(${obj._i})" style="cursor:pointer">
+          <div class="wname">${esc(obj.name)}</div>
+          <div class="wmeta">${obj.pts?obj.pts.length:0} pts · ${d} m</div>
+        </div>
+        <button class="wbtn" onclick="editTrk(${obj._i})" style="color:var(--acc2)">✏</button>
+        <button class="wbtn" onclick="delTrk(${obj._i})">✕</button>
+      </div>`;
+    }
+  }).join('');
+}
+function delWpt(id){if(!confirm('Supprimer ?'))return;S.waypoints=S.waypoints.filter(w=>w.id!==id);renderPts();save();}
+function delTrk(i){if(!confirm('Supprimer ?'))return;S.tracks.splice(i,1);renderPts();save();}
+function editTrk(i){
+  const n=prompt('Nom du tronçon :',S.tracks[i].name);
+  if(n===null)return; S.tracks[i].name=n.trim()||S.tracks[i].name;
+  renderPts(); save(); toast('Renommé','g');
+}
+
+// ── Édition waypoint ──
+function editWpt(id){
+  const w=S.waypoints.find(x=>x.id===id); if(!w)return;
+  EDIT_ID=id;
+  document.getElementById('em-coords').textContent=w.lat.toFixed(6)+', '+w.lon.toFixed(6)+(w.acc?' · ±'+w.acc+'m':'');
+  document.querySelectorAll('#em-types .topt').forEach(el=>el.classList.toggle('sel',el.dataset.t===w.type));
+  fillEditSubs(w.type,w.subtype);
+  document.getElementById('em-name').value=w.name||'';
+  document.getElementById('em-desc').value=w.desc||'';
+  document.getElementById('edit-modal').classList.add('open');
+}
+function pickType(t,el){
+  document.querySelectorAll('#em-types .topt').forEach(e=>e.classList.remove('sel'));
+  el.classList.add('sel'); fillEditSubs(t,null);
+}
+function fillEditSubs(type,cur){
+  document.getElementById('em-sub').innerHTML=(SUBS[type]||['AUTRE']).map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');
+}
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');EDIT_ID=null;}
+function saveEdit(){
+  if(!EDIT_ID)return;
+  const i=S.waypoints.findIndex(x=>x.id===EDIT_ID); if(i<0)return;
+  const t=document.querySelector('#em-types .topt.sel')?.dataset.t||S.waypoints[i].type;
+  S.waypoints[i]={...S.waypoints[i],type:t,subtype:document.getElementById('em-sub').value,
+    name:document.getElementById('em-name').value.trim()||S.waypoints[i].name,
+    desc:document.getElementById('em-desc').value.trim()};
+  closeEditModal(); renderPts(); refreshMap(); save(); toast('Modifié','g');
+}
+
+// ══════════════════════════════
+// EXPORT
+// ══════════════════════════════
+function renderExp(){
+  const counts={};
+  S.waypoints.forEach(w=>counts[w.type]=(counts[w.type]||0)+1);
+  document.getElementById('exp-stats').innerHTML=
+    Object.entries(counts).map(([t,n])=>`<div class="stat-chip"><span class="n" style="color:${COLORS[t]||'#888'}">${n}</span><span style="font-size:12px;color:var(--txt2)">${LABELS[t]||t}</span></div>`).join('')+
+    (S.tracks.length?`<div class="stat-chip"><span class="n" style="color:#4ade80">${S.tracks.length}</span><span style="font-size:12px;color:var(--txt2)">tronçons</span></div>`:'');
+}
+function exportGPX(){
+  if(!S.waypoints.length&&!S.tracks.length){toast('Rien à exporter','a');return;}
+  const ts=new Date().toISOString();
+  let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Recensement Terrain LDM" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><n>Session LDM</n><time>${ts}</time></metadata>\n`;
+  S.waypoints.forEach(w=>{
+    const name=`[${w.type.toUpperCase()}] ${w.name}`;
+    const desc=[w.subtype,w.desc].filter(Boolean).join(' | ');
+    g+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n  <n>${xe(name)}</n>\n  <desc>${xe(desc)}</desc>\n  <time>${new Date(w.ts).toISOString()}</time>\n</wpt>\n`;
+  });
+  S.tracks.forEach(t=>{
+    if(!t.pts||t.pts.length<2)return;
+    g+=`<trk>\n  <n>${xe(t.name)}</n>\n  <trkseg>\n`;
+    t.pts.forEach(p=>{g+=`    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><time>${new Date(p.ts).toISOString()}</time></trkpt>\n`;});
+    g+=`  </trkseg>\n</trk>\n`;
+  });
+  g+='</gpx>';
+  dl(g,'application/gpx+xml',`LDM_terrain_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,'GPX exporté');
+}
+function exportJSON(){
+  dl(JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,v:1},null,2),'application/json',`session_ldm_${new Date().toISOString().slice(0,10)}.json`,'Session sauvegardée');
+}
+function loadSession(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();r.onload=ev=>{
+      try{const d=JSON.parse(ev.target.result);if(!d.waypoints)throw 0;
+        S.waypoints=d.waypoints||[];S.tracks=d.tracks||[];save();renderPts();renderExp();
+        toast(`${S.waypoints.length} pts, ${S.tracks.length} tronçons chargés`,'g');
+      }catch(e){toast('Fichier invalide','r');}
+    };r.readAsText(f);
+  };inp.click();
+}
+function resetSession(){
+  if(!confirm('Effacer toute la session ?'))return;
+  S.waypoints=[];S.tracks=[];localStorage.removeItem('ldm_session');
+  renderPts();renderExp();refreshMap();toast('Session effacée','a');
+}
+
+// ══════════════════════════════
+// PERSISTANCE
+// ══════════════════════════════
+function save(){try{localStorage.setItem('ldm_session',JSON.stringify({waypoints:S.waypoints,tracks:S.tracks}));}catch(e){}}
+function load(){
+  try{const d=JSON.parse(localStorage.getItem('ldm_session')||'null');
+    if(d){S.waypoints=d.waypoints||[];S.tracks=d.tracks||[];
+      if(S.waypoints.length||S.tracks.length) toast(`Session restaurée — ${S.waypoints.length} pts, ${S.tracks.length} tronçons`,'a');
+    }
+  }catch(e){}
+}
+
+// ══════════════════════════════
+// UTILS
+// ══════════════════════════════
+function hav(a,b){const R=6371000,dL=(b.lat-a.lat)*Math.PI/180,dO=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function xe(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let _tt;
+function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'');clearTimeout(_tt);_tt=setTimeout(()=>t.className='',2600);}
+
+async function dl(content,mime,filename,msg){
+  const blob=new Blob([content],{type:mime});
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  if(ios&&navigator.canShare&&navigator.canShare({files:[new File([blob],filename,{type:mime})]})){
+    try{await navigator.share({files:[new File([blob],filename,{type:mime})],title:filename});if(msg)toast(msg,'g');return;}catch(e){if(e.name==='AbortError')return;}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  if(msg)toast(msg,'g');
+}
+
+// ══════════════════════════════
+// WAKE LOCK — écran allumé
+// ══════════════════════════════
+let WAKE_LOCK = null;
+async function requestWakeLock(){
+  if(!('wakeLock' in navigator)) return;
+  try{
+    WAKE_LOCK = await navigator.wakeLock.request('screen');
+    WAKE_LOCK.addEventListener('release',()=>{ WAKE_LOCK=null; });
+  }catch(e){}
+}
+function releaseWakeLock(){
+  if(WAKE_LOCK){ WAKE_LOCK.release(); WAKE_LOCK=null; }
+}
+// Réacquérir le Wake Lock si la page redevient visible (iOS l'annule en background)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && S.recording && !S.paused){
+    requestWakeLock();
+  }
+});
+
+// ══════════════════════════════
+// PAGE VISIBILITY — pause GPS si en background
+// ══════════════════════════════
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){
+    // L'app passe en arrière-plan : si pas en enregistrement, couper la haute précision
+    if(!S.recording && GPS_WATCH_ID!==null){
+      navigator.geolocation.clearWatch(GPS_WATCH_ID);
+      GPS_WATCH_ID=null;
+    }
+  } else if(document.visibilityState==='visible'){
+    // Retour au premier plan : relancer le GPS si arrêté
+    if(GPS_WATCH_ID===null) launchWatch(S.recording&&!S.paused);
+  }
+});
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+load();
+startGPS();
+// Init carte au démarrage (onglet Terrain actif)
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    initMap();
+    // Ajuster la carte quand le panel change de taille
+    resizeMap();
+    new ResizeObserver(resizeMap).observe(document.getElementById('sheet'));
+  },300);
+});
+// Fermer modales en cliquant le fond
+['avg-modal','wpt-modal','edit-modal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{
+    if(e.target===document.getElementById(id)){
+      document.getElementById(id).classList.remove('open');
+      if(id==='avg-modal') cancelAvg();
+    }
+  });
+});
+
 </script>
 
 <script>
