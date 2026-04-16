@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Terrain LDM">
@@ -106,50 +106,62 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 /* ── OVERLAYS FLOTTANTS ─ */
 /* Tous en position:absolute dans pane-terrain, z-index > Leaflet (400) */
 
-/* Barre GPS — haut centre */
+/* Barre GPS — haut centre, entre les filtres et le zoom */
 #gps-bar{
-  position:absolute;top:10px;left:50%;
-  transform:translateX(-50%);
+  position:absolute;
+  /* Laisse 120px à gauche (filtres ~110px) et 50px à droite (zoom Leaflet) */
+  left:120px;right:50px;top:10px;
   z-index:800;
-  display:inline-flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:6px;justify-content:center;
   background:rgba(13,16,23,.92);
   border:1px solid var(--brd2);border-radius:20px;
-  padding:5px 12px;
-  pointer-events:none;white-space:nowrap;
-  box-shadow:0 2px 8px #000a
+  padding:5px 10px;
+  pointer-events:none;
+  /* Pas de white-space:nowrap — on laisse le texte se couper */
+  overflow:hidden
 }
-#gps-bar-track{width:52px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+#gps-bar-track{width:44px;height:4px;flex-shrink:0;background:var(--bg3);border-radius:2px;overflow:hidden}
 #gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .4s,background .4s;background:var(--txt3)}
-#gps-bar-txt{font-size:11px;font-family:monospace;color:var(--txt2)}
+#gps-bar-txt{
+  font-size:11px;font-family:monospace;color:var(--txt2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-width:0
+}
 
-/* Filtres — haut gauche */
+/* Filtres — haut gauche, largeur fixe pour ne pas empiéter */
 #filters{
   position:absolute;top:10px;left:10px;
   z-index:800;
-  display:flex;gap:3px;
+  display:flex;gap:2px;
   background:rgba(13,16,23,.92);
   border:1px solid var(--brd2);border-radius:14px;
-  padding:4px 8px;
-  /* CLIQUABLE */
-  pointer-events:auto;touch-action:manipulation
+  padding:4px 6px;
+  pointer-events:auto;touch-action:manipulation;
+  /* Largeur max garantie : 5 × 28px + paddings ≈ 110px */
 }
 #filters button{
-  padding:3px 7px;border-radius:10px;
-  font-size:12px;font-weight:600;color:var(--txt3);
-  background:none;border:none;cursor:pointer;
-  touch-action:manipulation
+  /* Taille uniforme pour tous les boutons */
+  width:28px;height:28px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:10px;font-size:12px;font-weight:600;color:var(--txt3);
+  background:none;border:none;cursor:pointer;touch-action:manipulation;
+  flex-shrink:0
 }
 #filters button.active,#filters button:active{background:var(--bg3);color:var(--acc2)}
 
-/* Panel bas — contrôles de levé */
+/* Zoom Leaflet — haut droite, ne pas masquer */
+/* Leaflet place le zoom à top:10,right:10 par défaut — on le laisse */
+
+/* Panel bas — padding-bottom safe-area pour iPhone home indicator */
 #panel{
   position:absolute;
   left:0;right:0;bottom:0;
   z-index:800;
   background:rgba(13,16,23,.96);
   border-top:1px solid var(--brd2);
-  padding:10px 12px 20px;
-  /* CLIQUABLE */
+  padding:10px 12px;
+  /* Safe area iOS : ajouter la hauteur de la barre home (~34px) */
+  padding-bottom:calc(12px + env(safe-area-inset-bottom, 20px));
   pointer-events:auto;touch-action:manipulation
 }
 #panel *{pointer-events:auto;touch-action:manipulation}
@@ -195,7 +207,11 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   background:#1a0a0a;border:2px solid var(--red);color:#fca5a5;
   cursor:pointer;touch-action:manipulation;transition:all .15s
 }
-#btn-rec.on{background:#dc2626;border-color:#ef4444;color:#fff;animation:recpulse 2s infinite}
+#btn-rec.on{background:#dc2626;border-color:#ef4444;color:#fff}
+/* Animation uniquement si pas reduced-motion */
+@media (prefers-reduced-motion: no-preference){
+  #btn-rec.on{animation:recpulse 2s infinite}
+}
 #btn-rec.pause{background:#1a1a2e;border-color:var(--acc2);color:#93c5fd}
 @keyframes recpulse{0%,100%{box-shadow:0 0 0 0 #dc262655}50%{box-shadow:0 0 0 8px #dc262600}}
 #btn-finish{
@@ -289,6 +305,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   <div id="gps-status">
     <div id="gps-dot"></div>
     <span id="gps-txt" style="color:var(--txt3)">GPS…</span>
+    <span id="gps-mode" style="font-size:9px;color:var(--txt3);background:var(--bg3);border:1px solid var(--brd);border-radius:4px;padding:1px 4px;margin-left:2px" title="Mode GPS">E</span>
   </div>
 </div>
 
@@ -480,11 +497,13 @@ function goTab(id){
 // ══════════════════════════════
 function initMap(){
   if(!MAP_OK){
-    MAP = L.map('map',{zoomControl:true, attributionControl:true});
+    MAP = L.map('map',{zoomControl:false, attributionControl:true});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'© <a href="https://openstreetmap.org">OSM</a>',
       maxZoom:19
     }).addTo(MAP);
+    // Zoom en bas à droite — évite le chevauchement avec la barre GPS haut droite
+    L.control.zoom({position:'bottomright'}).addTo(MAP);
     // Empêcher Leaflet d'intercepter les events sur les overlays
     ['panel','filters'].forEach(id=>{
       const el = document.getElementById(id);
@@ -586,24 +605,43 @@ function resizeMap(){
 }
 
 // ══════════════════════════════
-// GPS
+// GPS — MODE ADAPTATIF
 // ══════════════════════════════
+// Haute précision : uniquement en enregistrement actif et moyennage
+// Basse précision : au repos (5x moins de batterie)
+let GPS_WATCH_ID = null;
+let GPS_LAST_MAP = 0; // timestamp dernier rafraîchissement carte
+
 function startGPS(){
   if(!navigator.geolocation){toast('GPS non disponible','r');return;}
   const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
   dot.className='wait'; txt.textContent='Recherche…';
-  navigator.geolocation.watchPosition(
+  launchWatch(false); // démarrer en mode économique
+}
+
+function launchWatch(highAccuracy){
+  if(GPS_WATCH_ID!==null){
+    navigator.geolocation.clearWatch(GPS_WATCH_ID);
+    GPS_WATCH_ID=null;
+  }
+  const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
+  GPS_WATCH_ID = navigator.geolocation.watchPosition(
     pos=>{
       S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude};
       S.acc=Math.round(pos.coords.accuracy);
       dot.className=S.acc<=5?'fix':'wait';
       txt.textContent=S.acc+'m';
       updateGpsBar(S.acc);
-      // Mise à jour position sur la carte
-      if(MAP_OK&&S.pos){
+
+      // Carte : mise à jour max toutes les 5s en veille, 2s en enregistrement
+      const now=Date.now();
+      const mapThrottle = (S.recording&&!S.paused) ? 2000 : 5000;
+      if(MAP_OK&&S.pos&&(now-GPS_LAST_MAP)>mapThrottle){
+        GPS_LAST_MAP=now;
         if(MAP_POS){try{MAP.removeLayer(MAP_POS);}catch(e){}}
         MAP_POS=L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(MAP);
       }
+
       // Enregistrement tronçon
       if(S.recording&&!S.paused&&S.acc<=15){
         const t=S.tracks[S.curTrack];
@@ -619,12 +657,30 @@ function startGPS(){
       }
     },
     err=>{
+      const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
       dot.className=''; txt.textContent='Err';
       const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
       if(err.code===1) toast(ios?'Autorisez la localisation dans Réglages › Safari':'Permission GPS refusée','r');
     },
-    {enableHighAccuracy:true,timeout:30000,maximumAge:2000}
+    highAccuracy
+      ? {enableHighAccuracy:true,  timeout:20000, maximumAge:1000}   // enregistrement
+      : {enableHighAccuracy:false, timeout:30000, maximumAge:8000}   // veille (GPS réseau)
   );
+}
+
+function adaptGPS(){
+  const needHigh = S.recording&&!S.paused || AVG.active;
+  const isHigh   = S.gpsHighMode||false;
+  if(needHigh && !isHigh){ S.gpsHighMode=true;  launchWatch(true); }
+  if(!needHigh && isHigh){ S.gpsHighMode=false; launchWatch(false); }
+  // Indicateur visuel mode GPS
+  const badge = document.getElementById('gps-mode');
+  if(badge){
+    badge.textContent = needHigh ? 'H' : 'E';
+    badge.style.color = needHigh ? '#fcd34d' : 'var(--txt3)';
+    badge.style.borderColor = needHigh ? '#d97706' : 'var(--brd)';
+    badge.title = needHigh ? 'GPS haute précision (enregistrement)' : 'GPS économique (veille)';
+  }
 }
 
 function updateGpsBar(acc){
@@ -652,21 +708,31 @@ function startRec(){
   S.curTrack=S.tracks.length-1; S.recording=true; S.paused=false;
   S.recStart=Date.now(); S.recElapsed=0;
   S.recTimer=setInterval(tickTimer,1000);
+  adaptGPS();    // passer en haute précision
+  requestWakeLock(); // garder l'écran allumé
   syncBtn(); toast('Enregistrement démarré','g');
 }
 function pauseRec(){
   S.paused=true; S.recElapsed+=Date.now()-S.recStart;
-  clearInterval(S.recTimer); syncBtn(); toast('Pause','a');
+  clearInterval(S.recTimer);
+  adaptGPS();    // repasser en basse précision pendant la pause
+  releaseWakeLock();
+  syncBtn(); toast('Pause','a');
 }
 function resumeRec(){
   S.paused=false; S.recStart=Date.now();
-  S.recTimer=setInterval(tickTimer,1000); syncBtn(); toast('Reprise','g');
+  S.recTimer=setInterval(tickTimer,1000);
+  adaptGPS();    // haute précision à nouveau
+  requestWakeLock();
+  syncBtn(); toast('Reprise','g');
 }
 function finishTrack(){
   if(!S.recording)return;
   const t=S.tracks[S.curTrack]; t.endTs=Date.now();
   S.recording=false; S.paused=false;
   clearInterval(S.recTimer);
+  adaptGPS();    // retour basse précision
+  releaseWakeLock();
   document.getElementById('trk-name').value='';
   document.getElementById('s-pts').textContent='0';
   document.getElementById('s-dst').textContent='0';
@@ -706,6 +772,7 @@ function startCapture(type){
   if(S.acc<=AVG.maxAcc) AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
   document.getElementById('avg-title').textContent='Capture — '+LABELS[type];
   document.getElementById('avg-modal').classList.add('open');
+  adaptGPS(); // haute précision pour le moyennage
   updateAvgUI();
 }
 function updateAvgUI(){
@@ -729,6 +796,7 @@ function commitAvg(){
   const meanAcc=s.reduce((a,p)=>a+p.acc,0)/s.length;
   AVG.active=false;
   document.getElementById('avg-modal').classList.remove('open');
+  adaptGPS(); // retour basse précision si pas en enregistrement
   openWptForm(AVG.type,{lat:wlat/ws,lon:wlon/ws,acc:Math.round(meanAcc/Math.sqrt(s.length))});
 }
 function forceAvg(){
@@ -738,6 +806,7 @@ function forceAvg(){
 function cancelAvg(){
   AVG.active=false; AVG.samples=[]; AVG.type=null;
   document.getElementById('avg-modal').classList.remove('open');
+  adaptGPS(); // retour basse précision
 }
 function openWptForm(type, pos){
   S.pendingType=type; S.pendingPos=pos;
@@ -923,6 +992,43 @@ async function dl(content,mime,filename,msg){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
   if(msg)toast(msg,'g');
 }
+
+// ══════════════════════════════
+// WAKE LOCK — écran allumé
+// ══════════════════════════════
+let WAKE_LOCK = null;
+async function requestWakeLock(){
+  if(!('wakeLock' in navigator)) return;
+  try{
+    WAKE_LOCK = await navigator.wakeLock.request('screen');
+    WAKE_LOCK.addEventListener('release',()=>{ WAKE_LOCK=null; });
+  }catch(e){}
+}
+function releaseWakeLock(){
+  if(WAKE_LOCK){ WAKE_LOCK.release(); WAKE_LOCK=null; }
+}
+// Réacquérir le Wake Lock si la page redevient visible (iOS l'annule en background)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && S.recording && !S.paused){
+    requestWakeLock();
+  }
+});
+
+// ══════════════════════════════
+// PAGE VISIBILITY — pause GPS si en background
+// ══════════════════════════════
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){
+    // L'app passe en arrière-plan : si pas en enregistrement, couper la haute précision
+    if(!S.recording && GPS_WATCH_ID!==null){
+      navigator.geolocation.clearWatch(GPS_WATCH_ID);
+      GPS_WATCH_ID=null;
+    }
+  } else if(document.visibilityState==='visible'){
+    // Retour au premier plan : relancer le GPS si arrêté
+    if(GPS_WATCH_ID===null) launchWatch(S.recording&&!S.paused);
+  }
+});
 
 // ══════════════════════════════
 // INIT
