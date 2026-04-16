@@ -266,6 +266,36 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .topt .tl{font-size:11px;font-weight:600;color:var(--txt2)}
 .topt .ts{font-size:10px;color:var(--txt3);font-family:monospace}
 
+/* Bouton géolocalisation — flottant haut droite */
+#btn-geolocate{
+  position:absolute;top:50px;right:10px;
+  z-index:800;width:36px;height:36px;border-radius:50%;
+  background:rgba(13,16,23,.92);border:1px solid var(--brd2);
+  font-size:18px;cursor:pointer;touch-action:manipulation;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px #000a
+}
+#btn-geolocate:active{background:var(--bg3)}
+/* Ligne filtres + switcher fond de carte */
+#top-bar-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+#top-bar-row #filters{flex:1;margin-bottom:0;padding-bottom:0}
+#btn-layer{
+  flex-shrink:0;width:36px;height:30px;border-radius:8px;
+  background:var(--bg2);border:1px solid var(--brd);
+  font-size:16px;cursor:pointer;touch-action:manipulation;
+  display:flex;align-items:center;justify-content:center
+}
+#btn-layer.aerial{border-color:var(--acc3);background:#451a0330}
+/* Barre progression pré-cache */
+#precache-bar{
+  position:absolute;bottom:0;left:0;right:0;z-index:900;
+  background:var(--bg1);border-top:1px solid var(--brd);
+  padding:8px 14px;font-size:12px;color:var(--txt2);
+  display:none;align-items:center;gap:10px
+}
+#precache-bar.show{display:flex}
+#precache-prog{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+#precache-fill{height:100%;background:var(--acc2);border-radius:2px;width:0%;transition:width .2s}
 /* ── LEAFLET DARK ──── */
 .leaflet-popup-content-wrapper{background:var(--bg1)!important;color:var(--txt)!important;border:1px solid var(--brd2)!important;border-radius:8px!important;box-shadow:0 4px 16px #0009!important;font-family:var(--font)}
 .leaflet-popup-tip{background:var(--bg1)!important}
@@ -325,17 +355,23 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       <span id="gps-bar-txt">GPS…</span>
     </div>
 
+    <!-- Bouton géolocalisation — haut droite -->
+    <button id="btn-geolocate" onclick="gotoGPS()" title="Centrer sur ma position">🎯</button>
+
     <!-- Panel bas -->
     <div id="panel">
 
-      <!-- Filtres carte — intégrés dans le panel -->
-      <div id="filters">
-        <button class="active" data-f="all"        onclick="applyFilter('all',this)">Tout</button>
-        <button data-f="entree"                    onclick="applyFilter('entree',this)">🚪 Entrées</button>
-        <button data-f="equip_comp"                onclick="applyFilter('equip_comp',this)">🖥 Info</button>
-        <button data-f="equip_acces"               onclick="applyFilter('equip_acces',this)">🛗 Accès</button>
-        <button data-f="noeud"                     onclick="applyFilter('noeud',this)">⬤ Nœuds</button>
-        <button data-f="track"                     onclick="applyFilter('track',this)">〰 Tracés</button>
+      <!-- Ligne filtres + switcher fond de carte -->
+      <div id="top-bar-row">
+        <div id="filters">
+          <button class="active" data-f="all"       onclick="applyFilter('all',this)">Tout</button>
+          <button data-f="entree"                   onclick="applyFilter('entree',this)">🚪 Entrées</button>
+          <button data-f="equip_comp"               onclick="applyFilter('equip_comp',this)">🖥 Info</button>
+          <button data-f="equip_acces"              onclick="applyFilter('equip_acces',this)">🛗 Accès</button>
+          <button data-f="noeud"                    onclick="applyFilter('noeud',this)">⬤ Nœuds</button>
+          <button data-f="track"                    onclick="applyFilter('track',this)">〰 Tracés</button>
+        </div>
+        <button id="btn-layer" onclick="toggleLayer()" title="Changer le fond de carte">🛰</button>
       </div>
       <div id="trk-row">
         <input id="trk-name" type="text" placeholder="Nom du tronçon…">
@@ -352,6 +388,13 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       </div>
       <button id="btn-rec"    onclick="toggleRec()"><span id="ri">⏺</span><span id="rl"> Enregistrer un tronçon</span></button>
       <button id="btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
+    </div>
+
+    <!-- Barre progression pré-cache tuiles Normandie -->
+    <div id="precache-bar">
+      <span id="precache-txt">Préchargement Normandie…</span>
+      <div id="precache-prog"><div id="precache-fill"></div></div>
+      <span id="precache-pct">0%</span>
     </div>
   </div>
 
@@ -461,6 +504,12 @@ const S = {
 const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20 };
 let EDIT_ID = null;
 let MAP = null, MAP_OK = false;
+let MAP_LAYER_OSM = null, MAP_LAYER_AERIAL = null, MAP_AERIAL = false;
+
+// URLs des fonds de carte
+const TILE_OSM    = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+// IGN Géoplateforme — orthophotographie France (20cm, sans clé API)
+const TILE_AERIAL = 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
 let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null;
 let MAP_FILTER = 'all';
 
@@ -500,20 +549,121 @@ function goTab(id){
 function initMap(){
   if(!MAP_OK){
     MAP = L.map('map',{zoomControl:false, attributionControl:true});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    // Couche OSM par défaut
+    MAP_LAYER_OSM = L.tileLayer(TILE_OSM,{
       attribution:'© <a href="https://openstreetmap.org">OSM</a>',
       maxZoom:19
     }).addTo(MAP);
-    // Zoom en bas à droite — évite le chevauchement avec la barre GPS haut droite
+    // Couche aérienne (créée mais non ajoutée)
+    MAP_LAYER_AERIAL = L.tileLayer(TILE_AERIAL,{
+      attribution:'© <a href="https://www.ign.fr">IGN</a> — Géoplateforme',
+      maxZoom:19
+    });
+    // Zoom bas droite
     L.control.zoom({position:'bottomright'}).addTo(MAP);
-    // Empêcher Leaflet d'intercepter les events sur les overlays
-    ['panel','filters'].forEach(id=>{
-      const el = document.getElementById(id);
+    // Désactiver propagation sur les overlays
+    ['panel','btn-geolocate','btn-layer'].forEach(id=>{
+      const el=document.getElementById(id);
       if(el){ L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); }
     });
     MAP_OK = true;
+    // Lancer le pré-cache Normandie en arrière-plan
+    precacheNormandie();
   }
   setTimeout(()=>{ MAP.invalidateSize(); refreshMap(); }, 150);
+}
+
+// ── Géolocalisation ──────────────────────────
+function gotoGPS(){
+  if(!S.pos){ toast('Signal GPS non disponible','a'); return; }
+  MAP.setView([S.pos.lat, S.pos.lon], 17, {animate:true});
+}
+
+// ── Switcher fond de carte ───────────────────
+function toggleLayer(){
+  MAP_AERIAL = !MAP_AERIAL;
+  const btn = document.getElementById('btn-layer');
+  if(MAP_AERIAL){
+    MAP.removeLayer(MAP_LAYER_OSM);
+    MAP_LAYER_AERIAL.addTo(MAP);
+    btn.textContent='🗺';
+    btn.classList.add('aerial');
+    btn.title='Vue plan';
+  } else {
+    MAP.removeLayer(MAP_LAYER_AERIAL);
+    MAP_LAYER_OSM.addTo(MAP);
+    btn.textContent='🛰';
+    btn.classList.remove('aerial');
+    btn.title='Vue aérienne';
+  }
+}
+
+// ── Pré-cache tuiles Normandie (z8-z11) ──────
+// BBox Normandie : lat 48.05-50.05, lon -2.05-2.25
+const NORMANDIE = { minLat:48.05, maxLat:50.05, minLon:-2.05, maxLon:2.25 };
+const PRECACHE_ZOOM = [8,9,10,11]; // ~500 tuiles, ~4 Mo
+
+function latLonToTileXY(lat, lon, z){
+  const n = Math.pow(2, z);
+  const x = Math.floor((lon + 180) / 360 * n);
+  const latR = lat * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(latR) + 1/Math.cos(latR)) / Math.PI) / 2 * n);
+  return {x, y};
+}
+
+async function precacheNormandie(){
+  // Ne lancer qu'une seule fois (vérifier flag en localStorage)
+  if(localStorage.getItem('ldm_precache_done') === '1') return;
+
+  const bar  = document.getElementById('precache-bar');
+  const fill = document.getElementById('precache-fill');
+  const pct  = document.getElementById('precache-pct');
+  const txt  = document.getElementById('precache-txt');
+  bar.classList.add('show');
+
+  // Calculer toutes les URLs de tuiles
+  const urls = [];
+  for(const z of PRECACHE_ZOOM){
+    const {x:x1, y:y1} = latLonToTileXY(NORMANDIE.maxLat, NORMANDIE.minLon, z); // NW
+    const {x:x2, y:y2} = latLonToTileXY(NORMANDIE.minLat, NORMANDIE.maxLon, z); // SE
+    for(let x=x1; x<=x2; x++){
+      for(let y=y1; y<=y2; y++){
+        // Sous-domaines OSM a/b/c
+        const s = ['a','b','c'][Math.abs(x+y)%3];
+        urls.push(`https://${s}.tile.openstreetmap.org/${z}/${x}/${y}.png`);
+      }
+    }
+  }
+
+  const total = urls.length;
+  let done = 0;
+  txt.textContent = `Préchargement Normandie (${total} tuiles)…`;
+
+  // Cache en cache API (même cache que le SW)
+  const cache = await caches.open('ldm-tiles-v1').catch(()=>null);
+  if(!cache){ bar.classList.remove('show'); return; }
+
+  // Télécharger par lots de 6 pour ne pas saturer la connexion
+  const BATCH = 6;
+  for(let i=0; i<urls.length; i+=BATCH){
+    const batch = urls.slice(i, i+BATCH);
+    await Promise.allSettled(batch.map(async url=>{
+      try{
+        const existing = await cache.match(url);
+        if(existing) return; // déjà en cache
+        const resp = await fetch(url);
+        if(resp.ok) await cache.put(url, resp);
+      }catch(e){}
+      done++;
+      const p = Math.round(done/total*100);
+      fill.style.width = p+'%';
+      pct.textContent = p+'%';
+    }));
+  }
+
+  bar.classList.remove('show');
+  localStorage.setItem('ldm_precache_done', '1');
+  toast('Tuiles Normandie en cache ✓','g');
 }
 
 function mkIcon(color, letter){
