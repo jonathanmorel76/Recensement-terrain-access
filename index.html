@@ -3,1503 +3,958 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Recensement Terrain LDM">
+<meta name="apple-mobile-web-app-title" content="Terrain LDM">
 <meta name="theme-color" content="#0c1017">
 <link rel="manifest" href="./manifest.json">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<!-- Icône home screen iOS (inline SVG→PNG base64 n'est pas nécessaire, on utilise une couleur) -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230c1017' rx='40'/%3E%3Ctext x='90' y='115' text-anchor='middle' font-size='80' font-family='system-ui'%3E📍%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <title>Recensement Terrain LDM</title>
 <style>
+/* ── RESET & BASE ───── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
   --bg0:#0c1017;--bg1:#131926;--bg2:#1c2537;--bg3:#243049;
   --acc:#4ade80;--acc2:#60a5fa;--acc3:#f59e0b;
   --txt:#e2e8f0;--txt2:#94a3b8;--txt3:#475569;
   --brd:#2d3f5a;--brd2:#3d5070;
   --red:#ef4444;--grn:#22c55e;
-  --r:12px;--font:'DM Sans',system-ui,sans-serif;
+  --r:12px;--font:'DM Sans',system-ui,sans-serif
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--txt);font-family:var(--font);font-size:16px}
-button{font-family:var(--font);cursor:pointer;border:none;outline:none}
+html,body{
+  height:100%;width:100%;overflow:hidden;
+  background:var(--bg0);color:var(--txt);
+  font-family:var(--font);font-size:16px
+}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none;background:none}
 
-/* ── LAYOUT ─────────────────────────────── */
-#app{display:flex;flex-direction:column;height:100%;height:100dvh}
-#topbar{background:var(--bg1);border-bottom:1px solid var(--brd);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
-.app-title{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--acc)}
+/* ── APP SHELL ─────── */
+/* Structure fixe : topbar + tabs + content occupent exactement 100dvh */
+#app{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;
+  height:100dvh;height:100vh
+}
+#topbar{
+  flex-shrink:0;height:48px;
+  background:var(--bg1);border-bottom:1px solid var(--brd);
+  padding:0 16px;display:flex;align-items:center;gap:10px;
+  z-index:600;position:relative
+}
+.app-title{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--acc)}
 .app-title span{color:var(--txt2);font-weight:400}
-#gps-status{margin-left:auto;font-size:11px;display:flex;align-items:center;gap:5px}
-#gps-dot{width:8px;height:8px;border-radius:50%;background:var(--txt3);transition:background .3s}
+#gps-status{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11px}
+#gps-dot{width:8px;height:8px;border-radius:50%;background:var(--txt3);transition:background .3s;flex-shrink:0}
 #gps-dot.fix{background:var(--grn);box-shadow:0 0 6px var(--grn)}
-#gps-dot.wait{background:var(--acc3);animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#gps-dot.wait{background:var(--acc3);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── TABS ────────────────────────────────── */
-#tabs{display:flex;background:var(--bg1);border-bottom:1px solid var(--brd);flex-shrink:0}
-.tab{flex:1;padding:11px 4px;text-align:center;font-size:12px;font-weight:600;color:var(--txt3);border-bottom:2px solid transparent;background:none;letter-spacing:.04em;transition:all .15s}
+#tabs{
+  flex-shrink:0;height:44px;
+  display:flex;background:var(--bg1);border-bottom:1px solid var(--brd);
+  z-index:600;position:relative
+}
+.tab{
+  flex:1;height:100%;background:none;border:none;border-bottom:2px solid transparent;
+  font-size:12px;font-weight:600;color:var(--txt3);
+  transition:all .15s;letter-spacing:.03em;
+  /* IMPORTANT: permet les clics sur mobile */
+  touch-action:manipulation;cursor:pointer
+}
 .tab.active{color:var(--acc);border-color:var(--acc)}
 
-/* (layout défini plus bas) */
+/* ── CONTENT AREA ──── */
+/* Prend tout l'espace restant */
+#content{
+  flex:1;
+  min-height:0; /* crucial pour que flex:1 fonctionne avec overflow */
+  position:relative;
+  overflow:hidden
+}
 
-/* ── GPS CARD ────────────────────────────── */
-#gps-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
-#coords-display{font-size:13px;font-family:'JetBrains Mono',Consolas,monospace;color:var(--acc2);margin-bottom:4px;line-height:1.6}
-#acc-display{font-size:11px;color:var(--txt3)}
+/* ── PANES ─────────── */
+/* Panes scrollables (Points, Export) */
+.pane{
+  display:none;
+  position:absolute;inset:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:16px;
+  background:var(--bg0)
+}
+.pane.active{display:block}
 
-/* ── TRACK CARD ──────────────────────────── */
-#track-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
-.track-stats{display:flex;gap:16px;margin-bottom:12px}
-.tstat{text-align:center}
-.tstat .val{font-size:22px;font-weight:700;color:var(--acc);font-family:'JetBrains Mono',Consolas,monospace;line-height:1}
-.tstat .lbl{font-size:10px;color:var(--txt3);margin-top:2px}
-.track-name-row{margin-bottom:12px}
-.track-name-row label{font-size:11px;color:var(--txt3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px}
-.track-name-row input{width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:14px;padding:9px 12px;outline:none}
-.track-name-row input:focus{border-color:var(--acc2)}
+/* Pane Terrain : carte plein écran + overlays flottants */
+#pane-terrain{
+  display:none;
+  position:absolute;inset:0;
+  overflow:hidden
+}
+#pane-terrain.active{display:block}
 
-/* ── BIG BUTTONS ─────────────────────────── */
-.btn-big{width:100%;padding:16px;border-radius:var(--r);font-size:15px;font-weight:600;letter-spacing:.02em;transition:all .12s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px}
-.btn-rec{background:#7f1d1d;border:2px solid var(--red);color:#fca5a5}
-.btn-rec.recording{background:#dc2626;border-color:#ef4444;color:#fff;animation:recpulse 2s infinite}
-@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 #dc262666}50%{box-shadow:0 0 0 8px #dc262600}}
-.btn-stop{background:#1a3a2a;border:2px solid var(--grn);color:#86efac}
-.btn-pause{background:#1a1a2e;border:2px solid var(--acc2);color:#93c5fd}
+/* ── CARTE ─────────── */
+/* La map prend TOUT l'espace du pane-terrain */
+#map{
+  position:absolute;
+  top:0;left:0;right:0;
+  /* Espace laissé pour le panel bas (estimé 180px) */
+  bottom:180px
+}
+/* Tuiles sombres */
+#map .leaflet-tile{filter:brightness(.82) saturate(.72)}
 
-/* ── WPT TYPE GRID ───────────────────────── */
-.section-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
-.wpt-types{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.wpt-type-btn{background:var(--bg1);border:2px solid var(--brd);border-radius:var(--r);padding:14px 10px;text-align:center;transition:all .12s;display:flex;flex-direction:column;align-items:center;gap:6px}
-.wpt-type-btn .icon{font-size:26px;line-height:1}
-.wpt-type-btn .label{font-size:12px;font-weight:600;color:var(--txt2);line-height:1.3}
-.wpt-type-btn .sublabel{font-size:10px;color:var(--txt3);font-family:'JetBrains Mono',Consolas,monospace}
-.wpt-type-btn:active,.wpt-type-btn.pressed{transform:scale(.95)}
-.wpt-type-btn.entree{border-color:#9333ea;background:#3b076422}
-.wpt-type-btn.equip_comp{border-color:#0891b2;background:#08334422}
-.wpt-type-btn.noeud{border-color:var(--brd2);background:var(--bg2)}
-/* État verrouillé — précision insuffisante */
-.wpt-type-btn.locked{opacity:.38;pointer-events:none;filter:grayscale(.6)}
-.wpt-types.locked-all .wpt-type-btn{opacity:.38;pointer-events:none;filter:grayscale(.6)}
+/* ── OVERLAYS FLOTTANTS ─ */
+/* Tous en position:absolute dans pane-terrain, z-index > Leaflet (400) */
 
-/* ── MODAL ÉDITION POINT ─────────────────── */
-#edit-modal{display:none;position:fixed;inset:0;background:#000c;z-index:300;align-items:flex-end}
-#edit-modal.open{display:flex}
-#edit-form{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:85vh;overflow-y:auto}
-/* Sélecteur de type visuel */
-.type-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-.type-opt{background:var(--bg2);border:2px solid var(--brd);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;transition:all .12s}
-.type-opt.selected{border-color:var(--acc2);background:#1e3a5f44}
-.type-opt .t-icon{font-size:22px;line-height:1;margin-bottom:4px}
-.type-opt .t-label{font-size:12px;font-weight:600;color:var(--txt2)}
-.type-opt .t-sub{font-size:10px;color:var(--txt3);font-family:'JetBrains Mono',Consolas,monospace}
-#avg-modal{display:none;position:fixed;inset:0;background:#000c;z-index:300;align-items:flex-end}
-#avg-modal.open{display:flex}
-#avg-form{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%}
-.avg-title{font-size:16px;font-weight:700;margin-bottom:4px}
-.avg-sub{font-size:12px;color:var(--txt3);margin-bottom:16px}
-#avg-progress-bar-bg{height:12px;background:var(--bg3);border-radius:6px;overflow:hidden;margin-bottom:10px}
-#avg-progress-bar-fill{height:100%;border-radius:6px;transition:width .3s,background .3s;width:0%}
-#avg-stats-row{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-family:'JetBrains Mono',Consolas,monospace}
-.avg-btn-row{display:flex;gap:10px}
-#avg-btn-force{flex:1;background:var(--bg3);border:1px solid var(--acc3);color:var(--acc3);border-radius:10px;padding:13px;font-size:14px;font-weight:600}
-#avg-btn-cancel{flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt2);border-radius:10px;padding:13px;font-size:14px}
-
-/* ── JAUGE DE PRÉCISION ──────────────────── */
-#acc-bar-wrap{margin-top:10px}
-#acc-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-#acc-label{font-size:12px;font-weight:600}
-#acc-value{font-size:12px;font-family:'JetBrains Mono',Consolas,monospace}
-#acc-bar-bg{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
-#acc-bar-fill{height:100%;border-radius:4px;transition:width .4s ease,background .4s}
-#acc-lock-msg{margin-top:8px;font-size:12px;text-align:center;min-height:18px;font-weight:500}
-
-/* ── MODAL SAISIE WPT ────────────────────── */
-#wpt-modal{display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:flex-end}
-#wpt-modal.open{display:flex}
-#wpt-form{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:85vh;overflow-y:auto}
-.modal-handle{width:36px;height:4px;background:var(--brd2);border-radius:2px;margin:0 auto 16px}
-.modal-title{font-size:16px;font-weight:700;margin-bottom:4px}
-.modal-sub{font-size:12px;color:var(--txt3);margin-bottom:16px;font-family:'JetBrains Mono',Consolas,monospace}
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:5px}
-.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:15px;padding:10px 12px;outline:none;font-family:var(--font)}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--acc2)}
-.form-group textarea{height:72px;resize:none}
-.form-group select option{background:var(--bg2)}
-.modal-actions{display:flex;gap:10px;margin-top:4px}
-.btn-save{flex:2;background:var(--acc);color:#052e16;border-radius:10px;padding:14px;font-size:15px;font-weight:700}
-.btn-cancel{flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt2);border-radius:10px;padding:14px;font-size:15px}
-
-/* ── LISTE POINTS ────────────────────────── */
-.wpt-list-item{background:var(--bg1);border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
-.wpt-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-.wpt-info{flex:1;min-width:0}
-.wpt-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wpt-meta{font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',Consolas,monospace;margin-top:2px}
-.wpt-del{background:none;color:var(--txt3);font-size:18px;padding:4px 6px;border-radius:6px;flex-shrink:0}
-.wpt-del:active{color:var(--red)}
-.empty-msg{text-align:center;color:var(--txt3);padding:32px 16px;font-size:14px}
-
-/* ── EXPORT ─────────────────────────────── */
-.export-card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:14px}
-.export-card-title{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
-.stat-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.stat-chip{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:8px 12px;font-size:13px;display:flex;align-items:center;gap:6px}
-.stat-chip .n{font-weight:700;font-size:16px;font-family:'JetBrains Mono',Consolas,monospace}
-.btn-export{width:100%;background:var(--acc);color:#052e16;border-radius:var(--r);padding:16px;font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
-.btn-export-sec{width:100%;background:var(--bg2);border:1px solid var(--brd2);color:var(--txt);border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
-.info-box{background:var(--bg2);border-left:3px solid var(--acc2);border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:var(--txt2);line-height:1.6}
-
-/* ── TOAST ───────────────────────────────── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--brd2);border-radius:20px;padding:10px 20px;font-size:13px;font-weight:500;z-index:300;transition:transform .25s;white-space:nowrap;pointer-events:none}
-#toast.show{transform:translateX(-50%) translateY(0)}
-#toast.green{border-color:var(--grn);color:#86efac}
-#toast.amber{border-color:var(--acc3);color:#fcd34d}
-#toast.red{border-color:var(--red);color:#fca5a5}
-
-/* ── SCROLLBAR ───────────────────────────── */
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
-
-/* ── CARTE TERRAIN UNIFIÉE ───────────────── */
-/* (styles définis plus bas dans LAYOUT FIXES) */
-/* Supprimer anciens styles capture-map */
-
-/* Barre GPS flottante — haut */
-#cap-gps-bar{
-  position:absolute;top:10px;left:50%;transform:translateX(-50%);
-  z-index:1000;display:flex;align-items:center;gap:8px;
-  background:rgba(19,25,38,.88);backdrop-filter:blur(8px);
+/* Barre GPS — haut centre */
+#gps-bar{
+  position:absolute;top:10px;left:50%;
+  transform:translateX(-50%);
+  z-index:800;
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(13,16,23,.92);
   border:1px solid var(--brd2);border-radius:20px;
-  padding:6px 14px;box-shadow:0 2px 12px #0009;
-  pointer-events:none;white-space:nowrap
+  padding:5px 12px;
+  pointer-events:none;white-space:nowrap;
+  box-shadow:0 2px 8px #000a
 }
-#cap-gps-acc{font-size:12px;font-family:monospace;color:var(--txt2)}
-#cap-gps-bar-fill-wrap{width:60px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
-#cap-gps-bar-fill{height:100%;border-radius:3px;transition:width .4s,background .4s;width:0%}
-/* Filtres — haut gauche */
-#map-bar{
-  position:absolute;top:10px;left:10px;z-index:1000;
-  display:flex;gap:4px;
-  background:rgba(19,25,38,.88);backdrop-filter:blur(8px);
-  border:1px solid var(--brd2);border-radius:16px;
-  padding:4px 8px;box-shadow:0 2px 8px #0007
-}
-#map-bar button{
-  background:none;border:none;color:var(--txt3);
-  font-size:13px;font-weight:600;padding:3px 6px;
-  border-radius:10px;cursor:pointer;font-family:var(--font)
-}
-#map-bar button.active,#map-bar button:hover{background:var(--bg3);color:var(--acc2)}
+#gps-bar-track{width:52px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .4s,background .4s;background:var(--txt3)}
+#gps-bar-txt{font-size:11px;font-family:monospace;color:var(--txt2)}
 
-/* Panneau de contrôle flottant — bas */
-#cap-panel{
-  position:absolute;bottom:0;left:0;right:0;z-index:1000;
-  background:rgba(13,16,23,.92);backdrop-filter:blur(12px);
+/* Filtres — haut gauche */
+#filters{
+  position:absolute;top:10px;left:10px;
+  z-index:800;
+  display:flex;gap:3px;
+  background:rgba(13,16,23,.92);
+  border:1px solid var(--brd2);border-radius:14px;
+  padding:4px 8px;
+  /* CLIQUABLE */
+  pointer-events:auto;touch-action:manipulation
+}
+#filters button{
+  padding:3px 7px;border-radius:10px;
+  font-size:12px;font-weight:600;color:var(--txt3);
+  background:none;border:none;cursor:pointer;
+  touch-action:manipulation
+}
+#filters button.active,#filters button:active{background:var(--bg3);color:var(--acc2)}
+
+/* Panel bas — contrôles de levé */
+#panel{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  z-index:800;
+  background:rgba(13,16,23,.96);
   border-top:1px solid var(--brd2);
-  padding:10px 12px 16px;
-  transition:transform .25s ease
+  padding:10px 12px 20px;
+  /* CLIQUABLE */
+  pointer-events:auto;touch-action:manipulation
 }
-/* Ligne track en cours */
-#cap-track-bar{
-  display:flex;align-items:center;gap:10px;
-  background:var(--bg2);border:1px solid var(--brd);border-radius:10px;
-  padding:8px 12px;margin-bottom:10px
+#panel *{pointer-events:auto;touch-action:manipulation}
+
+/* Ligne tronçon */
+#trk-row{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg2);border:1px solid var(--brd);
+  border-radius:8px;padding:7px 10px;margin-bottom:8px
 }
-#cap-track-bar input{
+#trk-row input{
   flex:1;background:none;border:none;color:var(--txt);
-  font-size:13px;font-family:var(--font);outline:none
+  font-size:13px;font-family:var(--font);outline:none;
+  min-width:0
 }
-#cap-track-bar input::placeholder{color:var(--txt3)}
-#cap-track-stats{display:flex;gap:12px;flex-shrink:0}
-.cap-tstat{text-align:center;line-height:1}
-.cap-tstat .v{font-size:14px;font-weight:700;color:var(--acc);font-family:monospace}
-.cap-tstat .l{font-size:9px;color:var(--txt3)}
-/* Grille boutons */
-#cap-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
-.cb{
+#trk-row input::placeholder{color:var(--txt3)}
+.trkstat{text-align:center;flex-shrink:0}
+.trkstat .v{font-size:13px;font-weight:700;color:var(--acc);font-family:monospace;line-height:1}
+.trkstat .l{font-size:9px;color:var(--txt3)}
+
+/* Grille boutons de levé */
+#wpt-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.wb{
   background:var(--bg2);border:1.5px solid var(--brd);
-  border-radius:10px;padding:9px 4px;
+  border-radius:10px;padding:8px 4px;
   display:flex;flex-direction:column;align-items:center;gap:3px;
-  cursor:pointer;transition:all .12s
+  cursor:pointer;touch-action:manipulation;
+  transition:opacity .1s
 }
-.cb:active{transform:scale(.94)}
-.cb .i{font-size:20px;line-height:1}
-.cb .l{font-size:10px;font-weight:600;color:var(--txt2);text-align:center;line-height:1.2}
-.cb.entree{border-color:#9333ea;background:#3b076430}
-.cb.equip_comp{border-color:#0891b2;background:#08334430}
-.cb.noeud{border-color:#3d5070}
-.cb.autre{border-color:#d97706;background:#1a120030}
-/* Bouton tronçon pleine largeur */
-#cap-btn-rec{
-  width:100%;padding:12px;border-radius:10px;
+.wb:active{opacity:.7}
+.wb .i{font-size:19px;line-height:1}
+.wb .l{font-size:10px;font-weight:600;color:var(--txt2);text-align:center;line-height:1.2}
+.wb.e{border-color:#9333ea;background:#3b076430}
+.wb.q{border-color:#0891b2;background:#08334430}
+.wb.n{border-color:#3d5070}
+.wb.a{border-color:#d97706;background:#1a120030}
+
+/* Bouton tronçon */
+#btn-rec{
+  width:100%;padding:11px;border-radius:10px;
   font-size:13px;font-weight:700;letter-spacing:.02em;
   display:flex;align-items:center;justify-content:center;gap:8px;
   background:#1a0a0a;border:2px solid var(--red);color:#fca5a5;
-  transition:all .15s
+  cursor:pointer;touch-action:manipulation;transition:all .15s
 }
-#cap-btn-rec.recording{background:#dc2626;border-color:#ef4444;color:#fff;animation:recpulse 2s infinite}
-#cap-btn-rec.paused{background:#1a1a2e;border-color:var(--acc2);color:#93c5fd}
-#cap-btn-finish{
-  width:100%;padding:10px;border-radius:10px;margin-top:6px;
+#btn-rec.on{background:#dc2626;border-color:#ef4444;color:#fff;animation:recpulse 2s infinite}
+#btn-rec.pause{background:#1a1a2e;border-color:var(--acc2);color:#93c5fd}
+@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 #dc262655}50%{box-shadow:0 0 0 8px #dc262600}}
+#btn-finish{
+  width:100%;padding:9px;border-radius:10px;margin-top:6px;
   font-size:13px;font-weight:700;
   background:#0d2618;border:2px solid var(--grn);color:#86efac;
-  display:none
+  display:none;cursor:pointer;touch-action:manipulation
 }
 
-/* ── LAYOUT FIXES ────────────────────────── */
-/* Tabs au-dessus de la carte Leaflet */
-#tabs{position:relative;z-index:500}
-#topbar{position:relative;z-index:500}
-/* Content : flex pour le pane-terrain, scroll pour Points/Export */
-#content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1}
-.pane{display:none;padding:16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
-.pane.active{display:block}
-#pane-terrain{padding:0!important;overflow:hidden;position:relative}
-#pane-terrain.active{display:flex;flex-direction:column}
+/* ── POINTS & EXPORT ─ */
+.card{background:var(--bg1);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
+.wpt-item{background:var(--bg1);border:1px solid var(--brd);border-radius:10px;padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.wdot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.winfo{flex:1;min-width:0}
+.wname{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmeta{font-size:11px;color:var(--txt3);font-family:monospace;margin-top:1px}
+.wdesc{font-size:11px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wbtn{padding:4px 7px;font-size:14px;color:var(--txt3);cursor:pointer;touch-action:manipulation}
+.wbtn:active{color:var(--acc2)}
+.empty{text-align:center;color:var(--txt3);padding:28px 16px;font-size:14px}
+.btn-main{width:100%;background:var(--acc);color:#052e16;border-radius:var(--r);padding:14px;font-size:14px;font-weight:700;margin-bottom:8px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-sec{width:100%;background:var(--bg2);border:1px solid var(--brd2);color:var(--txt);border-radius:var(--r);padding:12px;font-size:13px;font-weight:600;margin-bottom:8px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
+.info-box{background:var(--bg2);border-left:3px solid var(--acc2);border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:var(--txt2);line-height:1.7}
+.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.stat-chip{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:7px 12px;display:flex;align-items:center;gap:6px}
+.stat-chip .n{font-size:16px;font-weight:700;font-family:monospace}
 
-/* terrain-map remplit le flex restant */
-#terrain-map{flex:1;width:100%;min-height:0;background:var(--bg2)}
+/* ── MODALES ─────────── */
+.modal{display:none;position:fixed;inset:0;background:#000c;z-index:1000;align-items:flex-end}
+.modal.open{display:flex}
+.modal-box{background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:18px 16px 32px;width:100%;max-height:88vh;overflow-y:auto}
+.mhandle{width:36px;height:4px;background:var(--brd2);border-radius:2px;margin:0 auto 14px}
+.mtitle{font-size:15px;font-weight:700;margin-bottom:3px}
+.msub{font-size:12px;color:var(--txt3);margin-bottom:14px;font-family:monospace}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:14px;padding:9px 11px;outline:none;font-family:var(--font)}
+.fg textarea{height:66px;resize:none}
+.fg select option{background:var(--bg2)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mbtns{display:flex;gap:8px;margin-top:4px}
+.mbtn-ok{flex:2;background:var(--acc);color:#052e16;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation}
+.mbtn-cancel{flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt2);border-radius:10px;padding:13px;font-size:14px;cursor:pointer;touch-action:manipulation}
+/* Modale moyennage */
+#avg-prog-bg{height:11px;background:var(--bg3);border-radius:6px;overflow:hidden;margin-bottom:8px}
+#avg-prog-fill{height:100%;border-radius:6px;width:0%;transition:width .3s,background .3s}
+#avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:14px;font-family:monospace}
+/* Sélecteur type édition */
+.type-sel{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.topt{background:var(--bg2);border:2px solid var(--brd);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;touch-action:manipulation;transition:all .1s}
+.topt.sel{border-color:var(--acc2);background:#1e3a5f44}
+.topt .ti{font-size:20px;line-height:1;margin-bottom:3px}
+.topt .tl{font-size:11px;font-weight:600;color:var(--txt2)}
+.topt .ts{font-size:10px;color:var(--txt3);font-family:monospace}
 
-/* CRITIQUE — éléments flottants cliquables au-dessus de Leaflet */
-#cap-panel,#map-bar,#cap-gps-bar{pointer-events:auto!important}
-#cap-panel *,#map-bar *{pointer-events:auto!important;touch-action:manipulation}
-
-/* Tuiles assombries */
-#terrain-map .leaflet-tile{filter:brightness(.82) saturate(.72)}
-/* Popup dark */
-.leaflet-popup-content-wrapper{background:var(--bg1)!important;color:var(--txt)!important;border:1px solid var(--brd2)!important;border-radius:8px!important;box-shadow:0 4px 16px #0009!important;font-family:'DM Sans',system-ui,sans-serif}
+/* ── LEAFLET DARK ──── */
+.leaflet-popup-content-wrapper{background:var(--bg1)!important;color:var(--txt)!important;border:1px solid var(--brd2)!important;border-radius:8px!important;box-shadow:0 4px 16px #0009!important;font-family:var(--font)}
 .leaflet-popup-tip{background:var(--bg1)!important}
 .leaflet-popup-content{margin:10px 14px!important;font-size:13px}
 .leaflet-popup-close-button{color:var(--txt3)!important}
-.pop-name{font-weight:700;margin-bottom:3px}
-.pop-type{font-size:11px;color:var(--txt3);font-family:monospace;margin-bottom:6px}
-.pop-acc{font-size:11px;color:var(--txt2)}
+.pop-n{font-weight:700;margin-bottom:2px}
+.pop-t{font-size:11px;color:var(--txt3);font-family:monospace;margin-bottom:4px}
+.pop-a{font-size:11px;color:var(--txt2);margin-bottom:6px}
+.pop-btn{background:var(--bg3);border:1px solid var(--brd2);color:var(--acc2);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:var(--font)}
+
+/* ── TOAST ─────────── */
+#toast{
+  position:fixed;bottom:20px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--bg3);border:1px solid var(--brd2);
+  border-radius:20px;padding:9px 18px;
+  font-size:13px;font-weight:500;
+  z-index:1200;transition:transform .22s;
+  white-space:nowrap;pointer-events:none
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.g{border-color:var(--grn);color:#86efac}
+#toast.a{border-color:var(--acc3);color:#fcd34d}
+#toast.r{border-color:var(--red);color:#fca5a5}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- TOPBAR -->
-  <div id="topbar">
-    <div class="app-title">Recensement <span>Terrain LDM</span></div>
-    <div id="gps-status">
-      <div id="gps-dot"></div>
-      <span id="gps-text" style="color:var(--txt3);font-size:11px">GPS…</span>
+<div id="topbar">
+  <div class="app-title">Recensement <span>Terrain LDM</span></div>
+  <div id="gps-status">
+    <div id="gps-dot"></div>
+    <span id="gps-txt" style="color:var(--txt3)">GPS…</span>
+  </div>
+</div>
+
+<div id="tabs">
+  <button class="tab active" onclick="goTab('terrain')">🗺 Terrain</button>
+  <button class="tab"        onclick="goTab('points')">📋 Points</button>
+  <button class="tab"        onclick="goTab('export')">📤 Export</button>
+</div>
+
+<div id="content">
+
+  <!-- ── TERRAIN ── -->
+  <div id="pane-terrain" class="active">
+    <div id="map"></div>
+
+    <!-- GPS bar -->
+    <div id="gps-bar">
+      <div id="gps-bar-track"><div id="gps-bar-fill"></div></div>
+      <span id="gps-bar-txt">GPS…</span>
+    </div>
+
+    <!-- Filtres -->
+    <div id="filters">
+      <button class="active" data-f="all"   onclick="applyFilter('all',this)">Tout</button>
+      <button data-f="entree"               onclick="applyFilter('entree',this)">🚪</button>
+      <button data-f="equip_comp"           onclick="applyFilter('equip_comp',this)">🖥</button>
+      <button data-f="noeud"               onclick="applyFilter('noeud',this)">⬤</button>
+      <button data-f="track"               onclick="applyFilter('track',this)">〰</button>
+    </div>
+
+    <!-- Panel bas -->
+    <div id="panel">
+      <div id="trk-row">
+        <input id="trk-name" type="text" placeholder="Nom du tronçon…">
+        <div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div>
+        <div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div>
+        <div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur</div></div>
+      </div>
+      <div id="wpt-btns">
+        <button class="wb e" onclick="startCapture('entree')">    <div class="i">🚪</div><div class="l">Entrée</div></button>
+        <button class="wb q" onclick="startCapture('equip_comp')"><div class="i">🖥</div><div class="l">Info<br>voyageur</div></button>
+        <button class="wb n" onclick="startCapture('noeud')">     <div class="i">⬤</div><div class="l">Nœud</div></button>
+        <button class="wb a" onclick="startCapture('autre')">     <div class="i">📌</div><div class="l">Autre</div></button>
+      </div>
+      <button id="btn-rec"    onclick="toggleRec()"><span id="ri">⏺</span><span id="rl"> Enregistrer un tronçon</span></button>
+      <button id="btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
     </div>
   </div>
 
-  <!-- TABS -->
-  <div id="tabs">
-    <button class="tab active" onclick="showTab('terrain')">🗺 Terrain</button>
-    <button class="tab" onclick="showTab('points')">📋 Points</button>
-    <button class="tab" onclick="showTab('export')">📤 Export</button>
+  <!-- ── POINTS ── -->
+  <div id="pane-points" class="pane">
+    <div id="pts-list"></div>
   </div>
 
-  <!-- CONTENT -->
-  <div id="content">
-
-    <!-- ══ TAB TERRAIN — carte + contrôles flottants ══ -->
-    <div id="pane-terrain" class="pane active">
-
-      <!-- Carte plein écran (instance TMAP unique) -->
-      <div id="terrain-map"></div>
-
-      <!-- Barre GPS flottante — haut centre -->
-      <div id="cap-gps-bar">
-        <div id="cap-gps-bar-fill-wrap"><div id="cap-gps-bar-fill"></div></div>
-        <span id="cap-gps-acc">GPS…</span>
-      </div>
-
-      <!-- Filtres flottants — haut droite -->
-      <div id="map-bar">
-        <button id="mf-all"        class="active" onclick="setMapFilter('all')">Tout</button>
-        <button id="mf-entree"     onclick="setMapFilter('entree')">🚪</button>
-        <button id="mf-equip"      onclick="setMapFilter('equip_comp')">🖥</button>
-        <button id="mf-noeud"      onclick="setMapFilter('noeud')">⬤</button>
-        <button id="mf-track"      onclick="setMapFilter('track')">〰</button>
-      </div>
-
-      <!-- Panneau de contrôle flottant — bas -->
-      <div id="cap-panel">
-
-        <!-- Nom tronçon + stats -->
-        <div id="cap-track-bar">
-          <input type="text" id="track-name" placeholder="Nom du tronçon…">
-          <div id="cap-track-stats">
-            <div class="cap-tstat"><div class="v" id="stat-pts">0</div><div class="l">pts</div></div>
-            <div class="cap-tstat"><div class="v" id="stat-dist">0</div><div class="l">m</div></div>
-            <div class="cap-tstat"><div class="v" id="stat-time">00:00</div><div class="l">dur.</div></div>
-          </div>
-        </div>
-
-        <!-- Boutons de levé -->
-        <div id="cap-btns">
-          <button class="cb entree"     onclick="openWptModal('entree')">    <div class="i">🚪</div><div class="l">Entrée</div></button>
-          <button class="cb equip_comp" onclick="openWptModal('equip_comp')"><div class="i">🖥</div><div class="l">Info<br>voyageur</div></button>
-          <button class="cb noeud"      onclick="openWptModal('noeud')">     <div class="i">⬤</div><div class="l">Nœud</div></button>
-          <button class="cb autre"      onclick="openWptModal('autre')">     <div class="i">📌</div><div class="l">Autre</div></button>
-        </div>
-
-        <!-- Bouton tronçon -->
-        <button id="cap-btn-rec" onclick="toggleRecording()">
-          <span id="cap-rec-icon">⏺</span>
-          <span id="cap-rec-label">Enregistrer un tronçon</span>
-        </button>
-        <button id="cap-btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
-
-      </div><!-- cap-panel -->
-    </div><!-- pane-terrain -->
-
-    <!-- ══ TAB POINTS ══ -->
-    <div id="pane-points" class="pane">
-      <div id="points-list"></div>
+  <!-- ── EXPORT ── -->
+  <div id="pane-export" class="pane">
+    <div class="card">
+      <div class="card-title">Session</div>
+      <div class="stat-row" id="exp-stats"></div>
+      <button class="btn-main" onclick="exportGPX()">⬇ Exporter en GPX</button>
+      <button class="btn-sec"  onclick="exportJSON()">⬇ Sauvegarder session (.json)</button>
+      <button class="btn-sec"  onclick="loadSession()">⬆ Reprendre une session</button>
     </div>
-
-    <!-- ══ TAB EXPORT ══ -->
-    <div id="pane-export" class="pane">
-      <div class="export-card">
-        <div class="export-card-title">Session en cours</div>
-        <div class="stat-row" id="export-stats"></div>
-        <button class="btn-export" onclick="exportGPX()">⬇ Exporter en GPX</button>
-        <button class="btn-export-sec" onclick="exportJSON()">⬇ Sauvegarder session (.json)</button>
-        <button class="btn-export-sec" onclick="loadSession()">⬆ Reprendre une session (.json)</button>
-      </div>
-      <div class="export-card">
-        <div class="export-card-title">Comment utiliser le GPX</div>
-        <div class="info-box">
-          1. Exportez le fichier <strong>.gpx</strong><br>
-          2. Transférez-le sur votre ordinateur<br>
-          3. Ouvrez <strong>cnig_accessibilite_vX.html</strong><br>
-          4. Glissez le GPX dans la zone d'import<br>
-          5. Les types sont pré-remplis automatiquement
-        </div>
-      </div>
-      <div class="export-card">
-        <div class="export-card-title">Réinitialiser</div>
-        <button class="btn-export-sec" style="color:var(--red);border-color:var(--red)" onclick="resetSession()">🗑 Effacer toute la session</button>
+    <div class="card">
+      <div class="card-title">Utiliser dans l'IHM desktop</div>
+      <div class="info-box">
+        1. Exportez le fichier <strong>.gpx</strong><br>
+        2. Transférez sur votre ordinateur<br>
+        3. Ouvrez <strong>cnig_accessibilite_v8.html</strong><br>
+        4. Glissez le GPX → types pré-classifiés auto.
       </div>
     </div>
+    <div class="card">
+      <button class="btn-sec" style="color:var(--red);border-color:var(--red)" onclick="resetSession()">🗑 Effacer la session</button>
+    </div>
+  </div>
 
-  </div><!-- content -->
-</div><!-- app -->
+</div><!-- #content -->
+</div><!-- #app -->
 
-<!-- MODAL ÉDITION POINT -->
-<div id="edit-modal">
-  <div id="edit-form">
-    <div class="modal-handle"></div>
-    <div class="modal-title">✏ Modifier le point</div>
-    <div class="modal-sub" id="edit-coords">—</div>
-    <!-- Sélecteur de catégorie -->
-    <div class="form-group">
+<!-- MODAL MOYENNAGE -->
+<div id="avg-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="avg-title">Capture…</div>
+    <div class="msub">Accumulation des mesures GPS</div>
+    <div id="avg-prog-bg"><div id="avg-prog-fill"></div></div>
+    <div id="avg-stats"><span id="avg-n">0/8</span><span id="avg-acc">±— m</span></div>
+    <div class="mbtns">
+      <button class="mbtn-ok"     id="avg-force" onclick="forceAvg()" disabled style="opacity:.4">⚡ Forcer</button>
+      <button class="mbtn-cancel" onclick="cancelAvg()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SAISIE -->
+<div id="wpt-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="wm-title">Point de levé</div>
+    <div class="msub"   id="wm-coords">—</div>
+    <div class="fg"><label>Nom</label><input id="wm-name" type="text" placeholder="Nom du point"></div>
+    <div class="fg"><label>Sous-type</label><select id="wm-sub"></select></div>
+    <div class="fg"><label>Remarque</label><textarea id="wm-desc" placeholder="Observations…"></textarea></div>
+    <div class="mbtns">
+      <button class="mbtn-cancel" onclick="closeWptModal()">Annuler</button>
+      <button class="mbtn-ok"     onclick="saveWpt()">📍 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÉDITION -->
+<div id="edit-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle">✏ Modifier le point</div>
+    <div class="msub" id="em-coords">—</div>
+    <div class="fg">
       <label>Catégorie</label>
-      <div class="type-selector" id="edit-type-selector">
-        <div class="type-opt" data-type="entree" onclick="selectEditType('entree',this)">
-          <div class="t-icon">🚪</div>
-          <div class="t-label">Entrée bâtiment</div>
-          <div class="t-sub">SiteEntrance</div>
-        </div>
-        <div class="type-opt" data-type="equip_comp" onclick="selectEditType('equip_comp',this)">
-          <div class="t-icon">🖥</div>
-          <div class="t-label">Info voyageur</div>
-          <div class="t-sub">PassengerInfo</div>
-        </div>
-        <div class="type-opt" data-type="noeud" onclick="selectEditType('noeud',this)">
-          <div class="t-icon">⬤</div>
-          <div class="t-label">Nœud cheminement</div>
-          <div class="t-sub">PathJunction</div>
-        </div>
-        <div class="type-opt" data-type="autre" onclick="selectEditType('autre',this)">
-          <div class="t-icon">📌</div>
-          <div class="t-label">Autre / Remarque</div>
-          <div class="t-sub">À classifier</div>
-        </div>
+      <div class="type-sel" id="em-types">
+        <div class="topt sel" data-t="entree"    onclick="pickType('entree',this)">   <div class="ti">🚪</div><div class="tl">Entrée</div><div class="ts">SiteEntrance</div></div>
+        <div class="topt"     data-t="equip_comp" onclick="pickType('equip_comp',this)"><div class="ti">🖥</div><div class="tl">Info voyageur</div><div class="ts">PassengerInfo</div></div>
+        <div class="topt"     data-t="noeud"     onclick="pickType('noeud',this)">    <div class="ti">⬤</div><div class="tl">Nœud</div><div class="ts">PathJunction</div></div>
+        <div class="topt"     data-t="autre"     onclick="pickType('autre',this)">    <div class="ti">📌</div><div class="tl">Autre</div><div class="ts">À classifier</div></div>
       </div>
     </div>
-    <div class="form-group">
-      <label>Sous-type</label>
-      <select id="edit-subtype"></select>
-    </div>
-    <div class="form-group">
-      <label>Nom</label>
-      <input type="text" id="edit-name" placeholder="Nom du point">
-    </div>
-    <div class="form-group">
-      <label>Remarque</label>
-      <textarea id="edit-desc" placeholder="Observations, état…"></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
-      <button class="btn-save" onclick="saveEdit()">✓ Enregistrer</button>
+    <div class="fg"><label>Sous-type</label><select id="em-sub"></select></div>
+    <div class="fg"><label>Nom</label><input id="em-name" type="text"></div>
+    <div class="fg"><label>Remarque</label><textarea id="em-desc"></textarea></div>
+    <div class="mbtns">
+      <button class="mbtn-cancel" onclick="closeEditModal()">Annuler</button>
+      <button class="mbtn-ok"     onclick="saveEdit()">✓ Enregistrer</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL MOYENNAGE GPS -->
-<div id="avg-modal">
-  <div id="avg-form">
-    <div class="modal-handle"></div>
-    <div class="avg-title" id="avg-title">📍 Capture en cours…</div>
-    <div class="avg-sub" id="avg-sub">Accumulation des mesures GPS pour améliorer la précision</div>
-    <div id="avg-progress-bar-bg">
-      <div id="avg-progress-bar-fill"></div>
-    </div>
-    <div id="avg-stats-row">
-      <span id="avg-stat-samples">0 / 8 mesures</span>
-      <span id="avg-stat-acc">±— m</span>
-    </div>
-    <div class="avg-btn-row">
-      <button id="avg-btn-force" onclick="forceAvgCapture()">⚡ Forcer maintenant</button>
-      <button id="avg-btn-cancel" onclick="cancelAvgCapture()">Annuler</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL SAISIE WPT -->
-<div id="wpt-modal">
-  <div id="wpt-form">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="modal-title">Entrée bâtiment</div>
-    <div class="modal-sub" id="modal-coords">—</div>
-    <div class="form-group">
-      <label>Nom / Identifiant</label>
-      <input type="text" id="wpt-name" placeholder="Ex. Entrée principale nord">
-    </div>
-    <div class="form-group" id="type-field-wrap">
-      <label>Sous-type</label>
-      <select id="wpt-subtype"></select>
-    </div>
-    <div class="form-group">
-      <label>Remarque terrain</label>
-      <textarea id="wpt-desc" placeholder="Observations, état, particularités…"></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeWptModal()">Annuler</button>
-      <button class="btn-save" onclick="saveWpt()">📍 Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
 <div id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-// ══════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════
+// ══════════════════════════════
+// ÉTAT
+// ══════════════════════════════
 const S = {
-  pos:        null,   // dernière position GPS
-  accuracy:   null,
-  waypoints:  [],     // [{id,lat,lon,acc,ts,type,name,subtype,desc}]
-  tracks:     [],     // [{name,pts:[{lat,lon,ts}],startTs,endTs,paused}]
-  recording:  false,
-  paused:     false,
-  currentTrack: null, // index dans tracks en cours
-  recInterval:  null,
-  recStartTs:   null,
-  recElapsed:   0,
-  pendingType:  null,
+  pos:null, acc:null,
+  waypoints:[], tracks:[],
+  recording:false, paused:false,
+  curTrack:null,
+  recStart:null, recElapsed:0, recTimer:null,
+  pendingType:null, pendingPos:null
+};
+const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20 };
+let EDIT_ID = null;
+let MAP = null, MAP_OK = false;
+let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null;
+let MAP_FILTER = 'all';
+
+const COLORS = { entree:'#a855f7', equip_comp:'#06b6d4', noeud:'#60a5fa', autre:'#f59e0b' };
+const LABELS = { entree:'Entrée bâtiment', equip_comp:'Info voyageur', noeud:'Nœud cheminement', autre:'Autre' };
+const SUBS = {
+  entree:    ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
+  equip_comp:['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
+  noeud:     ['INTERSECTION','CARREFOUR','ENTREE_ERP','ARRET_TC','AUTRE'],
+  autre:     ['A_CLASSIFIER','OBSTACLE','REMARQUE','PHOTO_REF']
 };
 
-// Sous-types par catégorie (alignés avec IHM desktop)
-const SUBTYPES = {
-  entree:     ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
-  equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
-  noeud:      ['INTERSECTION','CARREFOUR','ENTREE_ERP','ARRET_TC','AUTRE'],
-  autre:      ['A_CLASSIFIER','OBSTACLE','REMARQUE','PHOTO_REF'],
-};
-const TYPE_LABELS = {
-  entree:'Entrée bâtiment', equip_comp:'Info voyageur',
-  noeud:'Nœud cheminement', autre:'Autre',
-};
-const TYPE_COLORS = {
-  entree:'#a855f7', equip_comp:'#06b6d4',
-  noeud:'#60a5fa', autre:'#f59e0b',
-};
-
-// ══════════════════════════════════════════════
-// GPS
-// ══════════════════════════════════════════════
-let watchId = null;
-
-function startGPS(){
-  if(!navigator.geolocation){ showToast('GPS non disponible sur ce navigateur','red'); return; }
-
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const isFileProtocol = location.protocol === 'file:';
-  if(isIOS && isFileProtocol){
-    updateCapGpsBar(null, 5);
+// ══════════════════════════════
+// ONGLETS
+// ══════════════════════════════
+function goTab(id){
+  document.querySelectorAll('.tab').forEach((b,i)=>{
+    b.classList.toggle('active', ['terrain','points','export'][i]===id);
+  });
+  // Masquer tous les panes
+  document.getElementById('pane-terrain').classList.remove('active');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  if(id==='terrain'){
+    document.getElementById('pane-terrain').classList.add('active');
+    initMap();
+  } else {
+    document.getElementById('pane-'+id).classList.add('active');
+    if(id==='points') renderPts();
+    if(id==='export') renderExp();
   }
+}
 
-  const dot = document.getElementById('gps-dot');
-  const txt = document.getElementById('gps-text');
+// ══════════════════════════════
+// CARTE
+// ══════════════════════════════
+function initMap(){
+  if(!MAP_OK){
+    MAP = L.map('map',{zoomControl:true, attributionControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© <a href="https://openstreetmap.org">OSM</a>',
+      maxZoom:19
+    }).addTo(MAP);
+    // Empêcher Leaflet d'intercepter les events sur les overlays
+    ['panel','filters'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el){ L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); }
+    });
+    MAP_OK = true;
+  }
+  setTimeout(()=>{ MAP.invalidateSize(); refreshMap(); }, 150);
+}
+
+function mkIcon(color, letter){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:26px;height:26px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px #0009;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">${letter}</div>`,
+    iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-16]
+  });
+}
+function mkPosIcon(){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:16px;height:16px;border-radius:50%;background:#22c55e;border:3px solid #fff;box-shadow:0 0 0 4px #22c55e44"></div>`,
+    iconSize:[16,16], iconAnchor:[8,8]
+  });
+}
+
+function refreshMap(){
+  if(!MAP_OK) return;
+  MAP_LAYERS.forEach(l=>{ try{MAP.removeLayer(l);}catch(e){} });
+  MAP_LAYERS=[];
+  if(MAP_REC_LINE){try{MAP.removeLayer(MAP_REC_LINE);}catch(e){}MAP_REC_LINE=null;}
+
+  const bounds=[], f=MAP_FILTER;
+  const letters={entree:'E',equip_comp:'I',noeud:'N',autre:'?'};
+
+  // Tronçons terminés
+  if(f==='all'||f==='track'){
+    S.tracks.forEach(t=>{
+      if(!t.pts||t.pts.length<2)return;
+      const pl=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#4ade80',weight:4,opacity:.9}).addTo(MAP);
+      pl.bindPopup(`<div class="pop-n">${esc(t.name)}</div><div class="pop-t">troncon_cheminement</div><div class="pop-a">${t.pts.length} pts</div>`);
+      t.pts.forEach(p=>bounds.push([p.lat,p.lon]));
+      MAP_LAYERS.push(pl);
+    });
+  }
+  // Tracé live
+  if(S.recording&&S.curTrack!==null){
+    const t=S.tracks[S.curTrack];
+    if(t&&t.pts.length>=2)
+      MAP_REC_LINE=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#ef4444',weight:4,dashArray:'6 4'}).addTo(MAP);
+  }
+  // Waypoints
+  S.waypoints.forEach((w,i)=>{
+    if(f!=='all'&&f!==w.type)return;
+    const mk=L.marker([w.lat,w.lon],{icon:mkIcon(COLORS[w.type]||'#888',letters[w.type]||'?'),zIndexOffset:200}).addTo(MAP);
+    mk.bindPopup(`<div class="pop-n">${esc(w.name)}</div><div class="pop-t">${w.subtype||w.type}</div>${w.acc?`<div class="pop-a">±${w.acc} m</div>`:''}<button class="pop-btn" onclick="MAP.closePopup();goTab('points');editWpt('${w.id}')">✏ Modifier</button>`);
+    MAP_LAYERS.push(mk);
+    bounds.push([w.lat,w.lon]);
+  });
+  // Position GPS
+  if(S.pos){
+    if(MAP_POS){try{MAP.removeLayer(MAP_POS);}catch(e){}}
+    MAP_POS=L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(MAP);
+    bounds.push([S.pos.lat,S.pos.lon]);
+  }
+  if(bounds.length>0){
+    try{MAP.fitBounds(bounds,{padding:[60,60],maxZoom:18});}
+    catch(e){if(bounds[0])MAP.setView(bounds[0],16);}
+  } else if(S.pos){
+    MAP.setView([S.pos.lat,S.pos.lon],16);
+  } else {
+    MAP.setView([46.8,2.3],6);
+  }
+}
+
+function updateMapLive(){
+  if(!MAP_OK||!S.recording||S.curTrack===null)return;
+  const t=S.tracks[S.curTrack];
+  if(!t||t.pts.length<2)return;
+  const lls=t.pts.map(p=>[p.lat,p.lon]);
+  if(MAP_REC_LINE) MAP_REC_LINE.setLatLngs(lls);
+  else MAP_REC_LINE=L.polyline(lls,{color:'#ef4444',weight:4,dashArray:'6 4'}).addTo(MAP);
+  if(S.pos) MAP.panTo([S.pos.lat,S.pos.lon],{animate:true,duration:.3});
+}
+
+function applyFilter(f, btn){
+  MAP_FILTER=f;
+  document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshMap();
+}
+
+// Ajuster la hauteur de la carte selon la hauteur du panel
+function resizeMap(){
+  if(!MAP_OK)return;
+  const panel=document.getElementById('panel');
+  const ph=panel?panel.offsetHeight:180;
+  document.getElementById('map').style.bottom=ph+'px';
+  MAP.invalidateSize();
+}
+
+// ══════════════════════════════
+// GPS
+// ══════════════════════════════
+function startGPS(){
+  if(!navigator.geolocation){toast('GPS non disponible','r');return;}
+  const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
   dot.className='wait'; txt.textContent='Recherche…';
-
-  const GPS_SEUIL = 5;
-
-  watchId = navigator.geolocation.watchPosition(
+  navigator.geolocation.watchPosition(
     pos=>{
-      S.pos = {lat: pos.coords.latitude, lon: pos.coords.longitude};
-      S.accuracy = Math.round(pos.coords.accuracy);
-      dot.className = S.accuracy <= GPS_SEUIL ? 'fix' : 'wait';
-      txt.textContent = S.accuracy+'m';
-
-      // Barre GPS flottante sur la carte capture
-      updateCapGpsBar(S.accuracy, GPS_SEUIL);
-      // Déverrouiller toujours les boutons (le moyennage gère la qualité)
-      updateWptLock(0, GPS_SEUIL);
-
-      // Enregistrement tronçon : filtrer les points avec précision insuffisante
-      if(S.recording && !S.paused){
-        if(S.accuracy <= GPS_SEUIL * 3){
-          const trk = S.tracks[S.currentTrack];
-          trk.pts.push({lat:S.pos.lat, lon:S.pos.lon, ts:Date.now(), acc:S.accuracy});
-          updateTrackStats();
-          updateTerrainMapTrack(); // mise à jour tracé live
-        }
+      S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude};
+      S.acc=Math.round(pos.coords.accuracy);
+      dot.className=S.acc<=5?'fix':'wait';
+      txt.textContent=S.acc+'m';
+      updateGpsBar(S.acc);
+      // Mise à jour position sur la carte
+      if(MAP_OK&&S.pos){
+        if(MAP_POS){try{MAP.removeLayer(MAP_POS);}catch(e){}}
+        MAP_POS=L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(MAP);
       }
-      // Mise à jour position sur carte capture
-      if(TMAP_INIT && S.pos){
-        if(TMAP_POS_MK){ try{ TMAP.removeLayer(TMAP_POS_MK); }catch(e){} }
-        TMAP_POS_MK = L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(TMAP);
-        document.getElementById('cap-gps-acc').textContent =
-          '±'+S.accuracy+' m · '+S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5);
+      // Enregistrement tronçon
+      if(S.recording&&!S.paused&&S.acc<=15){
+        const t=S.tracks[S.curTrack];
+        t.pts.push({lat:S.pos.lat,lon:S.pos.lon,ts:Date.now(),acc:S.acc});
+        updateTrkStats();
+        updateMapLive();
+      }
+      // Moyennage
+      if(AVG.active&&S.acc<=AVG.maxAcc){
+        AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
+        updateAvgUI();
+        if(AVG.samples.length>=AVG.target) commitAvg();
       }
     },
     err=>{
-      dot.className=''; txt.textContent='Erreur';
-      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      let msg = '';
-      if(err.code===1){
-        msg = isIOS
-          ? 'Autorisation refusée. Allez dans Réglages › Confidentialité › Service de localisation › Safari'
-          : 'Permission GPS refusée — vérifiez les paramètres du navigateur';
-      } else if(err.code===2){
-        msg = 'Signal GPS indisponible — êtes-vous à l\'extérieur ?';
-      } else {
-        msg = 'Timeout GPS — réessayez dans un espace ouvert';
-      }
-      document.getElementById('cap-gps-acc').textContent = 'Erreur GPS';
-      updateCapGpsBar(null, GPS_SEUIL);
-      updateWptLock(999, GPS_SEUIL);
+      dot.className=''; txt.textContent='Err';
+      const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+      if(err.code===1) toast(ios?'Autorisez la localisation dans Réglages › Safari':'Permission GPS refusée','r');
     },
-    {enableHighAccuracy:true, timeout:30000, maximumAge:2000}
+    {enableHighAccuracy:true,timeout:30000,maximumAge:2000}
   );
 }
 
-// ── Barre GPS flottante (nouvelle UI) ──────────
-function updateCapGpsBar(acc, seuil){
-  const fill = document.getElementById('cap-gps-bar-fill');
-  const txt  = document.getElementById('cap-gps-acc');
-  if(!fill) return;
-  if(acc === null){
-    fill.style.width='0%'; fill.style.background='var(--txt3)';
-    txt.textContent='GPS…'; txt.style.color='var(--txt3)';
-    return;
-  }
-  const pct   = Math.max(5, Math.min(100, Math.round((seuil/acc)*100)));
-  const color = acc<=seuil ? '#22c55e' : acc<=seuil*2 ? '#f59e0b' : '#ef4444';
-  fill.style.width     = pct+'%';
-  fill.style.background= color;
-  txt.textContent = '±'+acc+' m'+
-    (S.pos ? '  '+S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5) : '');
-  txt.style.color = color;
+function updateGpsBar(acc){
+  const fill=document.getElementById('gps-bar-fill');
+  const txt=document.getElementById('gps-bar-txt');
+  const pct=Math.max(5,Math.min(100,Math.round(5/acc*100)));
+  const color=acc<=5?'#22c55e':acc<=10?'#f59e0b':'#ef4444';
+  fill.style.width=pct+'%'; fill.style.background=color;
+  txt.style.color=color;
+  txt.textContent='±'+acc+'m'+(S.pos?' · '+S.pos.lat.toFixed(4)+','+S.pos.lon.toFixed(4):'');
 }
 
-// Stub updateAccBar pour compatibilité résiduelle
-function updateAccBar(acc, seuil){ updateCapGpsBar(acc, seuil); }
-
-// ── Verrouillage des boutons de levé ────────────
-function updateWptLock(acc, seuil){
-  const grid = document.querySelector('.wpt-types');
-  const locked = acc > seuil;
-  if(locked){
-    grid.classList.add('locked-all');
-  } else {
-    grid.classList.remove('locked-all');
-  }
-}
-
-// ══════════════════════════════════════════════
-// TABS
-// ══════════════════════════════════════════════
-function showTab(id){
-  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('pane-'+id).classList.add('active');
-  const idx = {terrain:0, points:1, export:2}[id] ?? 0;
-  document.querySelectorAll('.tab')[idx].classList.add('active');
-  if(id==='points')  renderPointsList();
-  if(id==='export')  renderExportStats();
-  if(id==='terrain'){ setTimeout(()=>{ initTerrainMap(); if(TMAP) TMAP.invalidateSize(); }, 200); }
-}
-}
-
-// ══════════════════════════════════════════════
+// ══════════════════════════════
 // ENREGISTREMENT TRONÇON
-// ══════════════════════════════════════════════
-function toggleRecording(){
-  if(!S.pos){ showToast('Attendez le signal GPS','amber'); return; }
-  if(!S.recording){
-    startRecording();
-  } else if(!S.paused){
-    pauseRecording();
-  } else {
-    resumeRecording();
-  }
+// ══════════════════════════════
+function toggleRec(){
+  if(!S.pos){toast('Attendez le GPS','a');return;}
+  if(!S.recording) startRec();
+  else if(!S.paused) pauseRec();
+  else resumeRec();
 }
-
-function startRecording(){
-  const name = document.getElementById('track-name').value.trim() || 'Tronçon '+(S.tracks.length+1);
-  S.tracks.push({name, pts:[{lat:S.pos.lat,lon:S.pos.lon,ts:Date.now()}], startTs:Date.now(), endTs:null});
-  S.currentTrack = S.tracks.length-1;
-  S.recording=true; S.paused=false;
-  S.recStartTs=Date.now(); S.recElapsed=0;
-  S.recInterval = setInterval(updateTimer,1000);
-  syncRecButtons();
-  showToast('Enregistrement démarré','green');
+function startRec(){
+  const name=document.getElementById('trk-name').value.trim()||'Tronçon '+(S.tracks.length+1);
+  S.tracks.push({name,pts:[{lat:S.pos.lat,lon:S.pos.lon,ts:Date.now()}],startTs:Date.now(),endTs:null});
+  S.curTrack=S.tracks.length-1; S.recording=true; S.paused=false;
+  S.recStart=Date.now(); S.recElapsed=0;
+  S.recTimer=setInterval(tickTimer,1000);
+  syncBtn(); toast('Enregistrement démarré','g');
 }
-
-function pauseRecording(){
-  S.paused=true;
-  S.recElapsed += Date.now()-S.recStartTs;
-  clearInterval(S.recInterval);
-  syncRecButtons();
-  showToast('Enregistrement en pause','amber');
+function pauseRec(){
+  S.paused=true; S.recElapsed+=Date.now()-S.recStart;
+  clearInterval(S.recTimer); syncBtn(); toast('Pause','a');
 }
-
-function resumeRecording(){
-  S.paused=false;
-  S.recStartTs=Date.now();
-  S.recInterval=setInterval(updateTimer,1000);
-  syncRecButtons();
-  showToast('Enregistrement repris','green');
+function resumeRec(){
+  S.paused=false; S.recStart=Date.now();
+  S.recTimer=setInterval(tickTimer,1000); syncBtn(); toast('Reprise','g');
 }
-
 function finishTrack(){
-  if(!S.recording) return;
-  const trk=S.tracks[S.currentTrack];
-  trk.endTs=Date.now();
+  if(!S.recording)return;
+  const t=S.tracks[S.curTrack]; t.endTs=Date.now();
   S.recording=false; S.paused=false;
-  clearInterval(S.recInterval);
-  document.getElementById('track-name').value='';
-  document.getElementById('stat-pts').textContent='0';
-  document.getElementById('stat-dist').textContent='0';
-  document.getElementById('stat-time').textContent='00:00';
-  syncRecButtons();
-  if(TMAP_INIT) refreshTerrainMap();
-  showToast(`Tronçon "${trk.name}" sauvegardé (${trk.pts.length} pts)`,'green');
-  saveLocal();
+  clearInterval(S.recTimer);
+  document.getElementById('trk-name').value='';
+  document.getElementById('s-pts').textContent='0';
+  document.getElementById('s-dst').textContent='0';
+  document.getElementById('s-tim').textContent='00:00';
+  syncBtn(); refreshMap(); save();
+  toast(`"${t.name}" sauvegardé (${t.pts.length} pts)`,'g');
 }
-
-function updateTimer(){
-  const elapsed = S.recElapsed+(Date.now()-S.recStartTs);
-  const s=Math.floor(elapsed/1000), m=Math.floor(s/60);
-  document.getElementById('stat-time').textContent=
-    String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+function syncBtn(){
+  const b=document.getElementById('btn-rec');
+  const f=document.getElementById('btn-finish');
+  document.getElementById('ri').textContent=!S.recording?'⏺':S.paused?'▶':'⏸';
+  document.getElementById('rl').textContent=!S.recording?' Enregistrer un tronçon':S.paused?' Reprendre':' Pause';
+  b.className=!S.recording?'':S.paused?'pause':'on';
+  if(f) f.style.display=S.recording?'block':'none';
 }
-
-function updateTrackStats(){
-  if(S.currentTrack===null) return;
-  const trk=S.tracks[S.currentTrack];
-  document.getElementById('stat-pts').textContent=trk.pts.length;
-  if(trk.pts.length>=2){
-    let d=0;
-    for(let i=1;i<trk.pts.length;i++) d+=haversine(trk.pts[i-1],trk.pts[i]);
-    document.getElementById('stat-dist').textContent=Math.round(d);
+function tickTimer(){
+  const e=S.recElapsed+(Date.now()-S.recStart);
+  const s=Math.floor(e/1000),m=Math.floor(s/60);
+  document.getElementById('s-tim').textContent=String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+function updateTrkStats(){
+  if(S.curTrack===null)return;
+  const t=S.tracks[S.curTrack];
+  document.getElementById('s-pts').textContent=t.pts.length;
+  if(t.pts.length>=2){
+    let d=0; for(let i=1;i<t.pts.length;i++)d+=hav(t.pts[i-1],t.pts[i]);
+    document.getElementById('s-dst').textContent=Math.round(d);
   }
 }
 
-function haversine(a,b){
-  const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180;
-  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
-}
-
-// ══════════════════════════════════════════════
-// WAYPOINTS — MOYENNAGE GPS
-// ══════════════════════════════════════════════
-const AVG = {
-  samples:     [],   // [{lat,lon,acc}] accumulées
-  target:      8,    // nb de mesures cible
-  maxAcc:      20,   // seuil max pour inclure une mesure (m)
-  type:        null,
-  active:      false,
-  watchCb:     null, // callback branché sur watchPosition
-};
-
-function openWptModal(type){
-  if(!S.pos){ showToast('Attendez le signal GPS','amber'); return; }
-  // Démarrer la capture par moyennage
-  startAvgCapture(type);
-}
-
-function startAvgCapture(type){
-  AVG.type   = type;
-  AVG.active = true;
-  AVG.samples = [];
-
-  // Ajouter immédiatement la position courante si acceptable
-  if(S.accuracy <= AVG.maxAcc){
-    AVG.samples.push({lat:S.pos.lat, lon:S.pos.lon, acc:S.accuracy});
-  }
-
-  // Afficher la modale de progression
-  document.getElementById('avg-title').textContent =
-    '📍 Capture — '+TYPE_LABELS[type];
+// ══════════════════════════════
+// CAPTURE WAYPOINT + MOYENNAGE
+// ══════════════════════════════
+function startCapture(type){
+  if(!S.pos){toast('Attendez le GPS','a');return;}
+  AVG.type=type; AVG.active=true; AVG.samples=[];
+  if(S.acc<=AVG.maxAcc) AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
+  document.getElementById('avg-title').textContent='Capture — '+LABELS[type];
   document.getElementById('avg-modal').classList.add('open');
-  updateAvgProgress();
-
-  // Branchement sur les nouvelles positions GPS
-  AVG.watchCb = (pos)=>{
-    if(!AVG.active) return;
-    const acc = Math.round(pos.coords.accuracy);
-    // N'inclure que les mesures suffisamment précises
-    if(acc <= AVG.maxAcc){
-      AVG.samples.push({
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        acc
-      });
-      updateAvgProgress();
-      // Auto-valider quand on atteint la cible
-      if(AVG.samples.length >= AVG.target){
-        validateAvgCapture();
-      }
-    }
-  };
-  // On réutilise watchPosition déjà actif via un event listener supplémentaire
-  navigator.geolocation.watchPosition(
-    AVG.watchCb,
-    ()=>{},
-    {enableHighAccuracy:true, timeout:30000, maximumAge:1000}
-  );
+  updateAvgUI();
 }
-
-function updateAvgProgress(){
-  const n    = AVG.samples.length;
-  const tot  = AVG.target;
-  const pct  = Math.min(100, Math.round((n/tot)*100));
-
-  // Calculer la précision moyenne des mesures accumulées
-  const avgAcc = n > 0
-    ? Math.round(AVG.samples.reduce((s,p)=>s+p.acc,0)/n)
-    : null;
-
-  // Couleur selon la qualité
-  const color = pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#60a5fa';
-
-  document.getElementById('avg-progress-bar-fill').style.width  = pct+'%';
-  document.getElementById('avg-progress-bar-fill').style.background = color;
-  document.getElementById('avg-stat-samples').textContent = n+' / '+tot+' mesures';
-  document.getElementById('avg-stat-acc').textContent = avgAcc ? '±'+avgAcc+' m (moy.)' : '±— m';
-
-  // Activer "Forcer" dès qu'on a au moins 1 mesure
-  const forceBtn = document.getElementById('avg-btn-force');
-  if(n >= 1){
-    forceBtn.disabled = false;
-    forceBtn.style.opacity = '1';
-    forceBtn.textContent = '⚡ Forcer ('+n+' mesure'+(n>1?'s':'')+')';
-  } else {
-    forceBtn.disabled = true;
-    forceBtn.style.opacity = '.4';
-    forceBtn.textContent = '⚡ Forcer';
-  }
+function updateAvgUI(){
+  const n=AVG.samples.length, t=AVG.target;
+  const pct=Math.min(100,Math.round(n/t*100));
+  const avgAcc=n>0?Math.round(AVG.samples.reduce((s,p)=>s+p.acc,0)/n):null;
+  const color=pct>=100?'#22c55e':pct>=50?'#f59e0b':'#60a5fa';
+  document.getElementById('avg-prog-fill').style.width=pct+'%';
+  document.getElementById('avg-prog-fill').style.background=color;
+  document.getElementById('avg-n').textContent=n+'/'+t+' mesures';
+  document.getElementById('avg-acc').textContent=avgAcc?'±'+avgAcc+' m (moy)':'±— m';
+  const fb=document.getElementById('avg-force');
+  fb.disabled=n<1; fb.style.opacity=n>=1?'1':'.4';
+  if(n>=1) fb.textContent='⚡ Forcer ('+n+')';
 }
-
-function computeAvgPos(){
-  // Moyenne pondérée par l'inverse de la précision (mesures précises = plus de poids)
-  const samples = AVG.samples;
-  if(samples.length === 0) return null;
-  let wLat=0, wLon=0, wSum=0;
-  for(const s of samples){
-    const w = 1 / Math.max(1, s.acc); // poids = 1/précision
-    wLat += s.lat * w;
-    wLon += s.lon * w;
-    wSum += w;
-  }
-  const lat = wLat / wSum;
-  const lon = wLon / wSum;
-  // Précision estimée de la moyenne = précision_moy / sqrt(n)
-  const meanAcc = samples.reduce((s,p)=>s+p.acc,0)/samples.length;
-  const estAcc  = Math.round(meanAcc / Math.sqrt(samples.length));
-  return {lat, lon, acc: estAcc};
-}
-
-function validateAvgCapture(){
-  const pos = computeAvgPos();
-  if(!pos) return;
-  AVG.active = false;
+function commitAvg(){
+  const s=AVG.samples;
+  if(s.length===0)return;
+  let wlat=0,wlon=0,ws=0;
+  s.forEach(p=>{const w=1/Math.max(1,p.acc);wlat+=p.lat*w;wlon+=p.lon*w;ws+=w;});
+  const meanAcc=s.reduce((a,p)=>a+p.acc,0)/s.length;
+  AVG.active=false;
   document.getElementById('avg-modal').classList.remove('open');
-  // Ouvrir la modale de saisie avec la position moyennée
-  openWptFormWithPos(AVG.type, pos);
+  openWptForm(AVG.type,{lat:wlat/ws,lon:wlon/ws,acc:Math.round(meanAcc/Math.sqrt(s.length))});
 }
-
-function forceAvgCapture(){
-  if(AVG.samples.length === 0){
-    // Aucune mesure acceptable — utiliser la position courante avec avertissement
-    if(S.pos){
-      AVG.samples.push({lat:S.pos.lat, lon:S.pos.lon, acc:S.accuracy});
-    } else { return; }
-  }
-  validateAvgCapture();
+function forceAvg(){
+  if(AVG.samples.length===0&&S.pos) AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc||99});
+  commitAvg();
 }
-
-function cancelAvgCapture(){
-  AVG.active = false;
-  AVG.samples = [];
-  AVG.type = null;
+function cancelAvg(){
+  AVG.active=false; AVG.samples=[]; AVG.type=null;
   document.getElementById('avg-modal').classList.remove('open');
 }
-
-function openWptFormWithPos(type, pos){
-  S.pendingType = type;
-  S.pendingPos  = pos; // position moyennée — utilisée dans saveWpt
-  document.getElementById('modal-title').textContent = TYPE_LABELS[type]||type;
-  // Afficher la précision estimée avec indicateur qualité
-  const qualLabel = pos.acc <= 3 ? '✓ Excellente' : pos.acc <= 5 ? '✓ Bonne' : pos.acc <= 10 ? '⚠ Acceptable' : '⚠ Dégradée';
-  document.getElementById('modal-coords').textContent =
-    pos.lat.toFixed(6)+', '+pos.lon.toFixed(6)+
-    ' · ±'+pos.acc+' m — '+qualLabel+
-    ' ('+AVG.samples.length+' mes.)';
-  document.getElementById('wpt-name').value='';
-  document.getElementById('wpt-desc').value='';
-  const selEl = document.getElementById('wpt-subtype');
-  selEl.innerHTML = (SUBTYPES[type]||['AUTRE']).map(v=>`<option>${v}</option>`).join('');
+function openWptForm(type, pos){
+  S.pendingType=type; S.pendingPos=pos;
+  const q=pos.acc<=3?'✓ Excellente':pos.acc<=5?'✓ Bonne':pos.acc<=10?'⚠ Acceptable':'⚠ Dégradée';
+  document.getElementById('wm-title').textContent=LABELS[type];
+  document.getElementById('wm-coords').textContent=pos.lat.toFixed(6)+', '+pos.lon.toFixed(6)+' · ±'+pos.acc+' m — '+q+' ('+AVG.samples.length+' mes.)';
+  document.getElementById('wm-name').value='';
+  document.getElementById('wm-desc').value='';
+  document.getElementById('wm-sub').innerHTML=(SUBS[type]||['AUTRE']).map(v=>`<option>${v}</option>`).join('');
   document.getElementById('wpt-modal').classList.add('open');
-  setTimeout(()=>document.getElementById('wpt-name').focus(),120);
+  setTimeout(()=>document.getElementById('wm-name').focus(),100);
 }
-
 function closeWptModal(){
   document.getElementById('wpt-modal').classList.remove('open');
-  S.pendingType = null;
-  S.pendingPos  = null;
+  S.pendingType=null; S.pendingPos=null;
 }
-
 function saveWpt(){
-  if(!S.pendingType) return;
-  const pos = S.pendingPos || S.pos; // position moyennée ou courante
-  if(!pos) return;
+  if(!S.pendingType||!S.pendingPos)return;
   const w={
-    id:      crypto.randomUUID ? crypto.randomUUID() : 'wpt-'+Date.now(),
-    lat:     pos.lat,
-    lon:     pos.lon,
-    acc:     pos.acc || S.accuracy,
-    ts:      Date.now(),
-    type:    S.pendingType,
-    name:    document.getElementById('wpt-name').value.trim() || TYPE_LABELS[S.pendingType],
-    subtype: document.getElementById('wpt-subtype').value,
-    desc:    document.getElementById('wpt-desc').value.trim(),
-    samples: AVG.samples.length, // conserver le nb de mesures dans les métadonnées
+    id:crypto.randomUUID?crypto.randomUUID():'w'+Date.now(),
+    lat:S.pendingPos.lat, lon:S.pendingPos.lon, acc:S.pendingPos.acc,
+    ts:Date.now(), type:S.pendingType,
+    name:document.getElementById('wm-name').value.trim()||LABELS[S.pendingType],
+    subtype:document.getElementById('wm-sub').value,
+    desc:document.getElementById('wm-desc').value.trim(),
+    samples:AVG.samples.length
   };
   S.waypoints.push(w);
-  closeWptModal();
-  showToast('📍 '+w.name+' (±'+w.acc+' m)','green');
-  if(TMAP_INIT) refreshTerrainMap();
-  saveLocal();
+  closeWptModal(); refreshMap(); save();
+  toast('📍 '+w.name+' ±'+w.acc+'m','g');
 }
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════
 // LISTE POINTS
-// ══════════════════════════════════════════════
-function renderPointsList(){
-  const el=document.getElementById('points-list');
+// ══════════════════════════════
+function renderPts(){
+  const el=document.getElementById('pts-list');
   const all=[
-    ...S.waypoints.map(w=>({...w,_kind:'wpt'})),
-    ...S.tracks.map((t,i)=>({...t,_kind:'trk',_idx:i})),
+    ...S.waypoints.map(w=>({...w,_k:'w'})),
+    ...S.tracks.map((t,i)=>({...t,_k:'t',_i:i}))
   ].sort((a,b)=>(a.ts||a.startTs)-(b.ts||b.startTs));
-
-  if(all.length===0){
-    el.innerHTML='<div class="empty-msg">Aucun point ni tronçon enregistré.<br>Allez dans l\'onglet Capture.</div>';
-    return;
-  }
-  el.innerHTML=all.map((obj,i)=>{
-    if(obj._kind==='wpt'){
-      const c=TYPE_COLORS[obj.type]||'#888';
-      return `<div class="wpt-list-item">
-        <div class="wpt-dot" style="background:${c}"></div>
-        <div class="wpt-info" onclick="editWpt('${obj.id}')" style="cursor:pointer">
-          <div class="wpt-name">${esc(obj.name)}</div>
-          <div class="wpt-meta">${obj.lat.toFixed(5)}, ${obj.lon.toFixed(5)} · ${obj.subtype||obj.type}</div>
-          ${obj.desc?`<div class="wpt-meta" style="color:var(--txt2)">${esc(obj.desc)}</div>`:''}
+  if(!all.length){el.innerHTML='<div class="empty">Aucun point enregistré.<br>Allez dans Terrain pour commencer.</div>';return;}
+  el.innerHTML=all.map(obj=>{
+    if(obj._k==='w'){
+      const c=COLORS[obj.type]||'#888';
+      return `<div class="wpt-item">
+        <div class="wdot" style="background:${c}"></div>
+        <div class="winfo" onclick="editWpt('${obj.id}')" style="cursor:pointer">
+          <div class="wname">${esc(obj.name)}</div>
+          <div class="wmeta">${obj.lat.toFixed(5)}, ${obj.lon.toFixed(5)} · ${obj.subtype||obj.type}</div>
+          ${obj.desc?`<div class="wdesc">${esc(obj.desc)}</div>`:''}
         </div>
-        <button class="wpt-del" style="color:var(--acc2);font-size:16px;margin-right:4px" onclick="editWpt('${obj.id}')">✏</button>
-        <button class="wpt-del" onclick="delWpt('${obj.id}')">✕</button>
+        <button class="wbtn" onclick="editWpt('${obj.id}')" style="color:var(--acc2)">✏</button>
+        <button class="wbtn" onclick="delWpt('${obj.id}')">✕</button>
       </div>`;
     } else {
-      const d = obj.pts&&obj.pts.length>=2 ? Math.round(obj.pts.reduce((s,p,i)=>i?s+haversine(obj.pts[i-1],p):0,0)) : 0;
-      return `<div class="wpt-list-item" style="border-color:#4ade8055">
-        <div class="wpt-dot" style="background:#4ade80;border-radius:2px;width:18px;height:5px"></div>
-        <div class="wpt-info" onclick="editTrackName(${obj._idx})" style="cursor:pointer">
-          <div class="wpt-name">${esc(obj.name)}</div>
-          <div class="wpt-meta">${obj.pts?obj.pts.length:0} pts · ${d} m · troncon_cheminement</div>
+      const d=obj.pts&&obj.pts.length>=2?Math.round(obj.pts.reduce((s,p,i)=>i?s+hav(obj.pts[i-1],p):0,0)):0;
+      return `<div class="wpt-item" style="border-color:#4ade8055">
+        <div class="wdot" style="background:#4ade80;border-radius:2px;width:18px;height:5px"></div>
+        <div class="winfo" onclick="editTrk(${obj._i})" style="cursor:pointer">
+          <div class="wname">${esc(obj.name)}</div>
+          <div class="wmeta">${obj.pts?obj.pts.length:0} pts · ${d} m</div>
         </div>
-        <button class="wpt-del" style="color:var(--acc2);font-size:16px;margin-right:4px" onclick="editTrackName(${obj._idx})">✏</button>
-        <button class="wpt-del" onclick="delTrack(${obj._idx})">✕</button>
+        <button class="wbtn" onclick="editTrk(${obj._i})" style="color:var(--acc2)">✏</button>
+        <button class="wbtn" onclick="delTrk(${obj._i})">✕</button>
       </div>`;
     }
   }).join('');
 }
-
-function delWpt(id){
-  if(!confirm('Supprimer ce point ?')) return;
-  S.waypoints=S.waypoints.filter(w=>w.id!==id);
-  renderPointsList(); saveLocal();
-}
-function delTrack(idx){
-  if(!confirm('Supprimer ce tronçon ?')) return;
-  S.tracks.splice(idx,1);
-  renderPointsList(); saveLocal();
+function delWpt(id){if(!confirm('Supprimer ?'))return;S.waypoints=S.waypoints.filter(w=>w.id!==id);renderPts();save();}
+function delTrk(i){if(!confirm('Supprimer ?'))return;S.tracks.splice(i,1);renderPts();save();}
+function editTrk(i){
+  const n=prompt('Nom du tronçon :',S.tracks[i].name);
+  if(n===null)return; S.tracks[i].name=n.trim()||S.tracks[i].name;
+  renderPts(); save(); toast('Renommé','g');
 }
 
-// ══════════════════════════════════════════════
-// ÉDITION APRÈS COUP
-// ══════════════════════════════════════════════
-let EDIT_ID = null; // id du waypoint en cours d'édition
-
+// ── Édition waypoint ──
 function editWpt(id){
-  const w = S.waypoints.find(x=>x.id===id);
-  if(!w) return;
-  EDIT_ID = id;
-
-  // Coordonnées
-  document.getElementById('edit-coords').textContent =
-    w.lat.toFixed(6)+', '+w.lon.toFixed(6)+
-    (w.acc?' · ±'+w.acc+' m':'');
-
-  // Sélectionner le type courant
-  document.querySelectorAll('#edit-type-selector .type-opt').forEach(el=>{
-    el.classList.toggle('selected', el.dataset.type === w.type);
-  });
-
-  // Peupler les sous-types selon le type courant
-  populateEditSubtypes(w.type, w.subtype);
-
-  // Remplir nom et remarque
-  document.getElementById('edit-name').value = w.name || '';
-  document.getElementById('edit-desc').value = w.desc || '';
-
+  const w=S.waypoints.find(x=>x.id===id); if(!w)return;
+  EDIT_ID=id;
+  document.getElementById('em-coords').textContent=w.lat.toFixed(6)+', '+w.lon.toFixed(6)+(w.acc?' · ±'+w.acc+'m':'');
+  document.querySelectorAll('#em-types .topt').forEach(el=>el.classList.toggle('sel',el.dataset.t===w.type));
+  fillEditSubs(w.type,w.subtype);
+  document.getElementById('em-name').value=w.name||'';
+  document.getElementById('em-desc').value=w.desc||'';
   document.getElementById('edit-modal').classList.add('open');
-  setTimeout(()=>document.getElementById('edit-name').focus(), 120);
 }
-
-function selectEditType(type, el){
-  document.querySelectorAll('#edit-type-selector .type-opt').forEach(o=>o.classList.remove('selected'));
-  el.classList.add('selected');
-  populateEditSubtypes(type, null);
+function pickType(t,el){
+  document.querySelectorAll('#em-types .topt').forEach(e=>e.classList.remove('sel'));
+  el.classList.add('sel'); fillEditSubs(t,null);
 }
-
-function populateEditSubtypes(type, currentSubtype){
-  const sel = document.getElementById('edit-subtype');
-  const opts = SUBTYPES[type] || ['AUTRE'];
-  sel.innerHTML = opts.map(v=>
-    `<option ${v===currentSubtype?'selected':''}>${v}</option>`
-  ).join('');
+function fillEditSubs(type,cur){
+  document.getElementById('em-sub').innerHTML=(SUBS[type]||['AUTRE']).map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');
 }
-
-function closeEditModal(){
-  document.getElementById('edit-modal').classList.remove('open');
-  EDIT_ID = null;
-}
-
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');EDIT_ID=null;}
 function saveEdit(){
-  if(!EDIT_ID) return;
-  const idx = S.waypoints.findIndex(x=>x.id===EDIT_ID);
-  if(idx < 0) return;
-
-  const selType = document.querySelector('#edit-type-selector .type-opt.selected');
-  const newType = selType ? selType.dataset.type : S.waypoints[idx].type;
-
-  S.waypoints[idx] = {
-    ...S.waypoints[idx],
-    type:    newType,
-    subtype: document.getElementById('edit-subtype').value,
-    name:    document.getElementById('edit-name').value.trim() || S.waypoints[idx].name,
-    desc:    document.getElementById('edit-desc').value.trim(),
-  };
-
-  closeEditModal();
-  renderPointsList();
-  saveLocal();
-  showToast('Point mis à jour','green');
+  if(!EDIT_ID)return;
+  const i=S.waypoints.findIndex(x=>x.id===EDIT_ID); if(i<0)return;
+  const t=document.querySelector('#em-types .topt.sel')?.dataset.t||S.waypoints[i].type;
+  S.waypoints[i]={...S.waypoints[i],type:t,subtype:document.getElementById('em-sub').value,
+    name:document.getElementById('em-name').value.trim()||S.waypoints[i].name,
+    desc:document.getElementById('em-desc').value.trim()};
+  closeEditModal(); renderPts(); refreshMap(); save(); toast('Modifié','g');
 }
 
-// Édition rapide du nom d'un tronçon
-function editTrackName(idx){
-  const trk = S.tracks[idx];
-  if(!trk) return;
-  const newName = prompt('Nom du tronçon :', trk.name);
-  if(newName === null) return; // annulé
-  S.tracks[idx].name = newName.trim() || trk.name;
-  renderPointsList();
-  saveLocal();
-  showToast('Tronçon renommé','green');
-}
-
-// ══════════════════════════════════════════════
-// EXPORT GPX
-// ══════════════════════════════════════════════
-function exportGPX(){
-  if(S.waypoints.length===0 && S.tracks.length===0){
-    showToast('Rien à exporter','amber'); return;
-  }
-  const ts=new Date().toISOString();
-  let gpx=`<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Recensement Terrain LDM"
-  xmlns="http://www.topografix.com/GPX/1/1">
-<metadata>
-  <name>Session CNIG Accessibilite</name>
-  <time>${ts}</time>
-  <desc>Collecte terrain - ${S.waypoints.length} waypoints, ${S.tracks.length} troncons</desc>
-</metadata>\n`;
-
-  for(const w of S.waypoints){
-    const gpxName=`[${w.type.toUpperCase()}] ${w.name}`;
-    const desc=[w.subtype, w.desc].filter(Boolean).join(' | ');
-    gpx+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">
-  <name>${xmlEsc(gpxName)}</name>
-  <desc>${xmlEsc(desc)}</desc>
-  <time>${new Date(w.ts).toISOString()}</time>
-</wpt>\n`;
-  }
-
-  for(const trk of S.tracks){
-    if(!trk.pts||trk.pts.length<2) continue;
-    gpx+=`<trk>
-  <name>${xmlEsc(trk.name)}</name>
-  <trkseg>\n`;
-    for(const p of trk.pts){
-      gpx+=`    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">`;
-      if(p.ts) gpx+=`<time>${new Date(p.ts).toISOString()}</time>`;
-      gpx+=`</trkpt>\n`;
-    }
-    gpx+=`  </trkseg>\n</trk>\n`;
-  }
-  gpx+='</gpx>';
-
-  const fname=`CNIG_terrain_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`;
-  downloadText(gpx,'application/gpx+xml',fname,'GPX exporte');
-}
-
-// ══════════════════════════════════════════════
-// SAUVEGARDE SESSION JSON
-// ══════════════════════════════════════════════
-function exportJSON(){
-  const data=JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,exportedAt:Date.now()},null,2);
-  const fname=`session_cnig_${new Date().toISOString().slice(0,10)}.json`;
-  downloadText(data,'application/json',fname,'Session sauvegardée');
-  showToast('Session sauvegardée','green');
-}
-
-function loadSession(){
-  const inp=document.createElement('input');
-  inp.type='file'; inp.accept='.json';
-  inp.onchange=e=>{
-    const file=e.target.files[0]; if(!file) return;
-    const rd=new FileReader();
-    rd.onload=ev=>{
-      try{
-        const d=JSON.parse(ev.target.result);
-        if(!d.waypoints||!d.tracks) throw new Error('Format invalide');
-        S.waypoints=d.waypoints||[];
-        S.tracks=d.tracks||[];
-        saveLocal();
-        renderPointsList();
-        renderExportStats();
-        showToast(`Session chargée — ${S.waypoints.length} pts, ${S.tracks.length} tronçons`,'green');
-      }catch(err){ showToast('Fichier invalide : '+err.message,'red'); }
-    };
-    rd.readAsText(file);
-  };
-  inp.click();
-}
-
-function resetSession(){
-  if(!confirm('Effacer toute la session ? Cette action est irréversible.')) return;
-  S.waypoints=[]; S.tracks=[];
-  localStorage.removeItem('cnig_terrain_session');
-  renderPointsList(); renderExportStats();
-  showToast('Session réinitialisée','amber');
-}
-
-// ══════════════════════════════════════════════
-// STATS EXPORT
-// ══════════════════════════════════════════════
-function renderExportStats(){
+// ══════════════════════════════
+// EXPORT
+// ══════════════════════════════
+function renderExp(){
   const counts={};
   S.waypoints.forEach(w=>counts[w.type]=(counts[w.type]||0)+1);
-  const chips=Object.entries(counts).map(([t,n])=>`
-    <div class="stat-chip">
-      <span class="n" style="color:${TYPE_COLORS[t]||'#888'}">${n}</span>
-      <span style="font-size:12px;color:var(--txt2)">${TYPE_LABELS[t]||t}</span>
-    </div>`).join('');
-  const trkChip=S.tracks.length?`<div class="stat-chip">
-    <span class="n" style="color:#4ade80">${S.tracks.length}</span>
-    <span style="font-size:12px;color:var(--txt2)">tronçons</span>
-  </div>`:'';
-  document.getElementById('export-stats').innerHTML=
-    chips+trkChip||(chips+trkChip?'':'<span style="color:var(--txt3);font-size:13px">Aucune donnée</span>');
+  document.getElementById('exp-stats').innerHTML=
+    Object.entries(counts).map(([t,n])=>`<div class="stat-chip"><span class="n" style="color:${COLORS[t]||'#888'}">${n}</span><span style="font-size:12px;color:var(--txt2)">${LABELS[t]||t}</span></div>`).join('')+
+    (S.tracks.length?`<div class="stat-chip"><span class="n" style="color:#4ade80">${S.tracks.length}</span><span style="font-size:12px;color:var(--txt2)">tronçons</span></div>`:'');
+}
+function exportGPX(){
+  if(!S.waypoints.length&&!S.tracks.length){toast('Rien à exporter','a');return;}
+  const ts=new Date().toISOString();
+  let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Recensement Terrain LDM" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><n>Session LDM</n><time>${ts}</time></metadata>\n`;
+  S.waypoints.forEach(w=>{
+    const name=`[${w.type.toUpperCase()}] ${w.name}`;
+    const desc=[w.subtype,w.desc].filter(Boolean).join(' | ');
+    g+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n  <n>${xe(name)}</n>\n  <desc>${xe(desc)}</desc>\n  <time>${new Date(w.ts).toISOString()}</time>\n</wpt>\n`;
+  });
+  S.tracks.forEach(t=>{
+    if(!t.pts||t.pts.length<2)return;
+    g+=`<trk>\n  <n>${xe(t.name)}</n>\n  <trkseg>\n`;
+    t.pts.forEach(p=>{g+=`    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><time>${new Date(p.ts).toISOString()}</time></trkpt>\n`;});
+    g+=`  </trkseg>\n</trk>\n`;
+  });
+  g+='</gpx>';
+  dl(g,'application/gpx+xml',`LDM_terrain_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,'GPX exporté');
+}
+function exportJSON(){
+  dl(JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,v:1},null,2),'application/json',`session_ldm_${new Date().toISOString().slice(0,10)}.json`,'Session sauvegardée');
+}
+function loadSession(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();r.onload=ev=>{
+      try{const d=JSON.parse(ev.target.result);if(!d.waypoints)throw 0;
+        S.waypoints=d.waypoints||[];S.tracks=d.tracks||[];save();renderPts();renderExp();
+        toast(`${S.waypoints.length} pts, ${S.tracks.length} tronçons chargés`,'g');
+      }catch(e){toast('Fichier invalide','r');}
+    };r.readAsText(f);
+  };inp.click();
+}
+function resetSession(){
+  if(!confirm('Effacer toute la session ?'))return;
+  S.waypoints=[];S.tracks=[];localStorage.removeItem('ldm_session');
+  renderPts();renderExp();refreshMap();toast('Session effacée','a');
 }
 
-// ══════════════════════════════════════════════
-// PERSISTANCE LOCALE
-// ══════════════════════════════════════════════
-function saveLocal(){
-  try{
-    localStorage.setItem('cnig_terrain_session',
-      JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,savedAt:Date.now()}));
-  }catch(e){}
-}
-
-function loadLocal(){
-  try{
-    const raw=localStorage.getItem('cnig_terrain_session');
-    if(!raw) return;
-    const d=JSON.parse(raw);
-    S.waypoints=d.waypoints||[];
-    S.tracks=d.tracks||[];
-    if(S.waypoints.length||S.tracks.length){
-      showToast(`Session restaurée — ${S.waypoints.length} pts, ${S.tracks.length} tronçons`,'amber');
+// ══════════════════════════════
+// PERSISTANCE
+// ══════════════════════════════
+function save(){try{localStorage.setItem('ldm_session',JSON.stringify({waypoints:S.waypoints,tracks:S.tracks}));}catch(e){}}
+function load(){
+  try{const d=JSON.parse(localStorage.getItem('ldm_session')||'null');
+    if(d){S.waypoints=d.waypoints||[];S.tracks=d.tracks||[];
+      if(S.waypoints.length||S.tracks.length) toast(`Session restaurée — ${S.waypoints.length} pts, ${S.tracks.length} tronçons`,'a');
     }
   }catch(e){}
 }
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════
 // UTILS
-// ══════════════════════════════════════════════
-function xmlEsc(s){
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function esc(s){
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-// ══════════════════════════════════════════════
-// TÉLÉCHARGEMENT — compatible iOS + Android
-// ══════════════════════════════════════════════
-async function downloadText(content, mime, filename, toastMsg){
-  const blob = new Blob([content], {type: mime});
+// ══════════════════════════════
+function hav(a,b){const R=6371000,dL=(b.lat-a.lat)*Math.PI/180,dO=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function xe(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let _tt;
+function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'');clearTimeout(_tt);_tt=setTimeout(()=>t.className='',2600);}
 
-  // iOS Safari : Web Share API avec fichier (iOS 15+)
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  if(isIOS){
-    // Tentative 1 : Web Share API (partage natif iOS → Fichiers, AirDrop, Mail…)
-    if(navigator.canShare && navigator.canShare({files:[new File([blob],filename,{type:mime})]})){
-      try{
-        await navigator.share({files:[new File([blob],filename,{type:mime})], title:'Recensement Terrain LDM — '+filename});
-        if(toastMsg) showToast(toastMsg,'green');
-        return;
-      }catch(e){
-        if(e.name==='AbortError') return; // Utilisateur a annulé
-        // Continuer vers le fallback
-      }
-    }
-    // Tentative 2 : ouvrir dans un nouvel onglet (Safari affiche le fichier → partager depuis là)
-    const url = URL.createObjectURL(blob);
-    showShareModal(url, filename, content);
-    return;
+async function dl(content,mime,filename,msg){
+  const blob=new Blob([content],{type:mime});
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  if(ios&&navigator.canShare&&navigator.canShare({files:[new File([blob],filename,{type:mime})]})){
+    try{await navigator.share({files:[new File([blob],filename,{type:mime})],title:filename});if(msg)toast(msg,'g');return;}catch(e){if(e.name==='AbortError')return;}
   }
-
-  // Android / Desktop : téléchargement standard
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  if(toastMsg) showToast(toastMsg,'green');
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  if(msg)toast(msg,'g');
 }
 
-// Modal de partage iOS fallback (affiche le texte pour copier ou ouvrir)
-function showShareModal(url, filename, content){
-  // Ouvrir dans un nouvel onglet : sur iOS, l'utilisateur peut ensuite
-  // appuyer sur le bouton Partage ↑ → "Enregistrer dans Fichiers"
-  const w = window.open(url, '_blank');
-  if(!w){
-    // Popup bloqué → afficher le contenu dans une modale de copie
-    showCopyFallback(content, filename);
-  } else {
-    showToast('Fichier ouvert — appuyez sur ↑ Partager → "Enregistrer dans Fichiers"','amber');
-  }
-}
-
-function showCopyFallback(content, filename){
-  const overlay = document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:#000c;z-index:500;display:flex;align-items:flex-end;padding:0';
-  overlay.innerHTML=`
-    <div style="background:var(--bg1);border-top:1px solid var(--brd2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:70vh;overflow-y:auto">
-      <div style="font-weight:700;margin-bottom:8px;font-size:15px">Copier le contenu — ${filename}</div>
-      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Copiez ce texte, ouvrez l'app Fichiers et créez un fichier .gpx</div>
-      <textarea readonly style="width:100%;height:160px;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:11px;font-family:monospace;padding:8px;margin-bottom:12px">${content.replace(/</g,'&lt;')}</textarea>
-      <div style="display:flex;gap:10px">
-        <button onclick="navigator.clipboard&&navigator.clipboard.writeText(this.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.value);showToast('Copié !','green')" style="flex:1;background:var(--acc);color:#052e16;border-radius:10px;padding:13px;font-size:14px;font-weight:700">⎘ Copier</button>
-        <button onclick="this.closest('div[style]').remove()" style="flex:1;background:var(--bg3);border:1px solid var(--brd2);color:var(--txt);border-radius:10px;padding:13px;font-size:14px">Fermer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
-}
-
-let toastTimer=null;
-function showToast(msg,type=''){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='show '+(type||'');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.className='',2800);
-}
-
-// Fermer modal en cliquant dehors
-document.getElementById('wpt-modal').addEventListener('click',e=>{
-  if(e.target===document.getElementById('wpt-modal')) closeWptModal();
-});
-
-// ══════════════════════════════════════════════
+// ══════════════════════════════
 // INIT
-// ══════════════════════════════════════════════
-loadLocal();
+// ══════════════════════════════
+load();
 startGPS();
-// Init carte au chargement (onglet Terrain actif par défaut)
-window.addEventListener('load', ()=>{ setTimeout(initTerrainMap, 400); });
+// Init carte au démarrage (onglet Terrain actif)
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    initMap();
+    // Ajuster la carte quand le panel change de taille
+    resizeMap();
+    new ResizeObserver(resizeMap).observe(document.getElementById('panel'));
+  },300);
+});
+// Fermer modales en cliquant le fond
+['avg-modal','wpt-modal','edit-modal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{
+    if(e.target===document.getElementById(id)){
+      document.getElementById(id).classList.remove('open');
+      if(id==='avg-modal') cancelAvg();
+    }
+  });
+});
 </script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script>
-// ══════════════════════════════════════════════
-// VUE CAPTURE — TOGGLE FORMULAIRE / CARTE
-// ══════════════════════════════════════════════
-// CMAP merged into TMAP
-// (les variables TMAP_INIT, TMAP_POS_MK, TMAP_LAYERS sont définies plus bas)
-let TMAP_REC_LINE = null; // tracé enregistrement live
-
-function setCaptureView(_){ /* plus de toggle — carte unifiée */ }
-
-// Mettre à jour le tracé live en temps réel pendant l'enregistrement
-function updateTerrainMapTrack(){
-  if(!TMAP_INIT || !S.recording || S.currentTrack===null) return;
-  const trk = S.tracks[S.currentTrack];
-  if(!trk || trk.pts.length < 2) return;
-  const lls = trk.pts.map(p=>[p.lat,p.lon]);
-  if(TMAP_REC_LINE){
-    TMAP_REC_LINE.setLatLngs(lls);
-  } else {
-    TMAP_REC_LINE = L.polyline(lls,{color:'#ef4444',weight:4,opacity:1,dashArray:'6 4'}).addTo(TMAP);
-  }
-  if(S.pos) TMAP.panTo([S.pos.lat,S.pos.lon], {animate:true, duration:.4});
-}
-
-// Synchroniser le bouton d'enregistrement (nouvelle UI unifiée)
-function syncRecButtons(){
-  const btn   = document.getElementById('cap-btn-rec');
-  const icon  = document.getElementById('cap-rec-icon');
-  const label = document.getElementById('cap-rec-label');
-  const fin   = document.getElementById('cap-btn-finish');
-  if(!btn) return;
-  if(!S.recording){
-    btn.className=''; // reset inline
-    btn.removeAttribute('class');
-    btn.id='cap-btn-rec';
-    icon.textContent='⏺'; label.textContent='Enregistrer un tronçon';
-    if(fin) fin.style.display='none';
-  } else if(!S.paused){
-    btn.classList.add('recording');
-    btn.classList.remove('paused');
-    icon.textContent='⏸'; label.textContent='Pause';
-    if(fin) fin.style.display='block';
-  } else {
-    btn.classList.remove('recording');
-    btn.classList.add('paused');
-    icon.textContent='▶'; label.textContent='Reprendre';
-  }
-}
-let TMAP       = null;   // instance Leaflet
-let TMAP_INIT  = false;
-let TMAP_FILTER= 'all';
-let TMAP_LAYERS= [];     // couches actives
-let TMAP_POS_MK= null;   // marqueur position courante
-
-const TMAP_COLORS = {
-  entree:    '#a855f7',
-  equip_comp:'#06b6d4',
-  noeud:     '#60a5fa',
-  autre:     '#f59e0b',
-};
-
-function mkTIcon(color, letter){
-  return L.divIcon({
-    className:'',
-    html:`<div style="width:26px;height:26px;border-radius:50%;
-      background:${color};border:3px solid #fff;
-      box-shadow:0 2px 8px #0009;
-      display:flex;align-items:center;justify-content:center;
-      font-size:11px;font-weight:800;color:#fff">${letter}</div>`,
-    iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-16]
-  });
-}
-
-function mkPosIcon(){
-  return L.divIcon({
-    className:'',
-    html:`<div style="width:18px;height:18px;border-radius:50%;
-      background:#22c55e;border:3px solid #fff;
-      box-shadow:0 0 0 4px #22c55e44;
-      animation:posping 2s infinite"></div>
-      <style>@keyframes posping{0%,100%{box-shadow:0 0 0 4px #22c55e44}50%{box-shadow:0 0 0 8px #22c55e11}}</style>`,
-    iconSize:[18,18], iconAnchor:[9,9]
-  });
-}
-
-function initTerrainMap(){
-  if(!TMAP_INIT){
-    TMAP = L.map('terrain-map',{zoomControl:true, attributionControl:true});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OpenStreetMap', maxZoom:19
-    }).addTo(TMAP);
-    TMAP_INIT = true;
-    // CRITIQUE : empêcher Leaflet d'intercepter les clics sur les panels flottants
-    const panel = document.getElementById('cap-panel');
-    const bar   = document.getElementById('map-bar');
-    const gps   = document.getElementById('cap-gps-bar');
-    [panel, bar].forEach(el=>{
-      if(el){
-        L.DomEvent.disableClickPropagation(el);
-        L.DomEvent.disableScrollPropagation(el);
-      }
-    });
-  }
-  refreshTerrainMap();
-  setTimeout(()=>{ if(TMAP) TMAP.invalidateSize(); }, 300);
-}
-
-function clearTMapLayers(){
-  TMAP_LAYERS.forEach(l=>{ try{ TMAP.removeLayer(l); }catch(e){} });
-  TMAP_LAYERS = [];
-}
-
-function refreshTerrainMap(){
-  if(!TMAP) return;
-  clearTMapLayers();
-  // Supprimer tracé live précédent
-  if(TMAP_REC_LINE){ try{ TMAP.removeLayer(TMAP_REC_LINE); }catch(e){} TMAP_REC_LINE=null; }
-
-  const bounds = [];
-  const f = TMAP_FILTER;
-
-  // ── Tronçons terminés ──
-  if(f==='all' || f==='track'){
-    S.tracks.forEach(trk=>{
-      if(!trk.pts || trk.pts.length < 2) return;
-      const lls = trk.pts.map(p=>[p.lat,p.lon]);
-      const pl = L.polyline(lls,{color:'#4ade80',weight:4,opacity:.9}).addTo(TMAP);
-      pl.bindPopup(`<div class="pop-name">${esc(trk.name)}</div>
-        <div class="pop-type">troncon_cheminement</div>
-        <div class="pop-acc">${trk.pts.length} points</div>`);
-      lls.forEach(ll=>bounds.push(ll));
-      TMAP_LAYERS.push(pl);
-    });
-  }
-
-  // ── Tracé en cours (rouge pointillé) ──
-  if(S.recording && S.currentTrack !== null){
-    const trk = S.tracks[S.currentTrack];
-    if(trk && trk.pts.length >= 2){
-      TMAP_REC_LINE = L.polyline(trk.pts.map(p=>[p.lat,p.lon]),
-        {color:'#ef4444',weight:4,opacity:1,dashArray:'6 4'}).addTo(TMAP);
-    }
-  }
-
-  // ── Waypoints ──
-  const typeLetters = {entree:'E', equip_comp:'I', noeud:'N', autre:'?'};
-  S.waypoints.forEach((w,i)=>{
-    if(f!=='all' && f!==w.type) return;
-    const color  = TMAP_COLORS[w.type] || '#888';
-    const letter = typeLetters[w.type] || '?';
-    const mk = L.marker([w.lat,w.lon],{
-      icon: mkTIcon(color, letter),
-      zIndexOffset: 200
-    }).addTo(TMAP);
-
-    const qualLabel = !w.acc ? '' : w.acc<=3 ? '✓ Excellente' : w.acc<=5 ? '✓ Bonne' : w.acc<=10 ? '⚠ Acceptable' : '⚠ Dégradée';
-    mk.bindPopup(`
-      <div class="pop-name">${esc(w.name)}</div>
-      <div class="pop-type">${w.subtype||w.type}</div>
-      ${w.acc?`<div class="pop-acc">±${w.acc} m — ${qualLabel}</div>`:''}
-      ${w.desc?`<div class="pop-acc" style="margin-top:4px;color:var(--txt)">${esc(w.desc)}</div>`:''}
-      <div style="margin-top:8px">
-        <button onclick="TMAP.closePopup();showTab('points');editWpt('${w.id}')"
-          style="background:var(--bg3);border:1px solid var(--brd2);color:var(--acc2);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">✏ Modifier</button>
-      </div>`);
-    TMAP_LAYERS.push(mk);
-    bounds.push([w.lat,w.lon]);
-  });
-
-  // ── Position GPS courante ──
-  if(S.pos){
-    if(TMAP_POS_MK) try{ TMAP.removeLayer(TMAP_POS_MK); }catch(e){}
-    TMAP_POS_MK = L.marker([S.pos.lat,S.pos.lon],{
-      icon: mkPosIcon(), zIndexOffset:1000
-    }).addTo(TMAP);
-    TMAP_POS_MK.bindTooltip('Vous êtes ici',{permanent:false});
-    bounds.push([S.pos.lat,S.pos.lon]);
-    document.getElementById('cap-gps-acc').textContent =
-      S.pos.lat.toFixed(5)+', '+S.pos.lon.toFixed(5);
-  }
-
-  // Fit bounds
-  if(bounds.length > 0){
-    try{
-      TMAP.fitBounds(bounds,{padding:[40,40],maxZoom:18,animate:true});
-    }catch(e){
-      if(bounds[0]) TMAP.setView(bounds[0],17);
-    }
-  } else {
-    // Aucune donnée : centrer sur la France
-    TMAP.setView([46.8,2.3],6);
-  }
-}
-
-function setMapFilter(f){
-  TMAP_FILTER = f;
-  // Surligner le bouton actif
-  document.querySelectorAll('#map-bar button').forEach(b=>b.classList.remove('active'));
-  const map = {all:'mf-all',entree:'mf-entree',equip_comp:'mf-equip',noeud:'mf-noeud',track:'mf-track'};
-  const btn = document.getElementById(map[f]);
-  if(btn) btn.classList.add('active');
-  refreshTerrainMap();
-}
-
-// Rafraîchir la carte quand un point est ajouté ou modifié
-const _origSaveWpt = saveWpt;
-saveWpt = function(){
-  _origSaveWpt();
-  if(TMAP_INIT) refreshTerrainMap();
-};
-const _origSaveLocal = saveLocal;
-saveLocal = function(){
-  _origSaveLocal();
-  // Si la carte est visible, la rafraîchir
-  if(TMAP_INIT && document.getElementById('pane-terrain').classList.contains('active')){
-    refreshTerrainMap();
-  }
-};
-</script>
-
-<!-- Service Worker — cache hors ligne -->
 <script>
 if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
+  window.addEventListener('load',()=>{
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => {
-        console.log('SW enregistré :', reg.scope);
-        // Notifier l'utilisateur quand une mise à jour est disponible
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          nw.addEventListener('statechange', () => {
-            if(nw.state === 'installed' && navigator.serviceWorker.controller){
-              showToast('Mise à jour disponible — relancez l\'app','amber');
-            }
-          });
-        });
-      })
-      .catch(err => console.warn('SW non enregistré :', err));
+      .then(r=>r.addEventListener('updatefound',()=>toast('Mise à jour disponible — relancez','a')))
+      .catch(()=>{});
   });
 }
 </script>
