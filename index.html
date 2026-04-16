@@ -37,9 +37,13 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   height:100dvh;height:100vh
 }
 #topbar{
-  flex-shrink:0;height:48px;
+  flex-shrink:0;
+  /* Hauteur de base 48px + safe area top (notch/barre de statut iOS) */
+  height:calc(48px + env(safe-area-inset-top, 0px));
+  padding-top:env(safe-area-inset-top, 0px);
   background:var(--bg1);border-bottom:1px solid var(--brd);
-  padding:0 16px;display:flex;align-items:center;gap:10px;
+  padding-left:16px;padding-right:16px;
+  display:flex;align-items:flex-end;padding-bottom:8px;gap:10px;
   z-index:600;position:relative
 }
 .app-title{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--acc)}
