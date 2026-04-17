@@ -55,7 +55,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 }}
 
 /* Carte */
-#map{position:absolute;inset:0;bottom:130px}
+#map{position:absolute;inset:0;bottom:130px;min-height:200px}
 
 /* ── Barre GPS — top, pleine largeur ── */
 #gps-bar{
@@ -965,9 +965,10 @@ let GPS_LAST_MAP = 0; // timestamp dernier rafraîchissement carte
 
 function startGPS(){
   if(!navigator.geolocation){toast('GPS non disponible','r');return;}
-  const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
-  dot.className='wait'; txt.textContent='Recherche…';
-  launchWatch(false); // démarrer en mode économique
+  // Mettre à jour la barre GPS (le topbar n'existe plus, on utilise #gps-bar-txt)
+  const bar=document.getElementById('gps-bar-txt');
+  if(bar) bar.textContent='Recherche…';
+  launchWatch(false);
 }
 
 function launchWatch(highAccuracy){
@@ -975,13 +976,10 @@ function launchWatch(highAccuracy){
     navigator.geolocation.clearWatch(GPS_WATCH_ID);
     GPS_WATCH_ID=null;
   }
-  const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
   GPS_WATCH_ID = navigator.geolocation.watchPosition(
     pos=>{
       S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude};
       S.acc=Math.round(pos.coords.accuracy);
-      dot.className=S.acc<=5?'fix':'wait';
-      txt.textContent=S.acc+'m';
       updateGpsBar(S.acc);
 
       // Carte : mise à jour max toutes les 5s en veille, 2s en enregistrement
@@ -1008,10 +1006,11 @@ function launchWatch(highAccuracy){
       }
     },
     err=>{
-      const dot=document.getElementById('gps-dot'), txt=document.getElementById('gps-txt');
-      dot.className=''; txt.textContent='Err';
+      const bar=document.getElementById('gps-bar-txt');
+      if(bar){ bar.textContent='Err'; bar.style.color='var(--red,#ef4444)'; }
       const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
       if(err.code===1) toast(ios?'Autorisez la localisation dans Réglages › Safari':'Permission GPS refusée','r');
+      else if(err.code===3) toast('GPS : timeout — allez à l\'air libre','a');
     },
     highAccuracy
       ? {enableHighAccuracy:true,  timeout:20000, maximumAge:1000}   // enregistrement
@@ -1388,15 +1387,21 @@ document.addEventListener('visibilitychange',()=>{
 // ══════════════════════════════
 load();
 startGPS();
-// Init carte au démarrage (onglet Terrain actif)
-window.addEventListener('load',()=>{
-  setTimeout(()=>{
-    initMap();
-    // Ajuster la carte quand le panel change de taille
-    resizeMap();
-    new ResizeObserver(resizeMap).observe(document.getElementById('sheet'));
-  },300);
-});
+
+// Init carte — appel direct (window.load peut déjà être passé)
+function _bootMap(){
+  initMap();
+  resizeMap();
+  // Plusieurs passes pour s'assurer que Leaflet a la bonne taille
+  [200, 600, 1200].forEach(ms => setTimeout(()=>{ if(MAP) MAP.invalidateSize(); resizeMap(); }, ms));
+  new ResizeObserver(()=>{ resizeMap(); if(MAP) MAP.invalidateSize(); })
+    .observe(document.getElementById('sheet'));
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', ()=>setTimeout(_bootMap,100));
+} else {
+  setTimeout(_bootMap, 100);
+}
 // Fermer modales en cliquant le fond
 ['avg-modal','wpt-modal','edit-modal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',e=>{
