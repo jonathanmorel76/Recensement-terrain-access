@@ -121,140 +121,229 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 /* ── CONTENT ─── */
 #content{flex:1;min-height:0;position:relative;overflow:hidden}
 
-/* ── VUE TERRAIN — carte plein écran + sheet ─── */
+/* ── VUE TERRAIN ─── */
+#pane-terrain{display:block;position:absolute;inset:0;overflow:hidden}
+
+/* Carte full screen — le sheet ajuste le bottom via ResizeObserver */
+#map{position:absolute;inset:0;bottom:220px}
+
+/* ─── Variables monochromes carte ───
+   Clair : icônes gris foncé sur verre blanc
+   Sombre : icônes blancs/gris clair sur verre noir */
 #pane-terrain{
-  display:block;
-  position:absolute;inset:0;overflow:hidden
+  --c-glass:   rgba(255,255,255,.78);
+  --c-glass2:  rgba(255,255,255,.92);
+  --c-brd:     rgba(0,0,0,.07);
+  --c-icon:    rgba(0,0,0,.70);
+  --c-icon2:   rgba(0,0,0,.38);
+  --c-sep:     rgba(0,0,0,.09);
+  --c-pill:    rgba(0,0,0,.07);
+  --c-active:  rgba(0,0,0,.82);
+  --c-blur:    blur(22px) saturate(200%)
+}
+@media(prefers-color-scheme:dark){
+  #pane-terrain{
+    --c-glass:   rgba(28,28,30,.82);
+    --c-glass2:  rgba(20,20,22,.90);
+    --c-brd:     rgba(255,255,255,.08);
+    --c-icon:    rgba(255,255,255,.82);
+    --c-icon2:   rgba(255,255,255,.38);
+    --c-sep:     rgba(255,255,255,.08);
+    --c-pill:    rgba(255,255,255,.07);
+    --c-active:  rgba(255,255,255,.92)
+  }
 }
 
-/* Carte prend tout l'espace sauf le sheet */
-#map{position:absolute;inset:0;bottom:240px}
-
-/* Barre GPS pillule — top de la carte */
+/* ─── Bulle GPS ─── */
 #gps-bar{
-  position:absolute;
-  top:12px;left:12px;right:64px;
+  position:absolute;top:12px;left:12px;right:68px;
   z-index:700;pointer-events:none;
   display:flex;align-items:center;gap:8px;
-  background:var(--surface);
-  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
-  border:1px solid var(--brd);border-radius:22px;
-  padding:6px 14px;overflow:hidden;
-  box-shadow:var(--shadow)
+  background:var(--c-glass);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);
+  border-radius:22px;padding:7px 14px;overflow:hidden;
+  box-shadow:0 1px 12px rgba(0,0,0,.10)
 }
-#gps-bar-track{width:34px;height:3px;flex-shrink:0;background:var(--brd);border-radius:2px;overflow:hidden}
-#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .5s,background .5s;background:var(--txt3)}
-#gps-bar-txt{font-size:12px;color:var(--txt2);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;letter-spacing:-.01em}
+#gps-bar-track{width:32px;height:3px;flex-shrink:0;background:var(--c-brd);border-radius:2px;overflow:hidden}
+#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .5s,background .5s;background:var(--c-icon2)}
+#gps-bar-txt{
+  font-size:12px;color:var(--c-icon2);
+  font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;
+  letter-spacing:-.01em
+}
+/* Couleur GPS selon état — discret mais lisible */
+#gps-bar.fix #gps-bar-fill{background:#34C759}
+#gps-bar.fix #gps-bar-txt{color:var(--c-icon)}
 
-/* Pill droite — géoloc + couche */
+/* ─── Pill droite — géoloc + couche ─── */
 #right-pill{
   position:absolute;top:12px;right:12px;
   z-index:700;
-  display:flex;flex-direction:column;gap:0;
-  background:var(--surface);
-  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
-  border:1px solid var(--brd);border-radius:20px;
-  overflow:hidden;box-shadow:var(--shadow)
+  display:flex;flex-direction:column;
+  background:var(--c-glass);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);
+  border-radius:22px;overflow:hidden;
+  box-shadow:0 1px 12px rgba(0,0,0,.10)
 }
 .rpill-btn{
-  width:44px;height:44px;
+  width:46px;height:46px;
   display:flex;align-items:center;justify-content:center;
-  color:var(--blue);touch-action:manipulation;transition:background .12s
+  color:var(--c-icon);touch-action:manipulation;
+  transition:background .12s
 }
-.rpill-btn:active{background:var(--surface3)}
-.rpill-sep{height:1px;background:var(--sep);margin:0 10px}
-.rpill-btn.aerial{color:var(--orange)}
+.rpill-btn:active{background:var(--c-pill)}
+.rpill-sep{height:1px;background:var(--c-sep);margin:0 11px}
+/* Icône flèche : remplie quand GPS actif */
+#btn-geolocate svg{fill:var(--c-icon);transition:fill .3s}
+#btn-geolocate.tracking svg{fill:var(--blue,#007AFF)}
+/* Icône couche : même couleur */
+#btn-layer svg{stroke:var(--c-icon)}
+#btn-layer.aerial svg{stroke:var(--c-icon)}
 
-/* Sheet bas — carte seulement */
+/* ─── Sheet bas ─── */
 #sheet{
   position:absolute;left:0;right:0;bottom:0;
   z-index:800;
-  background:var(--surface);
-  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
-  border:1px solid var(--brd);
-  border-radius:20px 20px 0 0;
+  background:var(--c-glass2);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);
+  border-radius:22px 22px 0 0;
   padding:0 14px;
-  padding-bottom:env(safe-area-inset-bottom,12px);
-  box-shadow:var(--shadow-lg);
+  padding-bottom:env(safe-area-inset-bottom,14px);
+  box-shadow:0 -2px 30px rgba(0,0,0,.12);
   pointer-events:auto;touch-action:manipulation
 }
 #sheet *{pointer-events:auto;touch-action:manipulation}
-#sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:10px auto 12px}
+#sheet-handle{
+  width:36px;height:4px;border-radius:2px;
+  background:var(--c-sep);
+  margin:10px auto 12px
+}
 
-/* Filtres dans le sheet */
+/* ─── Filtres — pills monochromes ─── */
 #filters{
   display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;padding-bottom:10px;margin-bottom:8px;
-  border-bottom:1px solid var(--brd2)
+  scrollbar-width:none;
+  padding-bottom:10px;margin-bottom:10px;
+  border-bottom:1px solid var(--c-sep)
 }
 #filters::-webkit-scrollbar{display:none}
 #filters button{
   flex-shrink:0;
-  background:var(--surface3);border:1px solid var(--brd2);
-  border-radius:16px;padding:5px 12px;
-  font-size:12px;font-weight:500;color:var(--txt2);
-  touch-action:manipulation;white-space:nowrap;transition:all .12s
+  background:var(--c-pill);
+  border:1px solid var(--c-brd);
+  border-radius:16px;padding:5px 13px;
+  font-size:12px;font-weight:500;color:var(--c-icon2);
+  touch-action:manipulation;white-space:nowrap;
+  transition:all .14s
 }
 #filters button.active{
-  background:rgba(0,122,255,.12);
-  border-color:rgba(0,122,255,.35);color:var(--blue)
+  background:var(--c-active);
+  border-color:transparent;
+  color:var(--c-glass2)
 }
 
-/* Ligne tronçon */
+/* ─── Ligne tronçon ─── */
 #trk-row{
   display:flex;align-items:center;gap:8px;
-  background:var(--surface3);border:1px solid var(--brd2);
-  border-radius:12px;padding:8px 12px;margin-bottom:8px
+  background:var(--c-pill);
+  border:1px solid var(--c-brd);
+  border-radius:13px;padding:8px 12px;margin-bottom:10px
 }
 #trk-row input{
-  flex:1;background:none;border:none;color:var(--txt);
+  flex:1;background:none;border:none;
+  color:var(--c-icon);
   font-size:13px;font-family:var(--font);outline:none;min-width:0
 }
-#trk-row input::placeholder{color:var(--txt3)}
+#trk-row input::placeholder{color:var(--c-icon2)}
 .trkstat{text-align:center;flex-shrink:0;min-width:28px}
-.trkstat .v{font-size:14px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums;line-height:1}
-.trkstat .l{font-size:9px;color:var(--txt3);margin-top:1px;text-transform:uppercase;letter-spacing:.04em}
-
-/* Boutons levé */
-#wpt-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
-.wb{
-  background:var(--surface3);border:1px solid var(--brd2);
-  border-radius:12px;padding:9px 3px;
-  display:flex;flex-direction:column;align-items:center;gap:5px;
-  touch-action:manipulation;transition:opacity .1s
+.trkstat .v{
+  font-size:14px;font-weight:600;
+  color:var(--c-icon);
+  font-variant-numeric:tabular-nums;line-height:1
 }
-.wb:active{opacity:.5}
-.wb .wi{width:20px;height:20px;display:block;flex-shrink:0}
-.wb .l{font-size:10px;font-weight:500;color:var(--txt2);text-align:center;line-height:1.2}
-.wb.e{border-color:rgba(175,82,222,.3);background:rgba(175,82,222,.06)}
-.wb.e .wi{stroke:var(--purple)}
-.wb.q{border-color:rgba(50,173,230,.3);background:rgba(50,173,230,.06)}
-.wb.q .wi{stroke:var(--teal)}
-.wb.n{border-color:rgba(0,122,255,.25);background:rgba(0,122,255,.05)}
-.wb.n .wi{stroke:var(--blue)}
-.wb.a{border-color:rgba(255,149,0,.28);background:rgba(255,149,0,.05)}
-.wb.a .wi{stroke:var(--orange)}
+.trkstat .l{font-size:9px;color:var(--c-icon2);margin-top:1px;letter-spacing:.04em;text-transform:uppercase}
 
-/* Bouton tronçon */
+/* ─── Boutons levé — cercles épurés ─── */
+#wpt-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
+.wb{
+  background:var(--c-pill);
+  border:1px solid var(--c-brd);
+  border-radius:14px;padding:10px 3px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  touch-action:manipulation;transition:background .12s,transform .08s
+}
+.wb:active{transform:scale(.94)}
+.wb .wi{
+  width:22px;height:22px;display:block;flex-shrink:0;
+  stroke:var(--c-icon);fill:none;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round
+}
+.wb .l{font-size:10px;font-weight:500;color:var(--c-icon2);text-align:center;line-height:1.2}
+/* Pas de couleur par type — design monochrome */
+.wb.e,.wb.q,.wb.n,.wb.a{background:var(--c-pill);border-color:var(--c-brd)}
+.wb.e .wi,.wb.q .wi,.wb.n .wi,.wb.a .wi{stroke:var(--c-icon)}
+
+/* ─── Bouton enregistrement tronçon ─── */
 #btn-rec{
-  width:100%;padding:13px;border-radius:12px;
+  width:100%;padding:14px;border-radius:14px;
   font-size:14px;font-weight:600;letter-spacing:-.01em;
   display:flex;align-items:center;justify-content:center;gap:8px;
-  background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.25);color:var(--red);
-  touch-action:manipulation;transition:all .18s
+  background:var(--c-pill);
+  border:1px solid var(--c-brd);
+  color:var(--c-icon);
+  touch-action:manipulation;transition:all .16s
 }
-#btn-rec.on{background:var(--red);border-color:var(--red);color:#fff}
-@media(prefers-reduced-motion:no-preference){#btn-rec.on{animation:recpulse 2s ease infinite}}
-#btn-rec.pause{background:rgba(0,122,255,.08);border-color:rgba(0,122,255,.3);color:var(--blue)}
-@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 10px rgba(255,59,48,0)}}
+/* Enregistrement actif : fond sombre/rempli */
+#btn-rec.on{
+  background:var(--c-active);
+  border-color:transparent;
+  color:var(--c-glass2)
+}
+@media(prefers-reduced-motion:no-preference){
+  #btn-rec.on{animation:recpulse 2.4s ease infinite}
+}
+#btn-rec.pause{opacity:.7}
+@keyframes recpulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,.12)}
+  50%{box-shadow:0 0 0 8px rgba(0,0,0,0)}
+}
+@media(prefers-color-scheme:dark){
+  @keyframes recpulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.12)}
+    50%{box-shadow:0 0 0 8px rgba(255,255,255,0)}
+  }
+}
 #btn-finish{
-  width:100%;padding:11px;border-radius:12px;margin-top:6px;
+  width:100%;padding:11px;border-radius:14px;margin-top:6px;
   font-size:14px;font-weight:600;
-  background:rgba(52,199,89,.08);border:1px solid rgba(52,199,89,.28);color:var(--green);
+  background:var(--c-pill);
+  border:1px solid var(--c-brd);
+  color:var(--c-icon2);
   display:none;touch-action:manipulation
 }
 
-/* ── VUES POINTS & EXPORT (scrollables, fond plat) ─── */
+/* ─── Pré-cache ─── */
+#precache-bar{
+  position:absolute;
+  top:calc(12px + 46px + 10px);
+  left:12px;right:68px;
+  z-index:710;
+  background:var(--c-glass);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);border-radius:14px;
+  padding:9px 14px;font-size:12px;color:var(--c-icon2);
+  display:none;align-items:center;gap:10px;
+  box-shadow:0 1px 12px rgba(0,0,0,.10)
+}
+#precache-bar.show{display:flex}
+#precache-prog{flex:1;height:2px;background:var(--c-brd);border-radius:2px;overflow:hidden}
+#precache-fill{height:100%;background:var(--c-icon);border-radius:2px;width:0%;transition:width .2s}
+
+/* ── VUES POINTS & EXPORT ─── */
 .pane{display:none;position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;background:var(--bg)}
 .pane.active{display:block}
 
@@ -397,25 +486,21 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       <span id="gps-bar-txt">GPS…</span>
     </div>
 
-    <!-- Pill droite : flèche géoloc + couche -->
     <div id="right-pill">
-      <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()" title="Centrer sur ma position">
-        <!-- Flèche Plans iOS — pointe vers le haut-droite -->
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-        </svg>
+      <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()" title="Centrer">
+        <svg width="17" height="17" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
       </button>
       <div class="rpill-sep"></div>
       <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()" title="Fond de carte">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
         </svg>
       </button>
     </div>
 
-    <!-- Sheet bas -->
     <div id="sheet">
       <div id="sheet-handle"></div>
+
       <div id="filters">
         <button class="active" data-f="all"       onclick="applyFilter('all',this)">Tout</button>
         <button data-f="entree"                   onclick="applyFilter('entree',this)">Entrées</button>
@@ -424,39 +509,41 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
         <button data-f="noeud"                    onclick="applyFilter('noeud',this)">Nœuds</button>
         <button data-f="track"                    onclick="applyFilter('track',this)">Tracés</button>
       </div>
+
       <div id="trk-row">
         <input id="trk-name" type="text" placeholder="Nom du tronçon…">
         <div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div>
         <div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div>
         <div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur</div></div>
       </div>
+
       <div id="wpt-btns">
         <button class="wb e" onclick="startCapture('entree')">
-          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <svg class="wi" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           <div class="l">Entrée</div>
         </button>
         <button class="wb q" onclick="startCapture('equip_comp')">
-          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <svg class="wi" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <div class="l">Info<br>voyageur</div>
         </button>
-        <button class="wb" style="border-color:rgba(255,149,0,.28);background:rgba(255,149,0,.05)" onclick="startCapture('equip_acces')">
-          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2" stroke="var(--orange)"/><line x1="12" y1="2" x2="12" y2="6" stroke="var(--orange)"/><line x1="9" y1="10" x2="15" y2="10" stroke="var(--orange)"/><line x1="12" y1="10" x2="12" y2="16" stroke="var(--orange)"/><circle cx="12" cy="18" r="1.5" fill="var(--orange)"/></svg>
+        <button class="wb" onclick="startCapture('equip_acces')">
+          <svg class="wi" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="10" x2="12" y2="16"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
           <div class="l">Accès</div>
         </button>
         <button class="wb n" onclick="startCapture('noeud')">
-          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/></svg>
+          <svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/></svg>
           <div class="l">Nœud</div>
         </button>
         <button class="wb a" onclick="startCapture('autre')">
-          <svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+          <svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
           <div class="l">Autre</div>
         </button>
       </div>
+
       <button id="btn-rec" onclick="toggleRec()"><span id="ri">⏺</span><span id="rl"> Enregistrer un tronçon</span></button>
       <button id="btn-finish" onclick="finishTrack()">✓ Terminer ce tronçon</button>
     </div>
 
-    <!-- Pré-cache barre -->
     <div id="precache-bar">
       <span id="precache-txt">Préchargement Normandie…</span>
       <div id="precache-prog"><div id="precache-fill"></div></div>
