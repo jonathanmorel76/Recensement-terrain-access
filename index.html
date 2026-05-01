@@ -81,7 +81,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   position:absolute;
   top:calc(env(safe-area-inset-top,10px) + 10px);
   right:12px;
-  z-index:700;
+  z-index:900;  /* au-dessus de tout, y compris les overlays Leaflet */
   width:44px;height:44px;
   border-radius:14px;
   background:var(--c-glass);
@@ -89,7 +89,11 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   border:1px solid var(--c-brd);
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 1px 12px rgba(0,0,0,.10);
-  touch-action:manipulation;transition:background .12s
+  touch-action:manipulation;
+  cursor:pointer;
+  pointer-events:auto !important;  /* forcer cliquable */
+  -webkit-touch-callout:none;
+  transition:background .12s
 }
 #burger-btn:active{background:var(--c-pill)}
 .burger-icon{display:flex;flex-direction:column;gap:4px}
@@ -423,7 +427,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 
   <!-- Burger top-right -->
   <button id="burger-btn" onclick="openBurger()">
-    <svg width="22" height="22" viewBox="0 0 28 28">
+    <svg width="22" height="22" viewBox="0 0 28 28" style="pointer-events:none">
       <rect width="28" height="28" rx="7" fill="var(--c-active)" opacity=".85"/>
       <path d="M14 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-5 10c0-1.1.9-2 2-2h6a2 2 0 0 1 2 2v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V18z" fill="var(--c-glass2)"/>
       <path d="M17 16.5l1.5 1.5 3-3" stroke="var(--c-glass2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
@@ -801,7 +805,7 @@ function initMap(){
     // Zoom bas droite
     L.control.zoom({position:'bottomright'}).addTo(MAP);
     // Désactiver propagation sur les overlays
-    ['sheet','wpt-cluster','right-pill','filter-popover','burger-btn'].forEach(id=>{
+    ['sheet','wpt-cluster','right-pill','filter-popover'].forEach(id=>{
       const el=document.getElementById(id);
       if(el){ L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); }
     });
