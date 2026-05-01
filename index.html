@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Terrain LDM">
+<meta name="apple-mobile-web-app-title" content="TickS Terrain">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23F2F2F7' rx='40'/%3E%3Ccircle cx='90' cy='90' r='38' fill='%23007AFF'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<title>Recensement Terrain LDM</title>
+<title>TickS Terrain</title>
 <style>
 /* ── RESET ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -42,15 +42,15 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 #pane-terrain{
   display:block;position:absolute;inset:0;overflow:hidden;
   /* Variables monochromes carte */
-  --c-glass:rgba(255,255,255,.80);--c-glass2:rgba(255,255,255,.94);
-  --c-brd:rgba(0,0,0,.07);--c-icon:rgba(0,0,0,.72);--c-icon2:rgba(0,0,0,.38);
-  --c-sep:rgba(0,0,0,.08);--c-pill:rgba(0,0,0,.05);--c-active:rgba(0,0,0,.84);
+  --c-glass:rgba(248,244,255,.85);--c-glass2:rgba(253,250,255,.95);
+  --c-brd:rgba(107,63,166,.10);--c-icon:rgba(60,20,100,.78);--c-icon2:rgba(107,63,166,.45);
+  --c-sep:rgba(107,63,166,.10);--c-pill:rgba(107,63,166,.06);--c-active:rgba(107,63,166,.90);
   --c-blur:blur(22px) saturate(200%)
 }
 @media(prefers-color-scheme:dark){#pane-terrain{
-  --c-glass:rgba(28,28,30,.84);--c-glass2:rgba(20,20,22,.92);
-  --c-brd:rgba(255,255,255,.08);--c-icon:rgba(255,255,255,.84);--c-icon2:rgba(255,255,255,.38);
-  --c-sep:rgba(255,255,255,.08);--c-pill:rgba(255,255,255,.06);--c-active:rgba(255,255,255,.92);
+  --c-glass:rgba(30,15,50,.86);--c-glass2:rgba(20,8,38,.94);
+  --c-brd:rgba(180,140,236,.10);--c-icon:rgba(220,190,255,.88);--c-icon2:rgba(180,140,236,.45);
+  --c-sep:rgba(180,140,236,.10);--c-pill:rgba(180,140,236,.07);--c-active:rgba(180,140,236,.92);
   --c-blur:blur(22px) saturate(200%)
 }}
 
@@ -199,7 +199,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .trkstat .v{font-size:13px;font-weight:600;color:var(--c-icon);font-variant-numeric:tabular-nums;line-height:1}
 .trkstat .l{font-size:9px;color:var(--c-icon2);margin-top:1px;letter-spacing:.04em;text-transform:uppercase}
 #btn-rec{width:100%;padding:13px;border-radius:13px;font-size:14px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--c-pill);border:1px solid var(--c-brd);color:var(--c-icon);touch-action:manipulation;transition:all .16s}
-#btn-rec.on{background:var(--c-active);border-color:transparent;color:var(--c-glass2)}
+#btn-rec.on{background:var(--c-active);border-color:transparent;color:var(--c-glass2);box-shadow:0 0 0 3px rgba(107,63,166,.25)}
 @media(prefers-reduced-motion:no-preference){#btn-rec.on{animation:recpulse 2.4s ease infinite}}
 #btn-rec.pause{opacity:.6}
 @keyframes recpulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,.12)}50%{box-shadow:0 0 0 8px rgba(0,0,0,0)}}
@@ -244,12 +244,12 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 }
 .sv-back{
   display:flex;align-items:center;gap:4px;
-  color:var(--blue);font-size:16px;font-weight:500;
+  color:var(--ticks,#6B3FA6);font-size:16px;font-weight:500;
   touch-action:manipulation;padding:4px 6px;border-radius:8px;
   transition:opacity .12s
 }
 .sv-back:active{opacity:.5}
-.sv-back svg{stroke:var(--blue);fill:none}
+.sv-back svg{stroke:var(--ticks,#6B3FA6);fill:none}
 .sv-title{font-size:15px;font-weight:600;letter-spacing:-.02em;margin-left:4px}
 .sv-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
 
@@ -423,9 +423,11 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 
   <!-- Burger top-right -->
   <button id="burger-btn" onclick="openBurger()">
-    <div class="burger-icon">
-      <span></span><span></span><span></span>
-    </div>
+    <svg width="22" height="22" viewBox="0 0 28 28">
+      <rect width="28" height="28" rx="7" fill="var(--c-active)" opacity=".85"/>
+      <path d="M14 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-5 10c0-1.1.9-2 2-2h6a2 2 0 0 1 2 2v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V18z" fill="var(--c-glass2)"/>
+      <path d="M17 16.5l1.5 1.5 3-3" stroke="var(--c-glass2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
   </button>
 
   <!-- Pill droite : géoloc + couche + filtres -->
@@ -537,6 +539,17 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       <button class="btn-sec"  onclick="loadSession()">Reprendre une session</button>
     </div>
     <div class="card">
+      <div class="card-title">Base de données</div>
+      <div id="sync-cfg-row" style="display:flex;align-items:center;gap:8px;padding:8px 0;margin-bottom:10px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span style="font-size:12px;color:var(--txt2);flex:1">API non configurée</span>
+        <button class="btn-sec" style="width:auto;padding:6px 12px;font-size:12px;margin:0" onclick="openSyncConfig()">Configurer</button>
+      </div>
+      <button class="btn-main" id="btn-sync" onclick="syncToCloud()" style="background:rgba(0,122,255,.12);border:1px solid rgba(0,122,255,.3);color:var(--blue)">
+        ☁ Synchroniser vers la base
+      </button>
+      <button class="btn-sec" onclick="openSyncConfig()">⚙ Paramètres sync</button>
+    <div class="card">
       <div class="card-title">Utiliser dans l'IHM desktop</div>
       <div class="info-box">1. Exportez <strong>.gpx</strong><br>2. Transférez sur votre ordinateur<br>3. Ouvrez <strong>cnig_accessibilite_v8.html</strong><br>4. Glissez le GPX → types pré-classifiés.</div>
     </div>
@@ -548,6 +561,17 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 <div id="burger-menu" onclick="closeBurger()">
   <div id="burger-panel" onclick="event.stopPropagation()">
     <div class="bm-handle"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
+      <svg width="32" height="32" viewBox="0 0 28 28">
+        <rect width="28" height="28" rx="7" fill="#6B3FA6"/>
+        <path d="M14 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-5 10c0-1.1.9-2 2-2h6a2 2 0 0 1 2 2v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V18z" fill="white"/>
+        <path d="M17 16.5l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <div>
+        <div style="font-size:15px;font-weight:600;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div>
+        <div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div>
+      </div>
+    </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')">
       <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -567,6 +591,25 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 </div>
 
 </div><!-- #app -->
+
+<!-- MODAL CONFIG SYNC SUPABASE -->
+<div id="sync-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle">☁ Connexion Supabase</div>
+    <div class="msub">Renseignez votre projet Supabase pour synchroniser les données.</div>
+    <div class="fg"><label>URL Supabase</label>
+      <input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div>
+    <div class="fg"><label>Clé publique (anon key)</label>
+      <input type="text" id="sc-sb-key" placeholder="eyJhbGci…"></div>
+    <div class="fg"><label>Nom de cette session</label>
+      <input type="text" id="sc-nom" placeholder="Gare de Rouen — sortie nord"></div>
+    <div class="mbtns">
+      <button class="mbtn-cancel" onclick="closeSyncConfig()">Annuler</button>
+      <button class="mbtn-ok" onclick="saveSyncConfig()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL MOYENNAGE -->
 <div id="avg-modal" class="modal">
@@ -1274,11 +1317,122 @@ function renderExp(){
   document.getElementById('exp-stats').innerHTML=
     Object.entries(counts).map(([t,n])=>`<div class="stat-chip"><span class="n" style="color:${COLORS[t]||'#888'}">${n}</span><span style="font-size:12px;color:var(--txt2)">${LABELS[t]||t}</span></div>`).join('')+
     (S.tracks.length?`<div class="stat-chip"><span class="n" style="color:#4ade80">${S.tracks.length}</span><span style="font-size:12px;color:var(--txt2)">tronçons</span></div>`:'');
+  // Afficher config sync si pas configuré
+  const cfgBtn = document.getElementById('sync-cfg-row');
+  if(cfgBtn) cfgBtn.style.display = getSyncCfg().apiUrl ? 'none' : 'flex';
+}
+
+// ── Sync direct vers Supabase (sans backend) ────────────────
+function getSyncCfg(){
+  return {
+    sbUrl:      localStorage.getItem('ldm_sb_url')  || '',
+    sbKey:      localStorage.getItem('ldm_sb_key')  || '',
+    nomSession: localStorage.getItem('ldm_nom_session') || ''
+  };
+}
+
+function openSyncConfig(){
+  document.getElementById('sync-modal').classList.add('open');
+  const cfg = getSyncCfg();
+  document.getElementById('sc-sb-url').value  = cfg.sbUrl;
+  document.getElementById('sc-sb-key').value  = cfg.sbKey;
+  document.getElementById('sc-nom').value      = cfg.nomSession;
+}
+function closeSyncConfig(){
+  document.getElementById('sync-modal').classList.remove('open');
+}
+function saveSyncConfig(){
+  localStorage.setItem('ldm_sb_url',        document.getElementById('sc-sb-url').value.trim().replace(/\/$/,''));
+  localStorage.setItem('ldm_sb_key',        document.getElementById('sc-sb-key').value.trim());
+  localStorage.setItem('ldm_nom_session',   document.getElementById('sc-nom').value.trim());
+  closeSyncConfig();
+  toast('Configuration enregistrée','g');
+  renderExp();
+}
+
+// Appel REST Supabase (PostgREST)
+async function sbInsert(cfg, table, row){
+  const r = await fetch(`${cfg.sbUrl}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':         cfg.sbKey,
+      'Authorization': `Bearer ${cfg.sbKey}`,
+      'Prefer':        'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(row)
+  });
+  if(!r.ok){ const e = await r.text(); throw new Error(`${table}: ${r.status} ${e}`); }
+}
+
+async function syncToCloud(){
+  if(!S.waypoints.length && !S.tracks.length){ toast('Rien à synchroniser','a'); return; }
+  const cfg = getSyncCfg();
+  if(!cfg.sbUrl || !cfg.sbKey){ openSyncConfig(); return; }
+
+  const btn = document.getElementById('btn-sync');
+  btn.textContent = '↑ Synchronisation…';
+  btn.disabled = true;
+
+  try {
+    // 1 — Créer la session
+    const sessionId = crypto.randomUUID ? crypto.randomUUID() : 'ses-'+Date.now();
+    await sbInsert(cfg, 'session_terrain', {
+      id:      sessionId,
+      nom:     cfg.nomSession || `Session ${new Date().toLocaleDateString('fr-FR')}`,
+      statut:  'en_cours'
+    });
+
+    let ok = 0, errs = 0;
+
+    // 2 — Waypoints → tables CNIG
+    for(const w of S.waypoints){
+      const geom = `SRID=4326;POINT(${w.lon} ${w.lat})`;
+      const base = { id: w.id, session_id: sessionId, geom, nom: w.name,
+                     precision_gps: w.acc, nb_mesures_gps: w.samples||null, notes: w.desc||null };
+      try {
+        if(w.type==='entree')
+          await sbInsert(cfg,'entree_batiment',     {...base, type_entree: w.subtype||'PRINCIPALE'});
+        else if(w.type==='equip_acces')
+          await sbInsert(cfg,'equipement_acces',    {...base, type_equip: w.subtype||'AUTRE'});
+        else if(w.type==='equip_comp')
+          await sbInsert(cfg,'equipement_info',     {...base, type_equip: w.subtype||'AUTRE'});
+        else if(w.type==='noeud')
+          await sbInsert(cfg,'noeud_cheminement',   {...base, type_noeud: w.subtype||'INTERSECTION'});
+        else
+          await sbInsert(cfg,'point_autre',         {...base, sous_type: w.subtype});
+        ok++;
+      } catch(e){ errs++; console.warn(e); }
+    }
+
+    // 3 — Tronçons → troncon_cheminement
+    for(const trk of S.tracks){
+      if(!trk.pts || trk.pts.length < 2) continue;
+      const coords = trk.pts.map(p=>`${p.lon} ${p.lat}`).join(',');
+      try {
+        await sbInsert(cfg,'troncon_cheminement',{
+          session_id:    sessionId,
+          geom:          `SRID=4326;LINESTRING(${coords})`,
+          nom:           trk.name,
+          nb_points_gps: trk.pts.length
+        });
+        ok++;
+      } catch(e){ errs++; console.warn(e); }
+    }
+
+    localStorage.setItem('ldm_last_session_id', sessionId);
+    toast(`✓ ${ok} éléments synchronisés${errs?` (${errs} erreurs)`:''}`, errs?'a':'g');
+  } catch(e){
+    toast(`Erreur sync : ${e.message}`,'r');
+  } finally {
+    btn.textContent = '☁ Synchroniser vers Supabase';
+    btn.disabled = false;
+  }
 }
 function exportGPX(){
   if(!S.waypoints.length&&!S.tracks.length){toast('Rien à exporter','a');return;}
   const ts=new Date().toISOString();
-  let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Recensement Terrain LDM" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><n>Session LDM</n><time>${ts}</time></metadata>\n`;
+  let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TickS Terrain" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><n>Session LDM</n><time>${ts}</time></metadata>\n`;
   S.waypoints.forEach(w=>{
     const name=`[${w.type.toUpperCase()}] ${w.name}`;
     const desc=[w.subtype,w.desc].filter(Boolean).join(' | ');
