@@ -302,7 +302,8 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .card{background:var(--surface);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:10px}
 .card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px}
 .wpt-item{background:var(--surface2);border:1px solid var(--brd2);border-radius:12px;padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
-.wdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.wdot{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.wdot svg{width:16px;height:16px}
 .winfo{flex:1;min-width:0}
 .wname{font-weight:500;font-size:13px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wmeta{font-size:11px;color:var(--txt3);margin-top:2px;font-variant-numeric:tabular-nums}
@@ -436,7 +437,11 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   <!-- Pill droite : géoloc + couche + filtres -->
   <div id="right-pill">
     <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()">
-      <svg width="17" height="17" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      <!-- Flèche navigation NE style boussole -->
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2 L20 20 L12 16 L4 20 Z" opacity=".35"/>
+        <path d="M12 2 L20 20 L12 16 Z"/>
+      </svg>
     </button>
     <div class="rpill-sep"></div>
     <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()">
@@ -1226,25 +1231,42 @@ function renderPts(){
   el.innerHTML=all.map(obj=>{
     if(obj._k==='w'){
       const c=COLORS[obj.type]||'#888';
+      const icon = {
+        entree:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+        equip_comp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+        equip_acces:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="10" x2="12" y2="16"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>',
+        noeud:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/></svg>',
+        autre:      '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>',
+      }[obj.type] || '';
       return `<div class="wpt-item">
-        <div class="wdot" style="background:${c}"></div>
+        <div class="wdot" style="background:${c}20;color:${c}">${icon}</div>
         <div class="winfo" onclick="editWpt('${obj.id}')" style="cursor:pointer">
           <div class="wname">${esc(obj.name)}</div>
           <div class="wmeta">${obj.lat.toFixed(5)}, ${obj.lon.toFixed(5)} · ${obj.subtype||obj.type}</div>
           ${obj.desc?`<div class="wdesc">${esc(obj.desc)}</div>`:''}
         </div>
-        <button class="wbtn" onclick="editWpt('${obj.id}')" style="color:var(--acc2)">✏</button>
+        <button class="wbtn" onclick="editWpt('${obj.id}')" title="Modifier">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
         <button class="wbtn" onclick="delWpt('${obj.id}')">✕</button>
       </div>`;
     } else {
       const d=obj.pts&&obj.pts.length>=2?Math.round(obj.pts.reduce((s,p,i)=>i?s+hav(obj.pts[i-1],p):0,0)):0;
       return `<div class="wpt-item" style="border-color:#4ade8055">
-        <div class="wdot" style="background:#4ade80;border-radius:2px;width:18px;height:5px"></div>
+        <div class="wdot" style="background:#4ade8020;color:#4ade80"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 17 Q8 7 12 12 Q16 17 21 7"/></svg></div>
         <div class="winfo" onclick="editTrk(${obj._i})" style="cursor:pointer">
           <div class="wname">${esc(obj.name)}</div>
           <div class="wmeta">${obj.pts?obj.pts.length:0} pts · ${d} m</div>
         </div>
-        <button class="wbtn" onclick="editTrk(${obj._i})" style="color:var(--acc2)">✏</button>
+        <button class="wbtn" onclick="editTrk(${obj._i})" title="Renommer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
         <button class="wbtn" onclick="delTrk(${obj._i})">✕</button>
       </div>`;
     }
