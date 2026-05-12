@@ -516,7 +516,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
         <svg width="10" height="16" viewBox="0 0 10 16"><polyline points="9 1 1 8 9 15" stroke-width="2"/></svg>
         Carte
       </button>
-      <span class="sv-title">Points relevés</span>
+      <span class="sv-title">Points &amp; Tronçons</span>
     </div>
   </div>
   <div class="sv-content"><div id="pts-list"></div></div>
@@ -530,7 +530,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
         <svg width="10" height="16" viewBox="0 0 10 16"><polyline points="9 1 1 8 9 15" stroke-width="2"/></svg>
         Carte
       </button>
-      <span class="sv-title">Export</span>
+      <span class="sv-title">Sync &amp; Export</span>
     </div>
   </div>
   <div class="sv-content">
@@ -542,19 +542,34 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       <button class="btn-sec"  onclick="loadSession()">Reprendre une session</button>
     </div>
     <div class="card">
-      <div class="card-title">Base de données</div>
-      <div id="sync-cfg-row" style="display:flex;align-items:center;gap:8px;padding:8px 0;margin-bottom:10px">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        <span style="font-size:12px;color:var(--txt2);flex:1">API non configurée</span>
-        <button class="btn-sec" style="width:auto;padding:6px 12px;font-size:12px;margin:0" onclick="openSyncConfig()">Configurer</button>
+      <div class="card-title">Envoyer vers TickS SIG</div>
+
+      <!-- Statut de connexion -->
+      <div id="sync-status-row" style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid var(--brd2);margin-bottom:10px">
+        <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:background .3s"></div>
+        <div style="flex:1">
+          <div id="sync-status-txt" style="font-size:12px;color:var(--txt2)">Non configuré</div>
+          <div id="sync-last" style="font-size:10px;color:var(--txt3);display:none">Dernière sync : <span id="sync-last-time">—</span></div>
+        </div>
+        <button onclick="openSyncConfig()" style="font-size:11px;color:var(--ticks,#8A3090);font-family:var(--font);padding:4px 10px;border-radius:6px;border:1px solid rgba(138,48,144,.3);background:rgba(138,48,144,.07)">⚙</button>
       </div>
-      <button class="btn-main" id="btn-sync" onclick="syncToCloud()" style="background:rgba(0,122,255,.12);border:1px solid rgba(0,122,255,.3);color:var(--blue)">
-        ☁ Synchroniser vers la base
+
+      <!-- Info flux -->
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;line-height:1.6;background:var(--surface2);border-radius:8px;padding:8px 10px">
+        📲 → ☁ → 🖥<br>
+        Les données relevées sur le terrain sont envoyées vers <strong>TickS SIG</strong> qui s'actualise en temps réel.
+      </div>
+
+      <button class="btn-main" id="btn-sync" onclick="syncToCloud()" style="background:var(--ticks,#8A3090)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Synchroniser vers TickS SIG
       </button>
-      <button class="btn-sec" onclick="openSyncConfig()">⚙ Paramètres sync</button>
-    <div class="card">
-      <div class="card-title">Utiliser dans l'IHM desktop</div>
-      <div class="info-box">1. Exportez <strong>.gpx</strong><br>2. Transférez sur votre ordinateur<br>3. Ouvrez <strong>cnig_accessibilite_v8.html</strong><br>4. Glissez le GPX → types pré-classifiés.</div>
+
+      <div id="sync-cfg-row" style="display:none;margin-top:8px">
+        <button class="btn-sec" onclick="openSyncConfig()" style="color:var(--orange)">
+          ⚠ Configurer la connexion Supabase
+        </button>
+      </div>
     </div>
     <div class="card"><button class="btn-sec" style="color:var(--red);border-color:rgba(255,59,48,.28)" onclick="resetSession()">Effacer la session</button></div>
   </div>
@@ -642,30 +657,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 </div>
 
 <!-- MODAL ÉDITION -->
-<div id="edit-modal" class="modal">
-  <div class="modal-box">
-    <div class="mhandle"></div>
-    <div class="mtitle">✏ Modifier le point</div>
-    <div class="msub" id="em-coords">—</div>
-    <div class="fg">
-      <label>Catégorie</label>
-      <div class="type-sel" id="em-types">
-        <div class="topt sel" data-t="entree"     onclick="pickType('entree',this)">    <div class="ti">🚪</div><div class="tl">Entrée</div><div class="ts">SiteEntrance</div></div>
-        <div class="topt"     data-t="equip_comp" onclick="pickType('equip_comp',this)"><div class="ti">🖥</div><div class="tl">Info voyageur</div><div class="ts">PassengerInfo</div></div>
-        <div class="topt"     data-t="equip_acces" onclick="pickType('equip_acces',this)"><div class="ti">🛗</div><div class="tl">Équip. accès</div><div class="ts">AccessEquip.</div></div>
-        <div class="topt"     data-t="noeud"     onclick="pickType('noeud',this)">      <div class="ti">⬤</div><div class="tl">Nœud</div><div class="ts">PathJunction</div></div>
-        <div class="topt"     data-t="autre"     onclick="pickType('autre',this)">      <div class="ti">📌</div><div class="tl">Autre</div><div class="ts">À classifier</div></div>
-      </div>
-    </div>
-    <div class="fg"><label>Sous-type</label><select id="em-sub"></select></div>
-    <div class="fg"><label>Nom</label><input id="em-name" type="text"></div>
-    <div class="fg"><label>Remarque</label><textarea id="em-desc"></textarea></div>
-    <div class="mbtns">
-      <button class="mbtn-cancel" onclick="closeEditModal()">Annuler</button>
-      <button class="mbtn-ok"     onclick="saveEdit()">✓ Enregistrer</button>
-    </div>
-  </div>
-</div>
+<!-- edit-modal est défini plus bas -->
 
 <div id="toast"></div>
 
@@ -767,19 +759,7 @@ const SUBS = {
 // ══════════════════════════════
 // ONGLETS
 // ══════════════════════════════
-function goTab(id, btn){
-  // Onglets sheet
-  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  // Panes
-  ['terrain','points','export'].forEach(t=>{
-    const el=document.getElementById('pane-'+t);
-    if(el) el.style.display = t===id ? 'block' : 'none';
-  });
-  if(id==='terrain') initMap();
-  if(id==='points')  renderPts();
-  if(id==='export')  renderExp();
-}
+// goTab — voir définition finale plus bas
 
 // ══════════════════════════════
 // CARTE
@@ -1311,6 +1291,24 @@ function saveEdit(){
 // EXPORT
 // ══════════════════════════════
 function renderExp(){
+  const cfg = getSyncCfg();
+  const dot  = document.getElementById('sync-dot');
+  const stxt = document.getElementById('sync-status-txt');
+  const cfgRow = document.getElementById('sync-cfg-row');
+  const lastEl = document.getElementById('sync-last');
+  const lastTs = localStorage.getItem('ldm_last_sync_time');
+
+  if(dot && stxt){
+    if(cfg.sbUrl){
+      dot.style.background = 'var(--green,#34C759)';
+      stxt.textContent = cfg.sbUrl.replace('https://','').slice(0,32)+'…';
+    } else {
+      dot.style.background = 'var(--txt3)';
+      stxt.textContent = 'Non configuré — tapez ⚙';
+    }
+  }
+  if(lastEl && lastTs){ lastEl.style.display='block'; document.getElementById('sync-last-time').textContent=lastTs; }
+  if(cfgRow) cfgRow.style.display = cfg.sbUrl ? 'none' : 'block';
   const counts={};
   S.waypoints.forEach(w=>counts[w.type]=(counts[w.type]||0)+1);
   document.getElementById('exp-stats').innerHTML=
@@ -1318,7 +1316,7 @@ function renderExp(){
     (S.tracks.length?`<div class="stat-chip"><span class="n" style="color:#4ade80">${S.tracks.length}</span><span style="font-size:12px;color:var(--txt2)">tronçons</span></div>`:'');
   // Afficher config sync si pas configuré
   const cfgBtn = document.getElementById('sync-cfg-row');
-  if(cfgBtn) cfgBtn.style.display = getSyncCfg().apiUrl ? 'none' : 'flex';
+  if(cfgBtn) cfgBtn.style.display = getSyncCfg().sbUrl ? 'none' : 'flex';
 }
 
 // ── Sync direct vers Supabase (sans backend) ────────────────
@@ -1420,11 +1418,17 @@ async function syncToCloud(){
     }
 
     localStorage.setItem('ldm_last_session_id', sessionId);
-    toast(`✓ ${ok} éléments synchronisés${errs?` (${errs} erreurs)`:''}`, errs?'a':'g');
+    const now = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    localStorage.setItem('ldm_last_sync_time', now);
+    const lastEl = document.getElementById('sync-last');
+    const lastTm = document.getElementById('sync-last-time');
+    if(lastEl){ lastEl.style.display='block'; }
+    if(lastTm){ lastTm.textContent = now; }
+    toast(`✓ ${ok} éléments envoyés vers TickS SIG${errs?` (${errs} erreurs)`:''}`, errs?'a':'g');
   } catch(e){
     toast(`Erreur sync : ${e.message}`,'r');
   } finally {
-    btn.textContent = '☁ Synchroniser vers Supabase';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Synchroniser vers TickS SIG';
     btn.disabled = false;
   }
 }
@@ -1600,20 +1604,28 @@ document.addEventListener('click',e=>{
 // NAVIGATION (override final — définition unique)
 // ════════════════════════════════
 function goTab(id){
-  const terrain=document.getElementById('pane-terrain');
-  const pts=document.getElementById('pane-points');
-  const exp=document.getElementById('pane-export');
-  if(terrain) terrain.style.display = id==='terrain'?'block':'none';
-  if(pts)     pts.style.display     = id==='points' ?'flex':'none';
-  if(exp)     exp.style.display     = id==='export' ?'flex':'none';
+  const terrain = document.getElementById('pane-terrain');
+  const pts     = document.getElementById('pane-points');
+  const exp     = document.getElementById('pane-export');
+
+  // Carte : block (absolute inset:0)
+  if(terrain) terrain.style.display = id==='terrain' ? 'block' : 'none';
+  // Sous-vues : flex (fixed plein écran, flex-direction:column)
+  if(pts){ pts.style.display = id==='points' ? 'flex' : 'none'; }
+  if(exp){ exp.style.display = id==='export' ? 'flex' : 'none'; }
+
+  // Burger menu — état actif
   document.querySelectorAll('.bmenu-item').forEach(b=>{
     b.classList.toggle('active', b.dataset.view===id);
   });
-  if(id==='terrain'){ initMap(); }
+
+  // Actions selon vue
+  if(id==='terrain') { setTimeout(()=>{ if(MAP) MAP.invalidateSize(); }, 100); initMap(); }
   if(id==='points')  renderPts();
   if(id==='export')  renderExp();
+
   closeBurger();
-  closeFilterPopover();
+  if(typeof closeFilterPopover==='function') closeFilterPopover();
 }
 
 </script>
