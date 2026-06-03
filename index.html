@@ -572,7 +572,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 
       <div id="sync-cfg-row" style="display:none;margin-top:8px">
         <button class="btn-sec" onclick="openSyncConfig()" style="color:var(--orange)">
-          ⚠ Configurer la connexion Supabase
+          Configurer la connexion SIG
         </button>
       </div>
     </div>
@@ -611,16 +611,31 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 
 </div><!-- #app -->
 
-<!-- MODAL CONFIG SYNC SUPABASE -->
+<!-- MODAL CONFIG SYNC (Local PostgREST / Supabase) -->
 <div id="sync-modal" class="modal">
   <div class="modal-box">
     <div class="mhandle"></div>
-    <div class="mtitle">☁ Connexion Supabase</div>
-    <div class="msub">Renseignez votre projet Supabase pour synchroniser les données.</div>
-    <div class="fg"><label>URL Supabase</label>
-      <input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div>
-    <div class="fg"><label>Clé publique (anon key)</label>
-      <input type="text" id="sc-sb-key" placeholder="eyJhbGci…"></div>
+    <div class="mtitle">Connexion SIG</div>
+    <div class="msub">Choisissez le mode de synchronisation.</div>
+
+    <!-- Choix du mode -->
+    <div class="fg"><label>Mode</label>
+      <select id="sc-mode" onchange="toggleSyncMode()">
+        <option value="local">PostgREST local</option>
+        <option value="supabase">Supabase (cloud)</option>
+      </select>
+    </div>
+
+    <!-- Champs communs -->
+    <div class="fg"><label>URL de l'API</label>
+      <input type="url" id="sc-sb-url" placeholder="http://localhost:3000"></div>
+
+    <!-- Champs Supabase uniquement -->
+    <div id="sc-supabase-fields" style="display:none">
+      <div class="fg"><label>Clé publique (anon key)</label>
+        <input type="text" id="sc-sb-key" placeholder="eyJhbGci..."></div>
+    </div>
+
     <div class="fg"><label>Nom de cette session</label>
       <input type="text" id="sc-nom" placeholder="Gare de Rouen — sortie nord"></div>
     <div class="mbtns">
@@ -1323,10 +1338,11 @@ function renderExp(){
   if(dot && stxt){
     if(cfg.sbUrl){
       dot.style.background = 'var(--green,#34C759)';
-      stxt.textContent = cfg.sbUrl.replace('https://','').slice(0,32)+'…';
+      const modeLabel = cfg.mode==='local' ? 'Local' : 'Cloud';
+      stxt.textContent = '['+modeLabel+'] '+cfg.sbUrl.replace('https://','').replace('http://','').slice(0,28);
     } else {
       dot.style.background = 'var(--txt3)';
-      stxt.textContent = 'Non configuré — tapez ⚙';
+      stxt.textContent = 'Non configure';
     }
   }
   if(lastEl && lastTs){ lastEl.style.display='block'; document.getElementById('sync-last-time').textContent=lastTs; }
@@ -1335,120 +1351,173 @@ function renderExp(){
   S.waypoints.forEach(w=>counts[w.type]=(counts[w.type]||0)+1);
   document.getElementById('exp-stats').innerHTML=
     Object.entries(counts).map(([t,n])=>`<div class="stat-chip"><span class="n" style="color:${COLORS[t]||'#888'}">${n}</span><span style="font-size:12px;color:var(--txt2)">${LABELS[t]||t}</span></div>`).join('')+
-    (S.tracks.length?`<div class="stat-chip"><span class="n" style="color:#4ade80">${S.tracks.length}</span><span style="font-size:12px;color:var(--txt2)">tronçons</span></div>`:'');
-  // Afficher config sync si pas configuré
+    (S.tracks.length?`<div class="stat-chip"><span class="n" style="color:#4ade80">${S.tracks.length}</span><span style="font-size:12px;color:var(--txt2)">troncons</span></div>`:'');
+  // Afficher config sync si pas configure
   const cfgBtn = document.getElementById('sync-cfg-row');
   if(cfgBtn) cfgBtn.style.display = getSyncCfg().sbUrl ? 'none' : 'flex';
 }
 
-// ── Sync direct vers Supabase (sans backend) ────────────────
+// ── Sync bimodale : PostgREST local OU Supabase ────────────────
 function getSyncCfg(){
   return {
-    sbUrl:      localStorage.getItem('ldm_sb_url')  || '',
-    sbKey:      localStorage.getItem('ldm_sb_key')  || '',
+    mode:       localStorage.getItem('ldm_sync_mode') || 'local',
+    sbUrl:      localStorage.getItem('ldm_sb_url')    || '',
+    sbKey:      localStorage.getItem('ldm_sb_key')    || '',
     nomSession: localStorage.getItem('ldm_nom_session') || ''
   };
+}
+
+function toggleSyncMode(){
+  const mode = document.getElementById('sc-mode').value;
+  document.getElementById('sc-supabase-fields').style.display = mode==='supabase' ? 'block' : 'none';
+  const urlInput = document.getElementById('sc-sb-url');
+  urlInput.placeholder = mode==='local' ? 'http://localhost:3000' : 'https://xxxx.supabase.co';
 }
 
 function openSyncConfig(){
   document.getElementById('sync-modal').classList.add('open');
   const cfg = getSyncCfg();
-  document.getElementById('sc-sb-url').value  = cfg.sbUrl;
-  document.getElementById('sc-sb-key').value  = cfg.sbKey;
-  document.getElementById('sc-nom').value      = cfg.nomSession;
+  document.getElementById('sc-mode').value   = cfg.mode;
+  document.getElementById('sc-sb-url').value = cfg.sbUrl;
+  document.getElementById('sc-sb-key').value = cfg.sbKey;
+  document.getElementById('sc-nom').value    = cfg.nomSession;
+  toggleSyncMode();
 }
 function closeSyncConfig(){
   document.getElementById('sync-modal').classList.remove('open');
 }
 function saveSyncConfig(){
+  localStorage.setItem('ldm_sync_mode',     document.getElementById('sc-mode').value);
   localStorage.setItem('ldm_sb_url',        document.getElementById('sc-sb-url').value.trim().replace(/\/$/,''));
   localStorage.setItem('ldm_sb_key',        document.getElementById('sc-sb-key').value.trim());
   localStorage.setItem('ldm_nom_session',   document.getElementById('sc-nom').value.trim());
   closeSyncConfig();
-  toast('Configuration enregistrée','g');
+  toast('Configuration enregistree','g');
   renderExp();
 }
 
-// Appel REST Supabase (PostgREST)
-async function sbInsert(cfg, table, row){
-  const r = await fetch(`${cfg.sbUrl}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'apikey':         cfg.sbKey,
-      'Authorization': `Bearer ${cfg.sbKey}`,
-      'Prefer':        'resolution=merge-duplicates,return=minimal'
-    },
-    body: JSON.stringify(row)
-  });
+// Appel REST universel (PostgREST local ou Supabase)
+async function apiInsert(cfg, table, row){
+  const isLocal = (cfg.mode === 'local');
+  const url = isLocal ? `${cfg.sbUrl}/${table}` : `${cfg.sbUrl}/rest/v1/${table}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Prefer':       'resolution=merge-duplicates,return=minimal'
+  };
+  // Supabase : ajouter auth headers
+  if(!isLocal && cfg.sbKey){
+    headers['apikey']        = cfg.sbKey;
+    headers['Authorization'] = `Bearer ${cfg.sbKey}`;
+  }
+  // PostgREST local : ecrire dans le schema terrain (tables avec geom)
+  if(isLocal){
+    headers['Content-Profile'] = 'terrain';
+  }
+  const r = await fetch(url, { method:'POST', headers, body:JSON.stringify(row) });
   if(!r.ok){ const e = await r.text(); throw new Error(`${table}: ${r.status} ${e}`); }
 }
 
 async function syncToCloud(){
-  if(!S.waypoints.length && !S.tracks.length){ toast('Rien à synchroniser','a'); return; }
+  if(!S.waypoints.length && !S.tracks.length){ toast('Rien a synchroniser','a'); return; }
   const cfg = getSyncCfg();
-  if(!cfg.sbUrl || !cfg.sbKey){ openSyncConfig(); return; }
+  const isLocal = (cfg.mode === 'local');
+
+  // Validation : URL requise ; cle Supabase requise en mode cloud
+  if(!cfg.sbUrl){ openSyncConfig(); return; }
+  if(!isLocal && !cfg.sbKey){ openSyncConfig(); return; }
 
   const btn = document.getElementById('btn-sync');
-  btn.textContent = '↑ Synchronisation…';
+  btn.textContent = 'Synchronisation...';
   btn.disabled = true;
 
   try {
-    // 1 — Créer la session
-    const sessionId = crypto.randomUUID ? crypto.randomUUID() : 'ses-'+Date.now();
-    await sbInsert(cfg, 'session_terrain', {
-      id:      sessionId,
-      nom:     cfg.nomSession || `Session ${new Date().toLocaleDateString('fr-FR')}`,
-      statut:  'en_cours'
-    });
+    let sessionId = null;
+
+    // En mode Supabase, creer la session dans la table session_terrain
+    if(!isLocal){
+      sessionId = crypto.randomUUID ? crypto.randomUUID() : 'ses-'+Date.now();
+      await apiInsert(cfg, 'session_terrain', {
+        id:      sessionId,
+        nom:     cfg.nomSession || 'Session ' + new Date().toLocaleDateString('fr-FR'),
+        statut:  'en_cours'
+      });
+    }
 
     let ok = 0, errs = 0;
 
-    // 2 — Waypoints → tables CNIG
+    // Mapping type PWA → table PostGIS
+    const TABLE_MAP = {
+      'entree':     'entree_batiment',
+      'equip_acces':'equipement_acces',
+      'equip_comp': 'equipement_info',
+      'noeud':      'noeud_cheminement'
+    };
+
+    // Waypoints → tables CNIG
     for(const w of S.waypoints){
-      const geom = `SRID=4326;POINT(${w.lon} ${w.lat})`;
-      const base = { id: w.id, session_id: sessionId, geom, nom: w.name,
-                     precision_gps: w.acc, nb_mesures_gps: w.samples||null, notes: w.desc||null };
-      try {
-        if(w.type==='entree')
-          await sbInsert(cfg,'entree_batiment',     {...base, type_entree: w.subtype||'PRINCIPALE'});
-        else if(w.type==='equip_acces')
-          await sbInsert(cfg,'equipement_acces',    {...base, type_equip: w.subtype||'AUTRE'});
-        else if(w.type==='equip_comp')
-          await sbInsert(cfg,'equipement_info',     {...base, type_equip: w.subtype||'AUTRE'});
-        else if(w.type==='noeud')
-          await sbInsert(cfg,'noeud_cheminement',   {...base, type_noeud: w.subtype||'INTERSECTION'});
-        else
-          await sbInsert(cfg,'point_autre',         {...base, sous_type: w.subtype});
-        ok++;
-      } catch(e){ errs++; console.warn(e); }
+      const geom = 'SRID=4326;POINT(' + w.lon + ' ' + w.lat + ')';
+      const table = TABLE_MAP[w.type] || 'point_autre';
+
+      let row;
+      if(isLocal){
+        // Mode local : colonnes alignees sur le schema terrain PostGIS
+        row = {
+          id:            w.id,
+          nom:           w.name,
+          sous_type:     w.subtype || null,
+          precision_gps: w.acc,
+          notes:         w.desc || null,
+          geom:          geom
+        };
+      } else {
+        // Mode Supabase : colonnes originales
+        const base = { id: w.id, session_id: sessionId, geom, nom: w.name,
+                       precision_gps: w.acc, nb_mesures_gps: w.samples||null, notes: w.desc||null };
+        if(w.type==='entree')          row = {...base, type_entree: w.subtype||'PRINCIPALE'};
+        else if(w.type==='equip_acces') row = {...base, type_equip:  w.subtype||'AUTRE'};
+        else if(w.type==='equip_comp')  row = {...base, type_equip:  w.subtype||'AUTRE'};
+        else if(w.type==='noeud')       row = {...base, type_noeud:  w.subtype||'INTERSECTION'};
+        else                            row = {...base, sous_type:   w.subtype};
+      }
+
+      try { await apiInsert(cfg, table, row); ok++; }
+      catch(e){ errs++; console.warn(e); }
     }
 
-    // 3 — Tronçons → troncon_cheminement
+    // Troncons → troncon_cheminement
     for(const trk of S.tracks){
       if(!trk.pts || trk.pts.length < 2) continue;
-      const coords = trk.pts.map(p=>`${p.lon} ${p.lat}`).join(',');
-      try {
-        await sbInsert(cfg,'troncon_cheminement',{
+      const coords = trk.pts.map(function(p){ return p.lon+' '+p.lat; }).join(',');
+
+      let row;
+      if(isLocal){
+        row = {
+          nom:  trk.name,
+          geom: 'SRID=4326;LINESTRING(' + coords + ')'
+        };
+      } else {
+        row = {
           session_id:    sessionId,
-          geom:          `SRID=4326;LINESTRING(${coords})`,
+          geom:          'SRID=4326;LINESTRING(' + coords + ')',
           nom:           trk.name,
           nb_points_gps: trk.pts.length
-        });
-        ok++;
-      } catch(e){ errs++; console.warn(e); }
+        };
+      }
+
+      try { await apiInsert(cfg, 'troncon_cheminement', row); ok++; }
+      catch(e){ errs++; console.warn(e); }
     }
 
-    localStorage.setItem('ldm_last_session_id', sessionId);
+    if(sessionId) localStorage.setItem('ldm_last_session_id', sessionId);
     const now = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     localStorage.setItem('ldm_last_sync_time', now);
     const lastEl = document.getElementById('sync-last');
     const lastTm = document.getElementById('sync-last-time');
     if(lastEl){ lastEl.style.display='block'; }
     if(lastTm){ lastTm.textContent = now; }
-    toast(`✓ ${ok} éléments envoyés vers TickS SIG${errs?` (${errs} erreurs)`:''}`, errs?'a':'g');
+    toast((ok)+' elements envoyes vers TickS SIG'+(errs?' ('+errs+' erreurs)':''), errs?'a':'g');
   } catch(e){
-    toast(`Erreur sync : ${e.message}`,'r');
+    toast('Erreur sync : '+e.message,'r');
   } finally {
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Synchroniser vers TickS SIG';
     btn.disabled = false;
