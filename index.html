@@ -553,7 +553,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       <button class="btn-sec"  onclick="loadSession()">Reprendre une session</button>
     </div>
     <div class="card">
-      <div class="card-title">Envoyer vers TickS SIG</div>
+      <div class="card-title">Envoyer vers la base</div>
 
       <!-- Statut de connexion -->
       <div id="sync-status-row" style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid var(--brd2);margin-bottom:10px">
@@ -568,12 +568,12 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
       <!-- Info flux -->
       <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;line-height:1.6;background:var(--surface2);border-radius:8px;padding:8px 10px">
         📲 → ☁ → 🖥<br>
-        Les données relevées sur le terrain sont envoyées vers <strong>TickS SIG</strong> qui s'actualise en temps réel.
+        Les données relevées sur le terrain sont envoyées vers <strong>la base</strong> qui s'actualise en temps réel.
       </div>
 
       <button class="btn-main" id="btn-sync" onclick="syncToCloud()" style="background:var(--ticks,#8A3090)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Synchroniser vers TickS SIG
+        Synchroniser vers la base
       </button>
 
       <div id="sync-cfg-row" style="display:none;margin-top:8px">
@@ -1540,11 +1540,11 @@ async function syncToCloud(){
     const lastTm = document.getElementById('sync-last-time');
     if(lastEl){ lastEl.style.display='block'; }
     if(lastTm){ lastTm.textContent = now; }
-    toast(`✓ ${ok} éléments envoyés vers TickS SIG${errs?` (${errs} erreurs)`:''}`, errs?'a':'g');
+    toast(`✓ ${ok} éléments envoyés vers la base${errs?` (${errs} erreurs)`:''}`, errs?'a':'g');
   } catch(e){
     toast(`Erreur sync : ${e.message}`,'r');
   } finally {
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Synchroniser vers TickS SIG';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Synchroniser vers la base';
     btn.disabled = false;
   }
 }
