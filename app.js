@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.5.1
+// TickS Terrain — app.js v1.5.4
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.5.1';
-console.log('[TickS Terrain] app.js v1.5.1 charge');
+const APP_VERSION = '1.5.4';
+console.log('[TickS Terrain] app.js v1.5.4 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -327,13 +327,44 @@ async function requestWakeLock(){
 function releaseWakeLock(){if(WAKE_LOCK){WAKE_LOCK.release();WAKE_LOCK=null;}}
 
 // ══ ERREURS GLOBALES ══
+// Bruit a ignorer : ces "erreurs" ne signalent aucun probleme reel et
+// polluaient l'interface (toast rouge au partage iOS notamment).
+//  - "Script error." : erreur opaque d'un script cross-origin (CDN Leaflet).
+//    Le navigateur masque volontairement fichier/ligne/message pour des
+//    raisons de securite : il n'y a rien d'exploitable a afficher.
+//  - ResizeObserver loop... : avertissement benin. On observe #sheet avec
+//    un ResizeObserver ; aucune consequence fonctionnelle.
+//  - AbortError / NotAllowedError : l'utilisateur a ferme la feuille de
+//    partage iOS ou refuse une permission. Comportement normal.
+function isNoiseError(msg, filename, lineno){
+  if(!msg) return true;
+  const m = String(msg);
+  if(m === 'Script error.' || m === 'Script error') return true;
+  if(m.indexOf('ResizeObserver loop') === 0) return true;
+  // Erreur opaque : ni fichier ni ligne exploitables
+  if(!filename && !lineno) return true;
+  return false;
+}
 window.addEventListener('error',e=>{
+  if(isNoiseError(e.message, e.filename, e.lineno)){
+    console.warn('[TickS] Erreur opaque ignoree :', e.message||'(vide)');
+    return;
+  }
   const loc=e.filename?e.filename.split('/').pop()+':'+e.lineno:'';
   console.error('[TickS] Erreur',loc,e.message);
-  if(typeof toast==='function')toast('\u274c '+(e.message||'Erreur').slice(0,55)+(loc?' ('+loc+')':''),'r');
+  if(typeof toast==='function')toast('\u274c '+String(e.message).slice(0,55)+(loc?' ('+loc+')':''),'r');
 });
 window.addEventListener('unhandledrejection',e=>{
-  const msg=(e.reason&&e.reason.message)||String(e.reason)||'Promesse rejet\u00e9e';
+  const name=(e.reason&&e.reason.name)||'';
+  if(name==='AbortError'||name==='NotAllowedError'){
+    console.warn('[TickS] Action annulee par l\'utilisateur :',name);
+    return;
+  }
+  const msg=(e.reason&&e.reason.message)||String(e.reason||'');
+  if(isNoiseError(msg,null,null)){
+    console.warn('[TickS] Rejet opaque ignore');
+    return;
+  }
   console.error('[TickS] Async:',msg);
   if(typeof toast==='function')toast('\u26a0 '+msg.slice(0,60),'r');
 });
