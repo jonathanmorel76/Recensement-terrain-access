@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.5.4
+// TickS Terrain — app.js v1.6.0
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.5.4';
-console.log('[TickS Terrain] app.js v1.5.4 charge');
+const APP_VERSION = '1.6.0';
+console.log('[TickS Terrain] app.js v1.6.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -17,7 +17,12 @@ const S = {
   recStart:null, recElapsed:0, recTimer:null,
   pendingType:null, pendingPos:null
 };
-const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20 };
+const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20,
+              lastTs:0, timer:null, deadline:0, rejected:0 };
+// Pointage manuel : MANUAL.pos = coords choisies par appui long sur la carte
+// PICK.type = type en attente quand on bascule du moyennage vers la carte
+const MANUAL = { pos:null, marker:null };
+const PICK   = { active:false, type:null };
 let EDIT_ID = null;
 let MAP = null, MAP_OK = false;
 let MAP_LAYER_OSM = null, MAP_LAYER_AERIAL = null, MAP_AERIAL = false;
@@ -60,12 +65,21 @@ function launchWatch(highAccuracy){
         if(MAP_POS){try{MAP.removeLayer(MAP_POS);}catch(e){}}
         MAP_POS=L.marker([S.pos.lat,S.pos.lon],{icon:mkPosIcon(),zIndexOffset:1000}).addTo(MAP);
       }
+      // Filtre de distance : a l'arret le GPS "derive" et gonflait la longueur
+      // du troncon de plusieurs dizaines de metres. On ignore les points a
+      // moins de 2 m du precedent.
       if(S.recording&&!S.paused&&S.acc<=15){
         const t=S.tracks[S.curTrack];
-        t.pts.push({lat:S.pos.lat,lon:S.pos.lon,ts:Date.now(),acc:S.acc});
-        updateTrkStats();updateMapLive();
+        const prev=t.pts[t.pts.length-1];
+        if(!prev||hav(prev,S.pos)>=2){
+          t.pts.push({lat:S.pos.lat,lon:S.pos.lon,ts:Date.now(),acc:S.acc});
+          updateTrkStats();updateMapLive();
+        }
       }
-      if(AVG.active&&S.acc<=AVG.maxAcc){
+      // Dedoublonnage : watchPosition peut renvoyer plusieurs fois le MEME fix.
+      // Sans ce test, "8 mesures" pouvait etre 8 copies d'une seule position.
+      if(AVG.active&&S.acc<=AVG.maxAcc&&pos.timestamp!==AVG.lastTs){
+        AVG.lastTs=pos.timestamp;
         AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
         updateAvgUI();
         if(AVG.samples.length>=AVG.target)commitAvg();
@@ -77,7 +91,7 @@ function launchWatch(highAccuracy){
       if(err.code===1)toast(/iPhone|iPad|iPod/.test(navigator.userAgent)?'Autorisez la localisation dans R\u00e9glages Safari':'Permission GPS refus\u00e9e','r');
       else if(err.code===3)toast('GPS timeout \u2014 allez \u00e0 l\'ext\u00e9rieur','a');
     },
-    highAccuracy?{enableHighAccuracy:true,timeout:15000,maximumAge:500}
+    highAccuracy?{enableHighAccuracy:true,timeout:15000,maximumAge:0}
       :(isIOS16Plus()||isAndroidModern())?{enableHighAccuracy:true,timeout:20000,maximumAge:3000}
       :{enableHighAccuracy:false,timeout:30000,maximumAge:8000}
   );
@@ -111,6 +125,75 @@ function initMap(){
   refreshMap();
   setTimeout(()=>{if(MAP)MAP.invalidateSize();},150);
 }
+
+// ══ POINTAGE MANUEL SUR LA CARTE ══
+// Indispensable en gare couverte / sous marquise, la ou le GPS ne descend
+// jamais sous 20 m. Deux entrees :
+//   A. appui long sur la carte  -> position choisie, puis type via les boutons
+//   B. bouton "Pointer sur la carte" pendant un leve -> type deja connu
+function bindMapPicking(){
+  if(!MAP)return;
+  // Leaflet emet 'contextmenu' sur appui long tactile ET clic droit desktop
+  MAP.on('contextmenu', e=>{
+    if(PICK.active)return;
+    setManual(e.latlng.lat, e.latlng.lng);
+  });
+  MAP.on('click', e=>{
+    if(!PICK.active)return;
+    const type=PICK.type;
+    endPick();
+    S.pendingType=type;
+    S.pendingPos={lat:e.latlng.lat,lon:e.latlng.lng,acc:0,source:'manuel'};
+    openWptModal(type,e.latlng.lat,e.latlng.lng,0);
+  });
+}
+
+// A. Appui long : on memorise la position, l'utilisateur choisit le type
+function setManual(lat,lon){
+  clearManual();
+  MANUAL.pos={lat,lon};
+  if(MAP){
+    MANUAL.marker=L.marker([lat,lon],{icon:manualIcon()}).addTo(MAP);
+  }
+  showBar('manual-bar');
+  toast('Position choisie \u2014 s\u00e9lectionnez le type','a');
+}
+function clearManual(){
+  if(MANUAL.marker&&MAP){try{MAP.removeLayer(MANUAL.marker);}catch(e){}}
+  MANUAL.marker=null;MANUAL.pos=null;
+  hideBar('manual-bar');
+}
+
+// B. Bascule depuis le leve GPS : le type est deja choisi
+function startPick(type){
+  if(!type){toast('Choisissez d\'abord un type','a');return;}
+  PICK.active=true;PICK.type=type;
+  clearManual();
+  showBar('pick-bar');
+  const el=document.getElementById('map');
+  if(el)el.classList.add('picking');
+}
+function endPick(){
+  PICK.active=false;PICK.type=null;
+  hideBar('pick-bar');
+  const el=document.getElementById('map');
+  if(el)el.classList.remove('picking');
+}
+function cancelPick(){endPick();toast('Pointage annul\u00e9','a');}
+
+// Bouton de la fenetre de moyennage : "Pointer sur la carte"
+function pickFromAvg(){
+  const type=AVG.type||S.pendingType;
+  cancelAvg();
+  startPick(type);
+}
+
+function showBar(id){const b=document.getElementById(id);if(b)b.classList.add('open');}
+function hideBar(id){const b=document.getElementById(id);if(b)b.classList.remove('open');}
+function manualIcon(){
+  return L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,13],
+    html:'<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="#8A3090" stroke-width="2.5" stroke-dasharray="4 3"/><circle cx="13" cy="13" r="3" fill="#8A3090"/></svg>'});
+}
 function resizeMap(){
   const el=document.getElementById('map'),sheet=document.getElementById('sheet');
   if(!el||!sheet)return;
@@ -122,8 +205,8 @@ function refreshMap(){
   MAP_LAYERS=[];
   const show=MAP_FILTER==='all'?Object.keys(COLORS):[MAP_FILTER];
   S.waypoints.filter(w=>show.includes(w.type)).forEach(w=>{
-    const m=L.marker([w.lat,w.lon],{icon:wptIcon(w.type)}).addTo(MAP);
-    m.bindPopup('<b>'+esc(w.name)+'</b><br><small>'+(w.subtype||w.type)+'</small>');
+    const m=L.marker([w.lat,w.lon],{icon:wptIcon(w.type,w.source==='manuel')}).addTo(MAP);
+    m.bindPopup('<b>'+esc(w.name)+'</b><br><small>'+(w.subtype||w.type)+(w.source==='manuel'?' \u00b7 point\u00e9 manuellement':'')+'</small>');
     MAP_LAYERS.push(m);
   });
   S.tracks.forEach(t=>{
@@ -131,9 +214,12 @@ function refreshMap(){
     MAP_LAYERS.push(L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#4ade80',weight:3,opacity:.85}).addTo(MAP));
   });
 }
-function wptIcon(type){
+// Les points pointes manuellement ont un contour pointille : sur le terrain
+// on doit pouvoir distinguer d'un coup d'oeil ce qui vient du GPS.
+function wptIcon(type,manual){
   const c=COLORS[type]||'#888';
-  return L.divIcon({html:'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 22 28"><circle cx="11" cy="11" r="10" fill="'+c+'" stroke="#fff" stroke-width="2"/><line x1="11" y1="21" x2="11" y2="28" stroke="'+c+'" stroke-width="2"/></svg>',iconSize:[22,28],iconAnchor:[11,28],popupAnchor:[0,-28],className:''});
+  const dash=manual?' stroke-dasharray="3 2.5"':'';
+  return L.divIcon({html:'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 22 28"><circle cx="11" cy="11" r="10" fill="'+c+'" stroke="#fff" stroke-width="2"'+dash+'/><line x1="11" y1="21" x2="11" y2="28" stroke="'+c+'" stroke-width="2"/></svg>',iconSize:[22,28],iconAnchor:[11,28],popupAnchor:[0,-28],className:''});
 }
 function mkPosIcon(){return L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:#007AFF;border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,255,.4)"></div>',iconSize:[14,14],iconAnchor:[7,7],className:''});}
 function updateMapLive(){
@@ -160,9 +246,23 @@ function applyFilter(f,btn){
 
 // ══ CAPTURE ══
 function startCapture(type){
-  if(!S.pos){toast('GPS non disponible \u2014 attendez','a');return;}
+  // Cas 1 : l'utilisateur a fait un appui long sur la carte -> position deja
+  // choisie manuellement, on saute entierement le moyennage GPS.
+  if(MANUAL.pos){
+    const p=MANUAL.pos;
+    S.pendingType=type;
+    S.pendingPos={lat:p.lat,lon:p.lon,acc:0,source:'manuel'};
+    clearManual();
+    openWptModal(type,p.lat,p.lon,0);
+    return;
+  }
+  // Cas 2 : leve GPS classique
+  if(!S.pos){toast('GPS non disponible \u2014 pointez sur la carte','a');startPick(type);return;}
   S.pendingType=type;S.pendingPos={lat:S.pos.lat,lon:S.pos.lon,acc:S.acc};
   AVG.active=true;AVG.type=type;AVG.samples=[];AVG.target=8;AVG.maxAcc=20;
+  AVG.lastTs=0;AVG.rejected=0;
+  AVG.deadline=Date.now()+30000;
+  stopAvgTimer();AVG.timer=setInterval(avgTick,1000);avgTick();
   adaptGPS();requestWakeLock();
   const t=document.getElementById('avg-title');
   if(t)t.textContent='Lev\u00e9 '+typeLabel(type);
@@ -185,24 +285,74 @@ function updateAvgUI(){
 }
 function forceAvg(){if(AVG.samples.length>=3)commitAvg();}
 function cancelAvg(){
-  AVG.active=false;AVG.samples=[];
+  stopAvgTimer();
+  AVG.active=false;AVG.samples=[];AVG.lastTs=0;
   document.getElementById('avg-modal').classList.remove('open');
   adaptGPS();releaseWakeLock();
 }
 function commitAvg(){
-  const pts=AVG.samples;
-  const lat=pts.reduce((s,p)=>s+p.lat,0)/pts.length;
-  const lon=pts.reduce((s,p)=>s+p.lon,0)/pts.length;
-  const acc=Math.round(pts.reduce((s,p)=>s+p.acc,0)/pts.length);
-  AVG.active=false;AVG.samples=[];
+  stopAvgTimer();
+  let pts=AVG.samples.slice();
+  if(!pts.length){cancelAvg();return;}
+
+  // 1) Centre provisoire (non pondere) pour detecter les aberrants
+  const cx={lat:pts.reduce((a,p)=>a+p.lat,0)/pts.length,
+            lon:pts.reduce((a,p)=>a+p.lon,0)/pts.length};
+
+  // 2) Rejet des aberrants : un seul saut GPS suffisait a decaler le point.
+  //    Seuil = 3x la distance mediane au centre (plancher 5 m).
+  let rejected=0;
+  if(pts.length>=5){
+    const d=pts.map(p=>hav(cx,p)).sort((a,b)=>a-b);
+    const med=d[Math.floor(d.length/2)]||0;
+    const seuil=Math.max(med*3,5);
+    const kept=pts.filter(p=>hav(cx,p)<=seuil);
+    if(kept.length>=3){rejected=pts.length-kept.length;pts=kept;}
+  }
+
+  // 3) Moyenne ponderee par 1/precision^2 : un fix a +/-3 m pese ~44x plus
+  //    qu'un fix a +/-20 m. La moyenne simple les traitait a egalite.
+  let W=0,sLat=0,sLon=0;
+  pts.forEach(p=>{const w=1/Math.pow(Math.max(p.acc,1),2);W+=w;sLat+=p.lat*w;sLon+=p.lon*w;});
+  const lat=sLat/W, lon=sLon/W;
+
+  // 4) Precision resultante : la moyenne de N fixes independants est plus
+  //    fiable qu'un fix isole (~ecart-type / racine(N)).
+  const accMoy=pts.reduce((a,p)=>a+p.acc,0)/pts.length;
+  const acc=Math.max(1,Math.round(accMoy/Math.sqrt(pts.length)));
+
+  AVG.active=false;AVG.samples=[];AVG.lastTs=0;
   document.getElementById('avg-modal').classList.remove('open');
   adaptGPS();releaseWakeLock();
-  S.pendingPos={lat,lon,acc};
+  S.pendingPos={lat,lon,acc,n:pts.length,source:'gps'};
+  if(rejected>0)toast(rejected+' mesure(s) aberrante(s) ecart\u00e9e(s)','a');
   openWptModal(AVG.type||S.pendingType,lat,lon,acc);
+}
+
+// Compte a rebours : sans cela, si la precision ne passait jamais sous le
+// seuil, la fenetre de capture restait ouverte indefiniment.
+function stopAvgTimer(){if(AVG.timer){clearInterval(AVG.timer);AVG.timer=null;}}
+function avgTick(){
+  const reste=Math.ceil((AVG.deadline-Date.now())/1000);
+  const el=document.getElementById('avg-timer');
+  if(el)el.textContent=reste>0?reste+' s':'';
+  if(reste>0)return;
+  stopAvgTimer();
+  if(AVG.samples.length>=3){toast('D\u00e9lai atteint \u2014 moyenne sur '+AVG.samples.length+' mesures','a');commitAvg();}
+  else{
+    const type=AVG.type||S.pendingType;
+    cancelAvg();
+    toast('GPS insuffisant \u2014 pointez sur la carte','r');
+    startPick(type);
+  }
 }
 function openWptModal(type,lat,lon,acc){
   document.getElementById('wm-title').textContent='Point \u2014 '+typeLabel(type);
-  document.getElementById('wm-coords').textContent=lat.toFixed(5)+', '+lon.toFixed(5)+(acc?' \u00b7 \u00b1'+acc+'m':'');
+  const p=S.pendingPos||{};
+  const origine = p.source==='manuel'
+      ? ' \u00b7 point\u00e9 sur la carte'
+      : (acc? ' \u00b7 \u00b1'+acc+'m'+(p.n?' ('+p.n+' mesures)':'') : '');
+  document.getElementById('wm-coords').textContent=lat.toFixed(5)+', '+lon.toFixed(5)+origine;
   document.getElementById('wm-name').value='';
   document.getElementById('wm-sub').innerHTML=(SUBS[type]||['AUTRE']).map(v=>'<option>'+v+'</option>').join('');
   document.getElementById('wm-desc').value='';
@@ -216,7 +366,9 @@ function saveWpt(){
   const name=document.getElementById('wm-name').value.trim()||typeLabel(type)+' '+(S.waypoints.length+1);
   const subtype=document.getElementById('wm-sub').value;
   const desc=document.getElementById('wm-desc').value.trim();
-  S.waypoints.push({id:crypto.randomUUID?crypto.randomUUID():'wp-'+Date.now(),type,subtype,name,desc,lat:pos.lat,lon:pos.lon,acc:pos.acc||0,ts:Date.now()});
+  S.waypoints.push({id:crypto.randomUUID?crypto.randomUUID():'wp-'+Date.now(),type,subtype,name,desc,
+    lat:pos.lat,lon:pos.lon,acc:pos.acc||0,samples:pos.n||null,
+    source:pos.source||'gps',ts:Date.now()});
   closeWptModal();S.pendingType=null;S.pendingPos=null;
   refreshMap();save();
   toast('\u2713 Point enregistr\u00e9','g');
@@ -230,7 +382,7 @@ function renderPts(){
   el.innerHTML=all.map(obj=>{
     if(obj._k==='w'){
       const c=COLORS[obj.type]||'#888';
-      return '<div class="wpt-item"><div class="wdot" style="background:'+c+'20;color:'+c+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg></div><div class="winfo" onclick="editWpt(\''+obj.id+'\')" style="cursor:pointer"><div class="wname">'+esc(obj.name)+'</div><div class="wmeta">'+obj.lat.toFixed(5)+', '+obj.lon.toFixed(5)+' \u00b7 '+(obj.subtype||obj.type)+'</div>'+(obj.desc?'<div class="wdesc">'+esc(obj.desc)+'</div>':'')+'</div><button class="wbtn" onclick="delWpt(\''+obj.id+'\')">&times;</button></div>';
+      return '<div class="wpt-item"><div class="wdot" style="background:'+c+'20;color:'+c+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg></div><div class="winfo" onclick="editWpt(\''+obj.id+'\')" style="cursor:pointer"><div class="wname">'+esc(obj.name)+'</div><div class="wmeta">'+obj.lat.toFixed(5)+', '+obj.lon.toFixed(5)+' \u00b7 '+(obj.subtype||obj.type)+(obj.source==='manuel'?' \u00b7 manuel':(obj.acc?' \u00b7 \u00b1'+obj.acc+'m':''))+'</div>'+(obj.desc?'<div class="wdesc">'+esc(obj.desc)+'</div>':'')+'</div><button class="wbtn" onclick="delWpt(\''+obj.id+'\')">&times;</button></div>';
     }else{
       const d=obj.pts&&obj.pts.length>=2?Math.round(obj.pts.reduce((s,p,i)=>i?s+hav(obj.pts[i-1],p):0,0)):0;
       return '<div class="wpt-item" style="border-color:#4ade8055"><div class="wdot" style="background:#4ade8020;color:#4ade80"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17 Q8 7 12 12 Q16 17 21 7"/></svg></div><div class="winfo"><div class="wname">'+esc(obj.name)+'</div><div class="wmeta">'+(obj.pts?obj.pts.length:0)+' pts \u00b7 '+d+' m</div></div><button class="wbtn" onclick="delTrk('+obj._i+')">&times;</button></div>';
@@ -242,7 +394,7 @@ function delTrk(i){if(!confirm('Supprimer ?'))return;S.tracks.splice(i,1);render
 function editWpt(id){
   const w=S.waypoints.find(x=>x.id===id);if(!w)return;
   EDIT_ID=id;
-  document.getElementById('em-coords').textContent=w.lat.toFixed(6)+', '+w.lon.toFixed(6)+(w.acc?' \u00b7 \u00b1'+w.acc+'m':'');
+  document.getElementById('em-coords').textContent=w.lat.toFixed(6)+', '+w.lon.toFixed(6)+(w.source==='manuel'?' \u00b7 point\u00e9 sur la carte':(w.acc?' \u00b7 \u00b1'+w.acc+'m':''));
   document.querySelectorAll('#em-types .topt').forEach(el=>el.classList.toggle('sel',el.dataset.t===w.type));
   document.getElementById('em-sub').innerHTML=(SUBS[w.type]||['AUTRE']).map(v=>'<option '+(v===w.subtype?'selected':'')+'>'+v+'</option>').join('');
   document.getElementById('em-name').value=w.name||'';
@@ -330,18 +482,13 @@ function releaseWakeLock(){if(WAKE_LOCK){WAKE_LOCK.release();WAKE_LOCK=null;}}
 // Bruit a ignorer : ces "erreurs" ne signalent aucun probleme reel et
 // polluaient l'interface (toast rouge au partage iOS notamment).
 //  - "Script error." : erreur opaque d'un script cross-origin (CDN Leaflet).
-//    Le navigateur masque volontairement fichier/ligne/message pour des
-//    raisons de securite : il n'y a rien d'exploitable a afficher.
-//  - ResizeObserver loop... : avertissement benin. On observe #sheet avec
-//    un ResizeObserver ; aucune consequence fonctionnelle.
-//  - AbortError / NotAllowedError : l'utilisateur a ferme la feuille de
-//    partage iOS ou refuse une permission. Comportement normal.
+//  - ResizeObserver loop... : avertissement benin (on observe #sheet).
+//  - AbortError / NotAllowedError : partage iOS ferme ou permission refusee.
 function isNoiseError(msg, filename, lineno){
   if(!msg) return true;
   const m = String(msg);
   if(m === 'Script error.' || m === 'Script error') return true;
   if(m.indexOf('ResizeObserver loop') === 0) return true;
-  // Erreur opaque : ni fichier ni ligne exploitables
   if(!filename && !lineno) return true;
   return false;
 }
@@ -391,7 +538,7 @@ document.addEventListener('click',e=>{
 
 // ══ BOOT MAP (appele depuis sync.js) ══
 function _bootMap(){
-  initMap();resizeMap();
+  initMap();bindMapPicking();resizeMap();
   [200,600,1200].forEach(ms=>setTimeout(()=>{if(MAP)MAP.invalidateSize();resizeMap();},ms));
   const sheet=document.getElementById('sheet');
   if(sheet)new ResizeObserver(()=>{resizeMap();if(MAP)MAP.invalidateSize();}).observe(sheet);
