@@ -16,7 +16,8 @@
   --bg:#F2F2F7;--surface:rgba(255,255,255,.88);--surface2:rgba(242,242,247,.92);
   --surface3:rgba(229,229,234,.85);--brd:rgba(0,0,0,.08);--brd2:rgba(0,0,0,.05);
   --txt:rgba(0,0,0,.88);--txt2:rgba(0,0,0,.45);--txt3:rgba(0,0,0,.26);--sep:rgba(0,0,0,.09);
-  --blue:#007AFF;--green:#34C759;--orange:#FF9500;--red:#FF3B30;--ticks:#8A3090;
+  --blue:#007AFF;--green:#34C759;--orange:#FF9500;--red:#FF3B30;
+  --ticks:#8A3090;--ticks-green:#8DC63F;
   --blur:blur(20px) saturate(180%);--r:16px;
   --shadow:0 2px 20px rgba(0,0,0,.12);
   --font:-apple-system,"SF Pro Display",system-ui,sans-serif
@@ -38,16 +39,19 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 #gps-bar-track{width:32px;height:3px;flex-shrink:0;background:var(--c-brd);border-radius:2px;overflow:hidden}
 #gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .5s,background .5s;background:var(--c-icon2)}
 #gps-bar-txt{font-size:12px;color:var(--c-icon2);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-#burger-btn{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);right:12px;z-index:900;width:44px;height:44px;border-radius:14px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 12px rgba(0,0,0,.10);touch-action:manipulation;pointer-events:auto}
+/* Le burger est un ELEMENT de #right-pill (flex column) : des freres
+   ne peuvent pas se chevaucher. Ne PAS le repasser en position:absolute. */
+#burger-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+#burger-btn:active{background:var(--c-pill)}
 .burger-icon{display:flex;flex-direction:column;gap:4px}.burger-icon span{display:block;width:16px;height:1.5px;background:var(--c-icon);border-radius:1px}
-#right-pill{position:absolute;top:calc(env(safe-area-inset-top,10px)+64px);right:12px;z-index:700;display:flex;flex-direction:column;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
+#right-pill{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);right:12px;z-index:900;display:flex;flex-direction:column;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
 .rpill-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--c-icon);touch-action:manipulation}.rpill-btn:active{background:var(--c-pill)}.rpill-sep{height:1px;background:var(--c-sep);margin:0 10px}
-#btn-geolocate{position:absolute;right:12px;bottom:142px;z-index:750;width:50px;height:50px;border-radius:50%;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 14px rgba(0,0,0,.16);touch-action:manipulation;color:var(--c-icon);transition:transform .08s}
+#btn-geolocate{position:absolute;right:12px;bottom:142px;z-index:750;width:50px;height:50px;border-radius:50%;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 14px rgba(0,0,0,.16);touch-action:manipulation;color:var(--c-icon);transition:transform .08s,color .2s}
 #btn-geolocate:active{transform:scale(.92)}
-#btn-geolocate.tracking{color:var(--blue)}
+#btn-geolocate.tracking{color:var(--ticks-green)}
 #btn-layer svg{stroke:var(--c-icon);fill:none}#btn-filter-toggle svg{stroke:var(--c-icon)}
 #btn-filter-toggle.active{background:var(--c-active)}#btn-filter-toggle.active svg{stroke:var(--c-glass)}
-#filter-popover{position:absolute;z-index:690;right:68px;top:calc(env(safe-area-inset-top,10px)+108px);display:flex;flex-direction:column;gap:5px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:16px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.14);opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
+#filter-popover{position:absolute;z-index:890;right:68px;top:calc(env(safe-area-inset-top,10px)+100px);display:flex;flex-direction:column;gap:5px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:16px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.14);opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
 #filter-popover.open{opacity:1;pointer-events:auto;transform:translateX(0)}
 #filter-popover button{background:var(--c-pill);border:1px solid var(--c-brd);border-radius:12px;padding:7px 14px;font-size:12px;font-weight:500;color:var(--c-icon2);touch-action:manipulation;white-space:nowrap;text-align:left}
 #filter-popover button.active{background:var(--c-active);border-color:transparent;color:var(--c-glass2)}
@@ -76,10 +80,10 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 #burger-menu.open #burger-panel{transform:translateY(0);transition-timing-function:cubic-bezier(.22,1,.36,1)}
 .bm-handle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 16px}
 .bm-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);padding:0 20px;margin-bottom:8px}
-.bmenu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;width:100%;font-size:16px;font-weight:400;color:var(--txt);touch-action:manipulation;transition:background .1s}.bmenu-item:active{background:var(--surface3)}.bmenu-item.active{color:var(--blue)}
+.bmenu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;width:100%;font-size:16px;font-weight:400;color:var(--txt);touch-action:manipulation;transition:background .1s}.bmenu-item:active{background:var(--surface3)}.bmenu-item.active{color:var(--ticks)}
 .bmenu-item svg{flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .bm-sep{height:1px;background:var(--sep);margin:6px 20px}
-#bm-close{display:flex;align-items:center;justify-content:center;margin:8px 16px 0;padding:14px;border-radius:14px;font-size:15px;font-weight:600;color:var(--blue);background:var(--surface2);border:1px solid var(--brd);touch-action:manipulation}
+#bm-close{display:flex;align-items:center;justify-content:center;margin:8px 16px 0;padding:14px;border-radius:14px;font-size:15px;font-weight:600;color:var(--ticks);background:var(--surface2);border:1px solid var(--brd);touch-action:manipulation}
 .card{background:var(--surface);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:10px}
 .card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px}
 .wpt-item{background:var(--surface2);border:1px solid var(--brd2);border-radius:12px;padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
@@ -110,7 +114,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 #avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s;background:var(--ticks)}
 #avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
 .type-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.topt{background:var(--surface2);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}.topt.sel{border-color:rgba(0,122,255,.55);background:rgba(0,122,255,.08)}
+.topt{background:var(--surface2);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}.topt.sel{border-color:rgba(138,48,144,.55);background:rgba(138,48,144,.08)}
 .topt .ti{font-size:20px;line-height:1;margin-bottom:3px}.topt .tl{font-size:11px;font-weight:500;color:var(--txt2)}.topt .ts{font-size:10px;color:var(--txt3);margin-top:1px}
 #toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px;padding:9px 18px;font-size:13px;font-weight:500;z-index:1200;transition:transform .22s;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
 #toast.show{transform:translateX(-50%) translateY(0)}
@@ -125,8 +129,9 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 <div id="pane-terrain">
   <div id="map"></div>
   <div id="gps-bar"><svg width="16" height="16" viewBox="0 0 64 64" style="flex-shrink:0;border-radius:4px"><rect width="64" height="64" rx="14" fill="#8A3090"/><path d="M17 33 L27 43 L47 21" fill="none" stroke="#8DC63F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg><div id="gps-bar-track"><div id="gps-bar-fill"></div></div><span id="gps-bar-txt">GPS…</span></div>
-  <button id="burger-btn" onclick="openBurger()"><div class="burger-icon"><span></span><span></span><span></span></div></button>
   <div id="right-pill">
+    <button id="burger-btn" class="rpill-btn" onclick="openBurger()" aria-label="Menu"><div class="burger-icon"><span></span><span></span><span></span></div></button>
+    <div class="rpill-sep"></div>
     <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()" aria-label="Changer de fond"><svg width="17" height="17" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></button>
     <div class="rpill-sep"></div>
     <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()" aria-label="Filtrer"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
@@ -183,7 +188,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <svg width="32" height="32" viewBox="0 0 64 64" style="flex-shrink:0;border-radius:7px"><rect width="64" height="64" rx="14" fill="#8A3090"/><path d="M17 33 L27 43 L47 21" fill="none" stroke="#8DC63F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.2</div></div>
+      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.3</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
