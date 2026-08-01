@@ -77,7 +77,6 @@ async function sbInsert(cfg, table, row){
 // ══════════════════════════════════════════
 const QUEUE_DB  = 'ticks-offline-queue';
 const QUEUE_VER = 1;
-
 function openQueueDB(){
   return new Promise((res,rej) => {
     const req = indexedDB.open(QUEUE_DB, QUEUE_VER);
@@ -320,6 +319,13 @@ function closeBurger(){document.getElementById('burger-menu').classList.remove('
 function toggleFilterPopover(){const p=document.getElementById('filter-popover');const b=document.getElementById('btn-filter-toggle');const open=p.classList.toggle('open');b.classList.toggle('active',open);}
 function closeFilterPopover(){const p=document.getElementById('filter-popover');const b=document.getElementById('btn-filter-toggle');if(p)p.classList.remove('open');if(b)b.classList.remove('active');}
 document.addEventListener('click',e=>{if(!e.target.closest('#filter-popover')&&!e.target.closest('#btn-filter-toggle'))closeFilterPopover();},true);
+function applyFilter(f,btn){
+  MAP_FILTER=f;
+  document.querySelectorAll('#filter-popover button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshMap();
+  closeFilterPopover();
+}
 function goTab(id){
   const terrain=document.getElementById('pane-terrain');
   const pts=document.getElementById('pane-points');
@@ -334,3 +340,35 @@ function goTab(id){
   closeBurger();
   if(typeof closeFilterPopover==='function')closeFilterPopover();
 }
+
+// ══════════════════════════════════
+// GESTIONNAIRE D'ERREUR GLOBAL
+// Capture les crashs silencieux et affiche un toast
+// ══════════════════════════════════
+const APP_VERSION = '1.3.0';
+
+window.addEventListener('error', e => {
+  console.error('[TickS] Erreur non capturée :', e.message, e.filename, e.lineno);
+  try {
+    if(document.getElementById('toast'))
+      toast('Erreur : ' + (e.message||'inconnue').slice(0,40), 'r');
+  } catch(_) {}
+  return false;
+});
+
+window.addEventListener('unhandledrejection', e => {
+  console.error('[TickS] Promise rejetée :', e.reason);
+  try {
+    const msg = (e.reason?.message || String(e.reason) || 'Promise rejetée').slice(0,40);
+    if(document.getElementById('toast')) toast('Erreur async : ' + msg, 'r');
+  } catch(_) {}
+});
+
+// Afficher la version dans le burger menu si l'élément existe
+document.addEventListener('DOMContentLoaded', () => {
+  const vEl = document.getElementById('app-version');
+  if(vEl) vEl.textContent = 'v' + APP_VERSION;
+  updateQueueBadge();
+});
+
+console.log('[TickS Terrain] v' + APP_VERSION + ' — prêt');
