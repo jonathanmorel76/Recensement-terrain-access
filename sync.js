@@ -43,6 +43,62 @@ function saveSyncConfig(){
   localStorage.setItem('ldm_nom_session',document.getElementById('sc-nom').value.trim());
   closeSyncConfig();toast('Configuration enregistrée','g');renderExp();
 }
+
+// Precision moyenne des points d'un troncon. Le schema prevoit la colonne
+// precision_moy depuis le debut mais elle n'etait jamais renseignee.
+function precisionMoy(trk){
+  const a=(trk.pts||[]).map(p=>p.acc).filter(x=>typeof x==='number');
+  if(!a.length)return null;
+  return Math.round((a.reduce((s,x)=>s+x,0)/a.length)*10)/10;
+}
+
+// Payload commun a toutes les tables de points.
+// mode_saisie : 'gps' (moyennage pondere sur site) ou 'manuel' (pointe sur
+// la carte). A NE PAS confondre avec la colonne `source` du schema, qui
+// vaut 'terrain_ldm' et designe la provenance de l'enregistrement, pas la
+// methode de positionnement.
+// Un point manuel envoie precision_gps et nb_mesures_gps a NULL : mettre 0
+// se lirait comme "precision parfaite", ce qui serait faux.
+function basePoint(w, sessionId){
+  const manuel = w.source==='manuel';
+  const base={
+    id:w.id,
+    geom:`SRID=4326;POINT(${w.lon} ${w.lat})`,
+    nom:w.name,
+    precision_gps: manuel ? null : (w.acc||null),
+    nb_mesures_gps: manuel ? null : (w.samples||null),
+    mode_saisie: manuel ? 'manuel' : 'gps',
+    notes:w.desc||null
+  };
+  if(sessionId) base.session_id=sessionId;
+  return base;
+}
+
+// Aiguillage type -> table CNIG. Une seule definition, utilisee par le
+// chemin en ligne ET par la file d'attente hors ligne : les deux ne
+// peuvent plus diverger.
+function routePoint(w, sessionId){
+  const base=basePoint(w, sessionId);
+  if(w.type==='entree')      return {table:'entree_batiment',  data:{...base,type_entree:w.subtype||'PRINCIPALE'}};
+  if(w.type==='equip_acces') return {table:'equipement_acces', data:{...base,type_equip:w.subtype||'AUTRE'}};
+  if(w.type==='equip_comp')  return {table:'equipement_info',  data:{...base,type_equip:w.subtype||'AUTRE'}};
+  if(w.type==='noeud')       return {table:'noeud_cheminement',data:{...base,type_noeud:w.subtype||'INTERSECTION'}};
+  return {table:'point_autre', data:{...base,sous_type:w.subtype}};
+}
+
+function routeTrack(trk, sessionId){
+  const coords=trk.pts.map(p=>`${p.lon} ${p.lat}`).join(',');
+  const data={
+    geom:`SRID=4326;LINESTRING(${coords})`,
+    nom:trk.name,
+    nb_points_gps:trk.pts.length,
+    precision_moy:precisionMoy(trk),
+    mode_saisie:'gps'
+  };
+  if(sessionId) data.session_id=sessionId;
+  return {table:'troncon_cheminement', data};
+}
+
 async function sbInsert(cfg,table,row){
   const r=await fetch(`${cfg.sbUrl}/rest/v1/${table}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.sbKey,'Authorization':`Bearer ${cfg.sbKey}`,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)});
   if(!r.ok){const e=await r.text();throw new Error(`${table}: ${r.status} ${e}`);}
@@ -108,21 +164,15 @@ async function syncToCloud(){
     await sbInsert(cfg,'session_terrain',{id:sessionId,nom:cfg.nomSession||`Session ${new Date().toLocaleDateString('fr-FR')}`,statut:'en_cours'});
     let ok=0,errs=0;
     for(const w of S.waypoints){
-      const geom=`SRID=4326;POINT(${w.lon} ${w.lat})`;
-      const base={id:w.id,session_id:sessionId,geom,nom:w.name,precision_gps:w.acc,nb_mesures_gps:w.samples||null,notes:w.desc||null};
-      try{
-        if(w.type==='entree')await sbInsert(cfg,'entree_batiment',{...base,type_entree:w.subtype||'PRINCIPALE'});
-        else if(w.type==='equip_acces')await sbInsert(cfg,'equipement_acces',{...base,type_equip:w.subtype||'AUTRE'});
-        else if(w.type==='equip_comp')await sbInsert(cfg,'equipement_info',{...base,type_equip:w.subtype||'AUTRE'});
-        else if(w.type==='noeud')await sbInsert(cfg,'noeud_cheminement',{...base,type_noeud:w.subtype||'INTERSECTION'});
-        else await sbInsert(cfg,'point_autre',{...base,sous_type:w.subtype});
-        ok++;
-      }catch(e){errs++;console.warn(e);}
+      const {table,data}=routePoint(w, sessionId);
+      try{await sbInsert(cfg,table,data);ok++;}
+      catch(e){errs++;console.warn('[TickS] Echec insert',table,e);}
     }
     for(const trk of S.tracks){
       if(!trk.pts||trk.pts.length<2)continue;
-      const coords=trk.pts.map(p=>`${p.lon} ${p.lat}`).join(',');
-      try{await sbInsert(cfg,'troncon_cheminement',{session_id:sessionId,geom:`SRID=4326;LINESTRING(${coords})`,nom:trk.name,nb_points_gps:trk.pts.length});ok++;}catch(e){errs++;}
+      const {table,data}=routeTrack(trk, sessionId);
+      try{await sbInsert(cfg,table,data);ok++;}
+      catch(e){errs++;console.warn('[TickS] Echec insert',table,e);}
     }
     localStorage.setItem('ldm_last_session_id',sessionId);
     const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -133,26 +183,15 @@ async function syncToCloud(){
   }catch(e){
     if(!navigator.onLine||e.message?.includes('fetch')||e.name==='TypeError'){
       try{
+        const sessionId=crypto.randomUUID?crypto.randomUUID():'ses-'+Date.now();
         const rows=[];
-        for(const w of S.waypoints){
-          const geom=`SRID=4326;POINT(${w.lon} ${w.lat})`;
-          const base={id:w.id,geom,nom:w.name,precision_gps:w.acc,nb_mesures_gps:w.samples||null,notes:w.desc||null};
-          let table='point_autre',data={...base,sous_type:w.subtype};
-          if(w.type==='entree'){table='entree_batiment';data={...base,type_entree:w.subtype||'PRINCIPALE'};}
-          else if(w.type==='equip_acces'){table='equipement_acces';data={...base,type_equip:w.subtype||'AUTRE'};}
-          else if(w.type==='equip_comp'){table='equipement_info';data={...base,type_equip:w.subtype||'AUTRE'};}
-          else if(w.type==='noeud'){table='noeud_cheminement';data={...base,type_noeud:w.subtype||'INTERSECTION'};}
-          rows.push({table,data});
-        }
+        for(const w of S.waypoints) rows.push(routePoint(w, sessionId));
         for(const trk of S.tracks){
           if(!trk.pts||trk.pts.length<2)continue;
-          const coords=trk.pts.map(p=>`${p.lon} ${p.lat}`).join(',');
-          rows.push({table:'troncon_cheminement',data:{geom:`SRID=4326;LINESTRING(${coords})`,nom:trk.name,nb_points_gps:trk.pts.length}});
+          rows.push(routeTrack(trk, sessionId));
         }
-        const sessionId=crypto.randomUUID?crypto.randomUUID():'ses-'+Date.now();
         const sessionNom=cfg.nomSession||`Session ${new Date().toLocaleDateString('fr-FR')}`;
-        const finalRows=rows.map(r=>({...r,data:{...r.data,session_id:sessionId}}));
-        await queuePush({sessionId,sessionNom,rows:finalRows});
+        await queuePush({sessionId,sessionNom,rows});
         await updateQueueBadge();
         toast(`Hors ligne — ${rows.length} élément(s) en file`,'a');
       }catch(qErr){toast(`Erreur sync : ${e.message}`,'r');}
@@ -167,7 +206,7 @@ function exportGPX(){
   if(!S.waypoints.length&&!S.tracks.length){toast('Rien à exporter','a');return;}
   const ts=new Date().toISOString();
   let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TickS Terrain" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><name>Session LDM</name><time>${ts}</time></metadata>\n`;
-  S.waypoints.forEach(w=>{g+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n  <name>${xe(w.name)}</name>\n  <desc>${xe([w.subtype,w.desc].filter(Boolean).join(' | '))}</desc>\n  <time>${new Date(w.ts).toISOString()}</time>\n</wpt>\n`;});
+  S.waypoints.forEach(w=>{g+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n  <name>${xe(w.name)}</name>\n  <desc>${xe([w.subtype,w.desc,w.source==='manuel'?'point\u00e9 sur la carte':null].filter(Boolean).join(' | '))}</desc>\n  <time>${new Date(w.ts).toISOString()}</time>\n</wpt>\n`;});
   S.tracks.forEach(t=>{if(!t.pts||t.pts.length<2)return;g+=`<trk>\n  <name>${xe(t.name)}</name>\n  <trkseg>\n`;t.pts.forEach(p=>{g+=`    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><time>${new Date(p.ts).toISOString()}</time></trkpt>\n`;});g+=`  </trkseg>\n</trk>\n`;});
   g+='</gpx>';
   dl(g,'application/gpx+xml',`LDM_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,'GPX exporté');
@@ -221,15 +260,17 @@ function goTab(id){
   closeFilterPopover();
 }
 
-// FIX MOBILE : empecher Leaflet d'intercepter les clics sur les overlays
-// btn-geolocate est desormais un bouton flottant hors de #right-pill :
-// il doit figurer explicitement dans cette liste.
+// FIX MOBILE : empecher Leaflet d'intercepter les clics sur les overlays.
+// Tout nouvel element flottant DOIT etre ajoute ici, sinon ses clics
+// partent a la carte. btn-geolocate, manual-bar et pick-bar sont des
+// enfants de #sheet mais on les liste explicitement par securite.
 (function fixLeafletOverlays(){
   function applyFix(){
     if(typeof L === 'undefined' || typeof MAP_OK === 'undefined' || !MAP_OK){
       setTimeout(applyFix, 300); return;
     }
     ['sheet','wpt-cluster','right-pill','filter-popover','btn-geolocate',
+     'manual-bar','pick-bar',
      'burger-btn','gps-bar','burger-menu','burger-panel',
      'avg-modal','wpt-modal','edit-modal','sync-modal','toast'].forEach(id => {
       const el = document.getElementById(id);
