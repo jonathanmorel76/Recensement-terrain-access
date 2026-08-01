@@ -1,5 +1,7 @@
 // TickS Terrain — sync.js
 // Rendu listes, Sync Supabase, Exports, File offline
+// NOTE : WAKE_LOCK / requestWakeLock / releaseWakeLock / esc / hav
+// sont definis dans app.js (ne PAS les redeclarer ici : SyntaxError)
 
 function renderExp(){
   const cfg=getSyncCfg();
@@ -192,8 +194,6 @@ function load(){
   }catch(e){}
 }
 
-function hav(a,b){const R=6371000,dL=(b.lat-a.lat)*Math.PI/180,dO=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function xe(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 let _tt;
 function toast(msg,type=''){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='show '+(type||'');clearTimeout(_tt);_tt=setTimeout(()=>t.className='',2600);}
@@ -204,12 +204,6 @@ async function dl(content,mime,filename,msg){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
   if(msg)toast(msg,'g');
 }
-let WAKE_LOCK=null;
-async function requestWakeLock(){
-  if(!('wakeLock' in navigator))return;
-  try{WAKE_LOCK=await navigator.wakeLock.request('screen');WAKE_LOCK.addEventListener('release',()=>{WAKE_LOCK=null;});}catch(e){}
-}
-function releaseWakeLock(){if(WAKE_LOCK){WAKE_LOCK.release();WAKE_LOCK=null;}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.recording&&!S.paused)requestWakeLock();});
 
 function goTab(id){
@@ -227,25 +221,22 @@ function goTab(id){
   closeFilterPopover();
 }
 
-// FIX MOBILE CRITIQUE : empecher Leaflet d'intercepter les clics sur les overlays
-// Leaflet capture tous les touchstart/touchend sur son conteneur, y compris
-// les elements qui le chevauchent. disableClickPropagation resout ce probleme.
+// FIX MOBILE : empecher Leaflet d'intercepter les clics sur les overlays
 (function fixLeafletOverlays(){
   function applyFix(){
     if(typeof L === 'undefined' || typeof MAP_OK === 'undefined' || !MAP_OK){
       setTimeout(applyFix, 300); return;
     }
-    const ids = ['sheet','wpt-cluster','right-pill','filter-popover',
-                 'burger-btn','gps-bar','burger-menu','burger-panel',
-                 'avg-modal','wpt-modal','edit-modal','sync-modal','toast'];
-    ids.forEach(id => {
+    ['sheet','wpt-cluster','right-pill','filter-popover',
+     'burger-btn','gps-bar','burger-menu','burger-panel',
+     'avg-modal','wpt-modal','edit-modal','sync-modal','toast'].forEach(id => {
       const el = document.getElementById(id);
       if(el){
         L.DomEvent.disableClickPropagation(el);
         L.DomEvent.disableScrollPropagation(el);
       }
     });
-    console.log('[TickS] Overlays Leaflet fixes (' + ids.length + ' elements)');
+    console.log('[TickS] Overlays Leaflet proteges');
   }
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', () => setTimeout(applyFix, 600));
@@ -253,3 +244,30 @@ function goTab(id){
     setTimeout(applyFix, 600);
   }
 })();
+
+// ═══ BOOT ═══
+// Deplace ici depuis app.js : sync.js charge en DERNIER,
+// donc load() / save() / toast() sont tous definis a ce stade.
+load();
+startGPS();
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(_bootMap,100));
+}else{
+  setTimeout(_bootMap,100);
+}
+
+['avg-modal','wpt-modal','edit-modal'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.addEventListener('click',e=>{
+    if(e.target===el){el.classList.remove('open');if(id==='avg-modal')cancelAvg();}
+  });
+});
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&!S.recording&&GPS_WATCH_ID!==null){
+    navigator.geolocation.clearWatch(GPS_WATCH_ID);GPS_WATCH_ID=null;
+  }else if(document.visibilityState==='visible'&&GPS_WATCH_ID===null){
+    launchWatch(S.recording&&!S.paused);
+  }
+});
