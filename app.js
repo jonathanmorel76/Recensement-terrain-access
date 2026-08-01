@@ -1,11 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.5.0
+// TickS Terrain — app.js v1.5.1
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
+// NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
+// Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.5.0';
-console.log('[TickS Terrain] app.js v1.5.0 charge');
+const APP_VERSION = '1.5.1';
+console.log('[TickS Terrain] app.js v1.5.1 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
