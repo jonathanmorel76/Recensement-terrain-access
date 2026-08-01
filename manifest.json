@@ -1,25 +1,22 @@
 {
-  "name": "Recensement Terrain LDM",
-  "short_name": "Terrain LDM",
-  "description": "Collecte terrain accessibilité — recensement des pôles d'échange LDM",
+  "name": "TickS Terrain",
+  "short_name": "TickS",
+  "description": "Recensement terrain accessibilité — pôles d'échange Normandie",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0c1017",
-  "theme_color": "#0c1017",
+  "background_color": "#F2F2F7",
+  "theme_color": "#8A3090",
   "lang": "fr",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230c1017'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-size='280' font-family='system-ui'%3E%F0%9F%93%8D%3C/text%3E%3C/svg%3E",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%238A3090'/%3E%3C/svg%3E",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
-  "categories": [
-    "utilities",
-    "navigation"
-  ],
+  "categories": ["utilities", "navigation"],
   "prefer_related_applications": false
 }
