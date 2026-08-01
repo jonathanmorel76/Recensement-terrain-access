@@ -10,21 +10,400 @@
 <link rel="apple-touch-icon" href="./logo.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <title>TickS Terrain</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#F2F2F7;--surface:rgba(255,255,255,.88);--surface2:rgba(242,242,247,.92);
+  --surface3:rgba(229,229,234,.85);--brd:rgba(0,0,0,.08);--brd2:rgba(0,0,0,.05);
+  --txt:rgba(0,0,0,.88);--txt2:rgba(0,0,0,.45);--txt3:rgba(0,0,0,.26);--sep:rgba(0,0,0,.09);
+  --blue:#007AFF;--green:#34C759;--orange:#FF9500;--red:#FF3B30;--ticks:#8A3090;
+  --blur:blur(20px) saturate(180%);--r:16px;
+  --shadow:0 2px 20px rgba(0,0,0,.12);--shadow-lg:0 6px 40px rgba(0,0,0,.18);
+  --font:-apple-system,"SF Pro Display",system-ui,sans-serif
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#000;--surface:rgba(28,28,30,.88);--surface2:rgba(44,44,46,.85);
+  --surface3:rgba(58,58,60,.80);--brd:rgba(255,255,255,.09);--brd2:rgba(255,255,255,.05);
+  --txt:rgba(255,255,255,.92);--txt2:rgba(255,255,255,.48);--txt3:rgba(255,255,255,.26);--sep:rgba(255,255,255,.10);
+  --blue:#0A84FF;--green:#30D158;--orange:#FF9F0A;--red:#FF453A;
+  --shadow:0 2px 20px rgba(0,0,0,.45)
+}}
+html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none;background:none;color:inherit}
+#app{position:fixed;inset:0;height:100dvh}
+
+#pane-terrain{
+  display:block;position:absolute;inset:0;overflow:hidden;
+  --c-glass:rgba(248,244,255,.85);--c-glass2:rgba(253,250,255,.95);
+  --c-brd:rgba(138,48,144,.10);--c-icon:rgba(60,20,100,.78);--c-icon2:rgba(138,48,144,.45);
+  --c-sep:rgba(138,48,144,.10);--c-pill:rgba(138,48,144,.06);--c-active:rgba(138,48,144,.90);
+  --c-blur:blur(22px) saturate(200%)
+}
+@media(prefers-color-scheme:dark){#pane-terrain{
+  --c-glass:rgba(30,15,50,.86);--c-glass2:rgba(20,8,38,.94);
+  --c-brd:rgba(180,140,236,.10);--c-icon:rgba(220,190,255,.88);--c-icon2:rgba(180,140,236,.45);
+  --c-sep:rgba(180,140,236,.10);--c-pill:rgba(180,140,236,.07);--c-active:rgba(180,140,236,.92);
+  --c-blur:blur(22px) saturate(200%)
+}}
+#map{position:absolute;inset:0;bottom:130px;min-height:200px}
+#gps-bar{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);left:12px;right:68px;z-index:700;pointer-events:none;display:flex;align-items:center;gap:8px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;padding:7px 14px;box-shadow:0 1px 12px rgba(0,0,0,.10)}
+#gps-bar-track{width:32px;height:3px;flex-shrink:0;background:var(--c-brd);border-radius:2px;overflow:hidden}
+#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .5s,background .5s;background:var(--c-icon2)}
+#gps-bar-txt{font-size:12px;color:var(--c-icon2);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+#burger-btn{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);right:12px;z-index:900;width:44px;height:44px;border-radius:14px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 12px rgba(0,0,0,.10);touch-action:manipulation;pointer-events:auto}
+#burger-btn:active{background:var(--c-pill)}
+.burger-icon{display:flex;flex-direction:column;gap:4px}
+.burger-icon span{display:block;width:16px;height:1.5px;background:var(--c-icon);border-radius:1px}
+#right-pill{position:absolute;top:calc(env(safe-area-inset-top,10px)+64px);right:12px;z-index:700;display:flex;flex-direction:column;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
+.rpill-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--c-icon);touch-action:manipulation}
+.rpill-btn:active{background:var(--c-pill)}
+.rpill-sep{height:1px;background:var(--c-sep);margin:0 10px}
+#btn-geolocate svg{fill:var(--c-icon)}
+#btn-geolocate.tracking svg{fill:var(--blue)}
+#btn-layer svg{stroke:var(--c-icon);fill:none}
+#btn-filter-toggle svg{stroke:var(--c-icon)}
+#btn-filter-toggle.active{background:var(--c-active)}
+#btn-filter-toggle.active svg{stroke:var(--c-glass)}
+#filter-popover{position:absolute;z-index:690;right:68px;top:calc(env(safe-area-inset-top,10px)+152px);display:flex;flex-direction:column;gap:5px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:16px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.14);opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
+#filter-popover.open{opacity:1;pointer-events:auto;transform:translateX(0)}
+#filter-popover button{background:var(--c-pill);border:1px solid var(--c-brd);border-radius:12px;padding:7px 14px;font-size:12px;font-weight:500;color:var(--c-icon2);touch-action:manipulation;white-space:nowrap;text-align:left}
+#filter-popover button.active{background:var(--c-active);border-color:transparent;color:var(--c-glass2)}
+#wpt-cluster{position:absolute;left:12px;top:50%;transform:translateY(-60%);z-index:700;display:flex;flex-direction:column;gap:8px}
+.wc-btn{width:52px;height:52px;border-radius:50%;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;touch-action:manipulation;box-shadow:0 1px 10px rgba(0,0,0,.10);transition:transform .08s}
+.wc-btn:active{transform:scale(.90)}
+.wc-btn .wi{width:20px;height:20px;display:block;stroke:var(--c-icon);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.wc-btn .wl{font-size:9px;font-weight:500;color:var(--c-icon2);letter-spacing:.01em;line-height:1}
+#sheet{position:absolute;left:0;right:0;bottom:0;z-index:800;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px 22px 0 0;padding:0 14px;padding-bottom:env(safe-area-inset-bottom,12px);box-shadow:0 -2px 24px rgba(0,0,0,.10);pointer-events:auto;touch-action:manipulation}
+#sheet *{pointer-events:auto;touch-action:manipulation}
+#sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--c-sep);margin:8px auto 10px}
+#trk-row{display:flex;align-items:center;gap:8px;background:var(--c-pill);border:1px solid var(--c-brd);border-radius:12px;padding:8px 12px;margin-bottom:8px}
+#trk-row input{flex:1;background:none;border:none;color:var(--c-icon);font-size:13px;font-family:var(--font);outline:none;min-width:0}
+.trkstat{text-align:center;flex-shrink:0;min-width:26px}
+.trkstat .v{font-size:13px;font-weight:600;color:var(--c-icon);font-variant-numeric:tabular-nums;line-height:1}
+.trkstat .l{font-size:9px;color:var(--c-icon2);margin-top:1px;letter-spacing:.04em;text-transform:uppercase}
+#btn-rec{width:100%;padding:13px;border-radius:13px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--c-pill);border:1px solid var(--c-brd);color:var(--c-icon);touch-action:manipulation;transition:all .16s}
+#btn-finish{width:100%;padding:10px;border-radius:13px;margin-top:6px;font-size:13px;font-weight:600;background:var(--c-pill);border:1px solid var(--c-brd);color:var(--c-icon2);display:none;touch-action:manipulation}
+#precache-bar{position:absolute;top:calc(env(safe-area-inset-top,10px)+64px);left:12px;right:68px;z-index:710;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:14px;padding:9px 14px;font-size:12px;color:var(--c-icon2);display:none;align-items:center;gap:10px;box-shadow:0 1px 12px rgba(0,0,0,.10)}
+#precache-bar.show{display:flex}
+#precache-prog{flex:1;height:2px;background:var(--c-brd);border-radius:2px;overflow:hidden}
+#precache-fill{height:100%;background:var(--c-icon);border-radius:2px;width:0%;transition:width .2s}
+.leaflet-popup-content-wrapper{background:var(--c-glass)!important;-webkit-backdrop-filter:var(--c-blur)!important;backdrop-filter:var(--c-blur)!important;color:var(--c-icon)!important;border:1px solid var(--c-brd)!important;border-radius:16px!important;box-shadow:0 8px 40px rgba(0,0,0,.20)!important;font-family:var(--font)}
+.leaflet-popup-tip{background:var(--c-glass)!important}
+.leaflet-popup-content{margin:12px 14px!important;font-size:13px}
+.leaflet-popup-close-button{color:var(--c-icon2)!important;font-size:18px!important}
+.subview{display:none;position:fixed;inset:0;flex-direction:column;background:var(--bg);z-index:900}
+.sv-header{flex-shrink:0;padding-top:env(safe-area-inset-top,0px);background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-bottom:1px solid var(--brd)}
+.sv-header-inner{height:48px;padding:0 12px;display:flex;align-items:center;gap:8px}
+.sv-back{display:flex;align-items:center;gap:4px;color:var(--ticks);font-size:16px;font-weight:500;touch-action:manipulation;padding:4px 6px;border-radius:8px;transition:opacity .12s}
+.sv-back:active{opacity:.5}
+.sv-back svg{stroke:var(--ticks);fill:none}
+.sv-title{font-size:15px;font-weight:600;letter-spacing:-.02em;margin-left:4px}
+.sv-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
+#burger-menu{position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,.30);opacity:0;pointer-events:none;transition:opacity .22s}
+@media(prefers-color-scheme:dark){#burger-menu{background:rgba(0,0,0,.55)}}
+#burger-menu.open{opacity:1;pointer-events:auto}
+#burger-panel{background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px 22px 0 0;padding:10px 0 calc(20px + env(safe-area-inset-bottom,12px));transform:translateY(100%);transition:transform .28s cubic-bezier(.32,0,.67,1)}
+#burger-menu.open #burger-panel{transform:translateY(0);transition-timing-function:cubic-bezier(.22,1,.36,1)}
+.bm-handle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 16px}
+.bm-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);padding:0 20px;margin-bottom:8px}
+.bmenu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;width:100%;font-size:16px;font-weight:400;color:var(--txt);touch-action:manipulation;transition:background .1s}
+.bmenu-item:active{background:var(--surface3)}
+.bmenu-item.active{color:var(--blue)}
+.bmenu-item svg{flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bm-sep{height:1px;background:var(--sep);margin:6px 20px}
+#bm-close{display:flex;align-items:center;justify-content:center;margin:8px 16px 0;padding:14px;border-radius:14px;font-size:15px;font-weight:600;color:var(--blue);background:var(--surface2);border:1px solid var(--brd);touch-action:manipulation}
+.card{background:var(--surface);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px}
+.wpt-item{background:var(--surface2);border:1px solid var(--brd2);border-radius:12px;padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.wdot{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.wdot svg{width:16px;height:16px}
+.winfo{flex:1;min-width:0}
+.wname{font-weight:500;font-size:13px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmeta{font-size:11px;color:var(--txt3);margin-top:2px;font-variant-numeric:tabular-nums}
+.wdesc{font-size:11px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wbtn{padding:5px 8px;font-size:14px;color:var(--txt3);touch-action:manipulation}
+.empty{text-align:center;color:var(--txt3);padding:36px 16px;font-size:14px;line-height:1.7}
+.btn-main{width:100%;background:var(--blue);color:#fff;border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-sec{width:100%;background:var(--surface2);border:1px solid var(--brd);color:var(--txt);border-radius:var(--r);padding:12px;font-size:13px;font-weight:500;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
+.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.stat-chip{background:var(--surface2);border:1px solid var(--brd2);border-radius:10px;padding:7px 12px;display:flex;align-items:center;gap:7px}
+.stat-chip .n{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.40);z-index:1000;align-items:flex-end}
+@media(prefers-color-scheme:dark){.modal{background:rgba(0,0,0,.60)}}
+.modal.open{display:flex}
+.modal-box{background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px 22px 0 0;padding:10px 16px calc(24px + env(safe-area-inset-bottom,12px));width:100%;max-height:90vh;overflow-y:auto}
+.mhandle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 16px}
+.mtitle{font-size:17px;font-weight:600;margin-bottom:3px;letter-spacing:-.02em}
+.msub{font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:12px;font-weight:500;color:var(--txt3);margin-bottom:5px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--surface2);border:1px solid var(--brd);border-radius:12px;color:var(--txt);font-size:15px;padding:10px 12px;outline:none;font-family:var(--font)}
+.fg textarea{height:68px;resize:none}
+.mbtns{display:flex;gap:8px;margin-top:8px}
+.mbtn-ok{flex:2;background:var(--blue);color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:600;touch-action:manipulation}
+.mbtn-cancel{flex:1;background:var(--surface2);border:1px solid var(--brd);color:var(--txt2);border-radius:12px;padding:14px;font-size:15px;touch-action:manipulation}
+#avg-prog-bg{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-bottom:10px}
+#avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s}
+#avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
+.type-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.topt{background:var(--surface2);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}
+.topt.sel{border-color:rgba(0,122,255,.55);background:rgba(0,122,255,.08)}
+.topt .ti{font-size:20px;line-height:1;margin-bottom:3px}
+.topt .tl{font-size:11px;font-weight:500;color:var(--txt2)}
+.topt .ts{font-size:10px;color:var(--txt3);margin-top:1px}
+#toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px;padding:9px 18px;font-size:13px;font-weight:500;z-index:1200;transition:transform .22s;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.g{border-color:rgba(52,199,89,.4);color:var(--green)}
+#toast.a{border-color:rgba(255,149,0,.4);color:var(--orange)}
+#toast.r{border-color:rgba(255,59,48,.4);color:var(--red)}
+::-webkit-scrollbar{display:none}
+</style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+
+<!-- VUE CARTE -->
+<div id="pane-terrain">
+  <div id="map"></div>
+  <div id="gps-bar">
+    <img src="./logo.png" width="16" height="16" style="flex-shrink:0;border-radius:4px">
+    <div id="gps-bar-track"><div id="gps-bar-fill"></div></div>
+    <span id="gps-bar-txt">GPS…</span>
+  </div>
+  <button id="burger-btn" onclick="openBurger()">
+    <div class="burger-icon"><span></span><span></span><span></span></div>
+  </button>
+  <div id="right-pill">
+    <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2 L20 20 L12 16 L4 20 Z" opacity=".35"/>
+        <path d="M12 2 L20 20 L12 16 Z"/>
+      </svg>
+    </button>
+    <div class="rpill-sep"></div>
+    <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()">
+      <svg width="17" height="17" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+    </button>
+    <div class="rpill-sep"></div>
+    <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()">
+      <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    </button>
+  </div>
+  <div id="filter-popover">
+    <button class="active" onclick="applyFilter('all',this)">Tout afficher</button>
+    <button onclick="applyFilter('entree',this)">Entrées</button>
+    <button onclick="applyFilter('equip_comp',this)">Info voyageur</button>
+    <button onclick="applyFilter('equip_acces',this)">Équip. accès</button>
+    <button onclick="applyFilter('noeud',this)">Nœuds</button>
+  </div>
+  <div id="wpt-cluster">
+    <button class="wc-btn" onclick="startCapture('entree')">
+      <svg class="wi" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="wl">Entrée</span>
+    </button>
+    <button class="wc-btn" onclick="startCapture('equip_comp')">
+      <svg class="wi" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span class="wl">Info</span>
+    </button>
+    <button class="wc-btn" onclick="startCapture('equip_acces')">
+      <svg class="wi" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="10" x2="12" y2="16"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+      <span class="wl">Accès</span>
+    </button>
+    <button class="wc-btn" onclick="startCapture('noeud')">
+      <svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/></svg>
+      <span class="wl">Nœud</span>
+    </button>
+    <button class="wc-btn" onclick="startCapture('autre')">
+      <svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
+      <span class="wl">Autre</span>
+    </button>
+  </div>
+  <div id="sheet">
+    <div id="sheet-handle"></div>
+    <div id="trk-row">
+      <input id="trk-name" type="text" placeholder="Nom du tronçon…">
+      <div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div>
+      <div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div>
+      <div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur</div></div>
+    </div>
+    <button id="btn-rec" onclick="toggleRec()"><span>●</span><span> Enregistrer un tronçon</span></button>
+    <button id="btn-finish" onclick="finishTrack()">&#10003; Terminer ce tronçon</button>
+  </div>
+  <div id="precache-bar">
+    <span id="precache-txt">Préchargement Normandie…</span>
+    <div id="precache-prog"><div id="precache-fill"></div></div>
+    <span id="precache-pct">0%</span>
+  </div>
+</div>
+
+<!-- VUE POINTS -->
+<div id="pane-points" class="subview">
+  <div class="sv-header">
+    <div class="sv-header-inner">
+      <button class="sv-back" onclick="goTab('terrain')">
+        <svg width="10" height="16" viewBox="0 0 10 16"><polyline points="9 1 1 8 9 15" stroke-width="2"/></svg>
+        Carte
+      </button>
+      <span class="sv-title">Points &amp; Tronçons</span>
+    </div>
+  </div>
+  <div class="sv-content"><div id="pts-list"></div></div>
+</div>
+
+<!-- VUE EXPORT -->
+<div id="pane-export" class="subview">
+  <div class="sv-header">
+    <div class="sv-header-inner">
+      <button class="sv-back" onclick="goTab('terrain')">
+        <svg width="10" height="16" viewBox="0 0 10 16"><polyline points="9 1 1 8 9 15" stroke-width="2"/></svg>
+        Carte
+      </button>
+      <span class="sv-title">Sync &amp; Export</span>
+    </div>
+  </div>
+  <div class="sv-content">
+    <div class="card">
+      <div class="card-title">Session</div>
+      <div class="stat-row" id="exp-stats"></div>
+      <button class="btn-main" onclick="exportGPX()">Exporter en GPX</button>
+      <button class="btn-sec"  onclick="exportJSON()">Sauvegarder (.json)</button>
+      <button class="btn-sec"  onclick="loadSession()">Reprendre une session</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Envoyer vers TickS SIG</div>
+      <div id="sync-status-row" style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid var(--brd2);margin-bottom:10px">
+        <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:background .3s"></div>
+        <div style="flex:1">
+          <div id="sync-status-txt" style="font-size:12px;color:var(--txt2)">Non configuré</div>
+          <div id="sync-last" style="font-size:10px;color:var(--txt3);display:none">Dernière sync : <span id="sync-last-time">—</span></div>
+        </div>
+        <button onclick="openSyncConfig()" style="font-size:11px;color:var(--ticks);font-family:var(--font);padding:4px 10px;border-radius:6px;border:1px solid rgba(138,48,144,.3);background:rgba(138,48,144,.07)">⚙</button>
+      </div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;line-height:1.6;background:var(--surface2);border-radius:8px;padding:8px 10px">
+        📲 → ☁ → 🖥<br>
+        Les données relevées sont envoyées vers <strong>TickS SIG</strong> en temps réel.
+      </div>
+      <button class="btn-main" id="btn-sync" onclick="syncToCloud()" style="background:var(--ticks)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Synchroniser vers TickS SIG
+      </button>
+      <div id="sync-cfg-row" style="display:none;margin-top:8px">
+        <button class="btn-sec" onclick="openSyncConfig()" style="color:var(--orange)">
+          &#9888; Configurer la connexion Supabase
+        </button>
+      </div>
+      <div id="queue-status-row" style="display:none;align-items:center;gap:8px;padding:8px 0;margin-top:6px;border-top:1px solid var(--brd2)">
+        <span style="font-size:16px">📤</span>
+        <span id="queue-label" style="font-size:12px;color:var(--orange);flex:1">En attente d'envoi</span>
+        <button onclick="flushQueue()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--orange);color:var(--orange);background:none;font-family:var(--font)">Réessayer</button>
+      </div>
+    </div>
+    <div class="card"><button class="btn-sec" style="color:var(--red);border-color:rgba(255,59,48,.28)" onclick="resetSession()">Effacer la session</button></div>
+  </div>
+</div>
+
+<!-- BURGER -->
+<div id="burger-menu" onclick="closeBurger()">
+  <div id="burger-panel" onclick="event.stopPropagation()">
+    <div class="bm-handle"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
+      <img src="./logo.png" width="32" height="32" style="flex-shrink:0;border-radius:7px">
+      <div>
+        <div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div>
+        <div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div>
+      </div>
+    </div>
+    <div class="bm-label">Navigation</div>
+    <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      Carte terrain
+    </button>
+    <div class="bm-sep"></div>
+    <button class="bmenu-item" data-view="points" onclick="goTab('points')">
+      <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      Points relevés
+    </button>
+    <button class="bmenu-item" data-view="export" onclick="goTab('export')">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Sync &amp; Export
+    </button>
+    <button id="bm-close" onclick="closeBurger()">Fermer</button>
+  </div>
+</div>
+
+</div>
+
+<!-- MODALES -->
+<div id="sync-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle">☁ Connexion Supabase</div>
+    <div class="fg"><label>URL Supabase</label><input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div>
+    <div class="fg"><label>Clé publique (anon key)</label><input type="text" id="sc-sb-key" placeholder="eyJhbGci…"></div>
+    <div class="fg"><label>Nom de cette session</label><input type="text" id="sc-nom" placeholder="Gare de Rouen — sortie nord"></div>
+    <div class="mbtns">
+      <button class="mbtn-cancel" onclick="closeSyncConfig()">Annuler</button>
+      <button class="mbtn-ok" onclick="saveSyncConfig()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="avg-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="avg-title">Capture…</div>
+    <div class="msub">Accumulation des mesures GPS</div>
+    <div id="avg-prog-bg"><div id="avg-prog-fill"></div></div>
+    <div id="avg-stats"><span id="avg-n">0/8</span><span id="avg-acc">±— m</span></div>
+    <div class="mbtns">
+      <button class="mbtn-ok" id="avg-force" onclick="forceAvg()" disabled style="opacity:.4">⚡ Forcer</button>
+      <button class="mbtn-cancel" onclick="cancelAvg()">Annuler</button>
+    </div>
+  </div>
+</div>
+<div id="wpt-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="wm-title">Point de levé</div>
+    <div class="msub" id="wm-coords">—</div>
+    <div class="fg"><label>Nom</label><input id="wm-name" type="text" placeholder="Nom du point"></div>
+    <div class="fg"><label>Sous-type</label><select id="wm-sub"></select></div>
+    <div class="fg"><label>Remarque</label><textarea id="wm-desc" placeholder="Observations…"></textarea></div>
+    <div class="mbtns">
+      <button class="mbtn-cancel" onclick="closeWptModal()">Annuler</button>
+      <button class="mbtn-ok" onclick="saveWpt()">&#128205; Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="edit-modal" class="modal">
+  <div class="modal-box">
+    <div class="mhandle"></div>
+    <div class="mtitle">✏ Modifier le point</div>
+    <div class="msub" id="em-coords">—</div>
+    <div class="fg">
+      <label>Catégorie</label>
+      <div class="type-sel" id="em-types">
+        <div class="topt sel" data-t="entree" onclick="pickType('entree',this)"><div class="ti">🚪</div><div class="tl">Entrée</div><div class="ts">SiteEntrance</div></div>
+        <div class="topt" data-t="equip_comp" onclick="pickType('equip_comp',this)"><div class="ti">🖥</div><div class="tl">Info voy.</div><div class="ts">PassengerInfo</div></div>
+        <div class="topt" data-t="equip_acces" onclick="pickType('equip_acces',this)"><div class="ti">🛗</div><div class="tl">Équip. accès</div><div class="ts">AccessEquip.</div></div>
+        <div class="topt" data-t="noeud" onclick="pickType('noeud',this)"><div class="ti">⬤</div><div class="tl">Nœud</div><div class="ts">PathJunction</div></div>
+        <div class="topt" data-t="autre" onclick="pickType('autre',this)"><div class="ti">📌</div><div class="tl">Autre</div><div class="ts">À classifier</div></div>
+      </div>
+    </div>
+    <div class="fg"><label>Sous-type</label><select id="em-sub"></select></div>
+    <div class="fg"><label>Nom</label><input id="em-name" type="text"></div>
+    <div class="fg"><label>Remarque</label><textarea id="em-desc"></textarea></div>
+    <div class="mbtns">
+      <button class="mbtn-cancel" onclick="closeEditModal()">Annuler</button>
+      <button class="mbtn-ok" onclick="saveEdit()">&#10003; Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./app.js"></script>
 <script src="./sync.js"></script>
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(r => r.addEventListener('updatefound', () => toast('Mise a jour - relancez', 'a')))
-      .catch(() => {});
-  });
-}
-</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').then(r=>r.addEventListener('updatefound',()=>toast('Mise à jour — relancez','a'))).catch(()=>{});});}</script>
 </body>
 </html>
