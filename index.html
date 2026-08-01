@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="TickS Terrain">
 <link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="./logo.png">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%238A3090'/%3E%3Cpath d='M17 33 L27 43 L47 21' fill='none' stroke='%238DC63F' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <title>TickS Terrain</title>
 <style>
@@ -42,7 +42,10 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .burger-icon{display:flex;flex-direction:column;gap:4px}.burger-icon span{display:block;width:16px;height:1.5px;background:var(--c-icon);border-radius:1px}
 #right-pill{position:absolute;top:calc(env(safe-area-inset-top,10px)+64px);right:12px;z-index:700;display:flex;flex-direction:column;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
 .rpill-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--c-icon);touch-action:manipulation}.rpill-btn:active{background:var(--c-pill)}.rpill-sep{height:1px;background:var(--c-sep);margin:0 10px}
-#btn-geolocate svg{fill:var(--c-icon)}#btn-geolocate.tracking svg{fill:var(--blue)}
+#btn-geolocate svg{stroke:var(--c-icon)}
+#btn-geolocate svg circle[fill]{fill:var(--c-icon)}
+#btn-geolocate.tracking svg{stroke:var(--blue)}
+#btn-geolocate.tracking svg circle[fill]{fill:var(--blue)}
 #btn-layer svg{stroke:var(--c-icon);fill:none}#btn-filter-toggle svg{stroke:var(--c-icon)}
 #btn-filter-toggle.active{background:var(--c-active)}#btn-filter-toggle.active svg{stroke:var(--c-glass)}
 #filter-popover{position:absolute;z-index:690;right:68px;top:calc(env(safe-area-inset-top,10px)+152px);display:flex;flex-direction:column;gap:5px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:16px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.14);opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
@@ -105,7 +108,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .mbtn-ok{flex:2;background:var(--blue);color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:600;touch-action:manipulation}
 .mbtn-cancel{flex:1;background:var(--surface2);border:1px solid var(--brd);color:var(--txt2);border-radius:12px;padding:14px;font-size:15px;touch-action:manipulation}
 #avg-prog-bg{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-bottom:10px}
-#avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s}
+#avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s;background:var(--ticks)}
 #avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
 .type-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .topt{background:var(--surface2);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}.topt.sel{border-color:rgba(0,122,255,.55);background:rgba(0,122,255,.08)}
@@ -122,14 +125,14 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 <div id="app">
 <div id="pane-terrain">
   <div id="map"></div>
-  <div id="gps-bar"><img src="./logo.png" width="16" height="16" style="flex-shrink:0;border-radius:4px"><div id="gps-bar-track"><div id="gps-bar-fill"></div></div><span id="gps-bar-txt">GPS…</span></div>
+  <div id="gps-bar"><svg width="16" height="16" viewBox="0 0 64 64" style="flex-shrink:0;border-radius:4px"><rect width="64" height="64" rx="14" fill="#8A3090"/><path d="M17 33 L27 43 L47 21" fill="none" stroke="#8DC63F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg><div id="gps-bar-track"><div id="gps-bar-fill"></div></div><span id="gps-bar-txt">GPS…</span></div>
   <button id="burger-btn" onclick="openBurger()"><div class="burger-icon"><span></span><span></span><span></span></div></button>
   <div id="right-pill">
-    <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 L20 20 L12 16 L4 20 Z" opacity=".35"/><path d="M12 2 L20 20 L12 16 Z"/></svg></button>
+    <button class="rpill-btn" id="btn-geolocate" onclick="gotoGPS()" aria-label="Me localiser"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22.5" y2="12"/></svg></button>
     <div class="rpill-sep"></div>
-    <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()"><svg width="17" height="17" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></button>
+    <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()" aria-label="Changer de fond"><svg width="17" height="17" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></button>
     <div class="rpill-sep"></div>
-    <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+    <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()" aria-label="Filtrer"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
   </div>
   <div id="filter-popover">
     <button class="active" onclick="applyFilter('all',this)">Tout afficher</button>
@@ -181,8 +184,8 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
   <div id="burger-panel" onclick="event.stopPropagation()">
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
-      <img src="./logo.png" width="32" height="32" style="flex-shrink:0;border-radius:7px">
-      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.0</div></div>
+      <svg width="32" height="32" viewBox="0 0 64 64" style="flex-shrink:0;border-radius:7px"><rect width="64" height="64" rx="14" fill="#8A3090"/><path d="M17 33 L27 43 L47 21" fill="none" stroke="#8DC63F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.1</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
@@ -203,10 +206,12 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 
 <!-- ORDRE DE CHARGEMENT CRITIQUE :
      1. Leaflet (dependance)
-     2. app.js  : declare S, MAP, WAKE_LOCK, esc, hav + toutes les fns UI/carte
+     2. app.js  : declare S, MAP, WAKE_LOCK, esc, hav + fns UI/carte
      3. sync.js : declare load, save, toast, goTab, exports + APPELLE LE BOOT
-     Ne PAS ajouter de <script> inline declarant des variables :
-     collision var/let avec app.js = SyntaxError silencieuse. -->
+     Ne PAS ajouter de script inline declarant des variables :
+     collision var/let avec app.js = SyntaxError silencieuse.
+     Ne PAS referencer logo.png : le fichier du repo est un base64 tronque.
+     Le logo TickS est un SVG inline (violet #8A3090 + tick vert #8DC63F). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="./app.js"></script>
 <script src="./sync.js"></script>
