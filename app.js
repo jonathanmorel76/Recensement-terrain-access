@@ -2,6 +2,8 @@
 // TickS Terrain — app.js
 // GPS, Carte, Capture, UI, Navigation
 // ========================================
+const APP_VERSION = '1.4.0';
+console.log('[TickS Terrain] v1.4.0 — prêt');
 
 // ══════════════════════════════
 // ÉTAT
@@ -32,11 +34,7 @@ const SUBS = {
   autre:      ['A_CLASSIFIER','OBSTACLE','REMARQUE','PHOTO_REF']
 };
 
-// ══════════════════════════════
-// ONGLETS
-// ══════════════════════════════
 function goTabStub(id){
-  // Sera surchargé par sync.js (goTab final)
   const views = ['terrain','points','export'];
   views.forEach(v => {
     const el = document.getElementById('pane-'+v);
@@ -44,9 +42,6 @@ function goTabStub(id){
   });
 }
 
-// ══════════════════════════════
-// GPS
-// ══════════════════════════════
 let GPS_WATCH_ID = null;
 let GPS_LAST_MAP = 0;
 
@@ -137,9 +132,6 @@ function updateGpsBar(acc){
   if(btn) btn.classList.toggle('tracking',acc<=15);
 }
 
-// ══════════════════════════════
-// CARTE
-// ══════════════════════════════
 function initMap(){
   if(!MAP_OK){
     MAP=L.map('map',{zoomControl:false,attributionControl:true});
@@ -210,23 +202,23 @@ function toggleLayer(){
   if(btn) btn.style.color=MAP_AERIAL?'var(--ticks,#8A3090)':'';
 }
 
-function toggleFilterPopoverStub(){
-  // surchargé par sync.js
+function applyFilter(f, btn){
+  MAP_FILTER=f;
+  document.querySelectorAll('#filter-popover button').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  refreshMap();
+  if(typeof closeFilterPopover==='function') closeFilterPopover();
 }
 
-// ══════════════════════════════
-// CAPTURE WAYPOINTS
-// ══════════════════════════════
 function startCapture(type){
-  if(!S.pos){toast('Position GPS non disponible — attendez le signal','a');return;}
+  if(!S.pos){toast('Position GPS non disponible \u2014 attendez le signal','a');return;}
   S.pendingType=type;
   S.pendingPos={lat:S.pos.lat,lon:S.pos.lon,acc:S.acc};
   AVG.active=true; AVG.type=type; AVG.samples=[]; AVG.target=8; AVG.maxAcc=20;
   adaptGPS();
   requestWakeLock();
-  // Modal moyennage
   const t=document.getElementById('avg-title');
-  if(t) t.textContent='Levé '+typeLabel(type);
+  if(t) t.textContent='Lev\u00e9 '+typeLabel(type);
   document.getElementById('avg-prog-fill').style.width='0%';
   document.getElementById('avg-n').textContent='0/8';
   document.getElementById('avg-acc').textContent='\u00b1\u2014 m';
@@ -300,9 +292,6 @@ function saveWpt(){
   toast('\u2713 Point enregistr\u00e9','g');
 }
 
-// ══════════════════════════════
-// VUE POINTS — LISTE ET ÉDITION
-// ══════════════════════════════
 function renderPts(){
   const el=document.getElementById('pts-list');
   const all=[
@@ -351,7 +340,7 @@ function renderPts(){
 function delWpt(id){if(!confirm('Supprimer ?'))return;S.waypoints=S.waypoints.filter(w=>w.id!==id);renderPts();save();}
 function delTrk(i){if(!confirm('Supprimer ?'))return;S.tracks.splice(i,1);renderPts();save();}
 function editTrk(i){
-  const n=prompt('Nom du tronçon :',S.tracks[i].name);
+  const n=prompt('Nom du tron\u00e7on :',S.tracks[i].name);
   if(n===null)return; S.tracks[i].name=n.trim()||S.tracks[i].name;
   renderPts(); save(); toast('Renomm\u00e9','g');
 }
@@ -383,9 +372,6 @@ function saveEdit(){
   closeEditModal(); renderPts(); refreshMap(); save(); toast('Modifi\u00e9','g');
 }
 
-// ══════════════════════════════
-// TRONÇONS
-// ══════════════════════════════
 function toggleRec(){
   if(!S.recording){
     S.recording=true; S.paused=false;
@@ -414,48 +400,61 @@ function togglePause(){
   const btn=document.getElementById('btn-pause');
   if(btn) btn.textContent=S.paused?'\u25b6 Reprendre':'\u23f8 Pause';
 }
+function finishTrack(){
+  if(S.recording) toggleRec();
+}
 function updateRecTimer(){
-  const el=document.getElementById('rec-time');
+  const el=document.getElementById('rec-time')||document.getElementById('s-tim');
   if(!el)return;
   const ms=(S.recElapsed+(S.paused?0:Date.now()-S.recStart));
   const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);
-  el.textContent=(h?h+'h':'')+String(m%60).padStart(2,'0')+'m'+String(s%60).padStart(2,'0')+'s';
+  el.textContent=(h?h+'h':'')+String(m%60).padStart(2,'0')+(h?'m':':')+String(s%60).padStart(2,'0')+(h?'s':'');
 }
 function updateTrkStats(){
-  const el=document.getElementById('trk-pts');
-  if(!el||S.curTrack===null)return;
+  const el=document.getElementById('trk-pts')||document.getElementById('s-pts');
+  const dst=document.getElementById('s-dst');
+  if(!S.recording||S.curTrack===null)return;
   const t=S.tracks[S.curTrack];
   const d=t.pts.length>=2?Math.round(t.pts.reduce((s,p,i)=>i?s+hav(t.pts[i-1],p):0,0)):0;
-  el.textContent=t.pts.length+' pts \u00b7 '+d+'m';
+  if(el) el.textContent=t.pts.length;
+  if(dst) dst.textContent=d;
 }
 function updateSheetUI(){
   const nameEl=document.getElementById('trk-name');
-  const statsEl=document.getElementById('trk-pts');
   const btn=document.getElementById('btn-rec');
-  const pauseBtn=document.getElementById('btn-pause');
-  const saveBtn=document.getElementById('btn-save-trk');
+  const finBtn=document.getElementById('btn-finish');
   if(S.recording){
-    if(nameEl) nameEl.textContent=S.curTrack!==null?S.tracks[S.curTrack].name:'Tron\u00e7on';
-    if(btn){btn.textContent='\u23f9 Stop';btn.style.background='var(--red,#FF3B30)';}
-    if(pauseBtn) pauseBtn.style.display='inline-flex';
-    if(saveBtn) saveBtn.style.display='none';
+    if(nameEl) nameEl.value=S.curTrack!==null?S.tracks[S.curTrack].name:'Tron\u00e7on';
+    if(btn){btn.innerHTML='<span>\u23f9</span><span> Stop enregistrement</span>';btn.style.background='var(--red,#FF3B30)';btn.style.color='#fff';}
+    if(finBtn) finBtn.style.display='block';
   } else {
-    if(nameEl) nameEl.textContent='Tron\u00e7on';
-    if(btn){btn.textContent='\u25cf Enregistrer';btn.style.background='';}
-    if(pauseBtn) pauseBtn.style.display='none';
-    if(saveBtn) saveBtn.style.display='inline-flex';
+    if(btn){btn.innerHTML='<span>\u25cf</span><span> Enregistrer un tron\u00e7on</span>';btn.style.background='';btn.style.color='';}
+    if(finBtn) finBtn.style.display='none';
   }
 }
 
-// ══════════════════════════════
-// EXPORT
-// ══════════════════════════════
-function exportSectionStub(){
-  // export functions defined in sync.js
-}
-
-// ══════════════════════════════
-// UTILS
-// ══════════════════════════════
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function hav(a,b){const R=6371000,dL=(b.lat-a.lat)*Math.PI/180,dO=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+
+// ══════════════════════════════
+// GESTIONNAIRE D'ERREUR GLOBAL
+// Crashs visibles sur le terrain + log console
+// ══════════════════════════════
+window.addEventListener('error', e => {
+  const loc = e.filename ? e.filename.split('/').pop() + ':' + e.lineno : '';
+  console.error('[TickS] Erreur', loc, e.message, e.error);
+  if(typeof toast === 'function')
+    toast('\u274c ' + (e.message||'Erreur').slice(0,55) + (loc?' ('+loc+')':''), 'r');
+});
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message || String(e.reason) || 'Promesse rejet\u00e9e';
+  console.error('[TickS] Async non g\u00e9r\u00e9:', msg, e.reason);
+  if(typeof toast === 'function')
+    toast('\u26a0 ' + msg.slice(0,60), 'r');
+});
+
+// Afficher la version dans le burger au chargement
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('app-version');
+  if(el) el.textContent = 'v' + APP_VERSION;
+});
