@@ -46,7 +46,11 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .burger-icon{display:flex;flex-direction:column;gap:4px}.burger-icon span{display:block;width:16px;height:1.5px;background:var(--c-icon);border-radius:1px}
 #right-pill{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);right:12px;z-index:900;display:flex;flex-direction:column;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
 .rpill-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--c-icon);touch-action:manipulation}.rpill-btn:active{background:var(--c-pill)}.rpill-sep{height:1px;background:var(--c-sep);margin:0 10px}
-#btn-geolocate{position:absolute;right:12px;bottom:142px;z-index:750;width:50px;height:50px;border-radius:50%;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 14px rgba(0,0,0,.16);touch-action:manipulation;color:var(--c-icon);transition:transform .08s,color .2s}
+/* Le bouton geoloc est un ENFANT de #sheet, ancre sur son bord superieur
+   (top negatif) : il suit automatiquement la hauteur du bandeau, qui
+   grandit quand "Terminer ce troncon" apparait. Ne PAS revenir a un
+   bottom fixe : le bandeau passerait par-dessus. */
+#btn-geolocate{position:absolute;right:0;top:-62px;z-index:810;width:50px;height:50px;border-radius:50%;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 14px rgba(0,0,0,.16);touch-action:manipulation;color:var(--c-icon);transition:transform .08s,color .2s}
 #btn-geolocate:active{transform:scale(.92)}
 #btn-geolocate.tracking{color:var(--ticks-green)}
 #btn-layer svg{stroke:var(--c-icon);fill:none}#btn-filter-toggle svg{stroke:var(--c-icon)}
@@ -121,6 +125,9 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 #toast.g{border-color:rgba(52,199,89,.4);color:var(--green)}
 #toast.a{border-color:rgba(255,149,0,.4);color:var(--orange)}
 #toast.r{border-color:rgba(255,59,48,.4);color:var(--red)}
+/* Attribution Leaflet decalee : le bouton geoloc occupe ce coin */
+.leaflet-bottom.leaflet-right{right:70px}
+.leaflet-control-attribution{font-size:10px;opacity:.75}
 ::-webkit-scrollbar{display:none}
 </style>
 </head>
@@ -150,8 +157,8 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <button class="wc-btn" onclick="startCapture('noeud')"><svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/></svg><span class="wl">Nœud</span></button>
     <button class="wc-btn" onclick="startCapture('autre')"><svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg><span class="wl">Autre</span></button>
   </div>
-  <button id="btn-geolocate" onclick="gotoGPS()" aria-label="Me localiser"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2.5 L20.5 20.5 L12 16.4 L3.5 20.5 Z" fill="currentColor" opacity=".30"/><path d="M12 2.5 L20.5 20.5 L12 16.4 Z" fill="currentColor"/></svg></button>
   <div id="sheet">
+    <button id="btn-geolocate" onclick="gotoGPS()" aria-label="Me localiser"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2.5 L20.5 20.5 L12 16.4 L3.5 20.5 Z" fill="currentColor" opacity=".30"/><path d="M12 2.5 L20.5 20.5 L12 16.4 Z" fill="currentColor"/></svg></button>
     <div id="sheet-handle"></div>
     <div id="trk-row"><input id="trk-name" type="text" placeholder="Nom du tronçon…"><div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div><div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div><div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur</div></div></div>
     <button id="btn-rec" onclick="toggleRec()"><span>●</span><span> Enregistrer un tronçon</span></button>
@@ -188,7 +195,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <svg width="32" height="32" viewBox="0 0 64 64" style="flex-shrink:0;border-radius:7px"><rect width="64" height="64" rx="14" fill="#8A3090"/><path d="M17 33 L27 43 L47 21" fill="none" stroke="#8DC63F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.3</div></div>
+      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.4</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
