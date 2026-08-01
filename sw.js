@@ -1,7 +1,7 @@
 // TickS Terrain — Service Worker v3
 const CACHE_APP   = 'ldm-app-v3';
 const CACHE_TILES = 'ldm-tiles-v1';
-const SHELL = ['./', './index.html', './manifest.json'];
+const SHELL = ['./', './index.html', './manifest.json', './logo.png', './app.js', './sync.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
