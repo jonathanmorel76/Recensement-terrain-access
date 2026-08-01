@@ -222,12 +222,14 @@ function goTab(id){
 }
 
 // FIX MOBILE : empecher Leaflet d'intercepter les clics sur les overlays
+// btn-geolocate est desormais un bouton flottant hors de #right-pill :
+// il doit figurer explicitement dans cette liste.
 (function fixLeafletOverlays(){
   function applyFix(){
     if(typeof L === 'undefined' || typeof MAP_OK === 'undefined' || !MAP_OK){
       setTimeout(applyFix, 300); return;
     }
-    ['sheet','wpt-cluster','right-pill','filter-popover',
+    ['sheet','wpt-cluster','right-pill','filter-popover','btn-geolocate',
      'burger-btn','gps-bar','burger-menu','burger-panel',
      'avg-modal','wpt-modal','edit-modal','sync-modal','toast'].forEach(id => {
       const el = document.getElementById(id);
