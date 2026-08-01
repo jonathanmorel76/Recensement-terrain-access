@@ -1,22 +1,23 @@
-// TickS Terrain — Service Worker v4
-// Force reinstall : ldm-app-v4 + ldm-tiles-v2
-const CACHE_APP   = 'ldm-app-v4';
+// TickS Terrain — Service Worker v5
+// logo.png retire du SHELL : le fichier du repo est un base64 tronque,
+// le logo est desormais un SVG inline dans index.html.
+const CACHE_APP   = 'ldm-app-v5';
 const CACHE_TILES = 'ldm-tiles-v2';
-const SHELL = ['./', './index.html', './manifest.json', './logo.png', './app.js', './sync.js'];
+const SHELL = ['./', './index.html', './manifest.json', './app.js', './sync.js'];
 
-// Tuiles OSM pre-cachees : 15 gares x 5x5 = 375 tuiles/zoom x 2 zooms
+// Tuiles OSM pre-cachees : gares LDM Normandie z12
 const PRECACHE_TILES = [
-  // Rouen z12
+  // Rouen
   'https://tile.openstreetmap.org/12/2056/1394.png','https://tile.openstreetmap.org/12/2057/1394.png','https://tile.openstreetmap.org/12/2058/1394.png','https://tile.openstreetmap.org/12/2059/1394.png','https://tile.openstreetmap.org/12/2060/1394.png',
   'https://tile.openstreetmap.org/12/2056/1395.png','https://tile.openstreetmap.org/12/2057/1395.png','https://tile.openstreetmap.org/12/2058/1395.png','https://tile.openstreetmap.org/12/2059/1395.png','https://tile.openstreetmap.org/12/2060/1395.png',
   'https://tile.openstreetmap.org/12/2056/1396.png','https://tile.openstreetmap.org/12/2057/1396.png','https://tile.openstreetmap.org/12/2058/1396.png','https://tile.openstreetmap.org/12/2059/1396.png','https://tile.openstreetmap.org/12/2060/1396.png',
   'https://tile.openstreetmap.org/12/2056/1397.png','https://tile.openstreetmap.org/12/2057/1397.png','https://tile.openstreetmap.org/12/2058/1397.png','https://tile.openstreetmap.org/12/2059/1397.png','https://tile.openstreetmap.org/12/2060/1397.png',
   'https://tile.openstreetmap.org/12/2056/1398.png','https://tile.openstreetmap.org/12/2057/1398.png','https://tile.openstreetmap.org/12/2058/1398.png','https://tile.openstreetmap.org/12/2059/1398.png','https://tile.openstreetmap.org/12/2060/1398.png',
-  // Caen z12
+  // Caen
   'https://tile.openstreetmap.org/12/2022/1396.png','https://tile.openstreetmap.org/12/2023/1396.png','https://tile.openstreetmap.org/12/2024/1396.png','https://tile.openstreetmap.org/12/2025/1396.png','https://tile.openstreetmap.org/12/2026/1396.png',
   'https://tile.openstreetmap.org/12/2022/1397.png','https://tile.openstreetmap.org/12/2023/1397.png','https://tile.openstreetmap.org/12/2024/1397.png','https://tile.openstreetmap.org/12/2025/1397.png','https://tile.openstreetmap.org/12/2026/1397.png',
   'https://tile.openstreetmap.org/12/2022/1398.png','https://tile.openstreetmap.org/12/2023/1398.png','https://tile.openstreetmap.org/12/2024/1398.png','https://tile.openstreetmap.org/12/2025/1398.png','https://tile.openstreetmap.org/12/2026/1398.png',
-  // Le Havre z12
+  // Le Havre
   'https://tile.openstreetmap.org/12/2034/1393.png','https://tile.openstreetmap.org/12/2035/1393.png','https://tile.openstreetmap.org/12/2036/1393.png','https://tile.openstreetmap.org/12/2037/1393.png','https://tile.openstreetmap.org/12/2038/1393.png',
   'https://tile.openstreetmap.org/12/2034/1394.png','https://tile.openstreetmap.org/12/2035/1394.png','https://tile.openstreetmap.org/12/2036/1394.png','https://tile.openstreetmap.org/12/2037/1394.png','https://tile.openstreetmap.org/12/2038/1394.png',
   'https://tile.openstreetmap.org/12/2034/1395.png','https://tile.openstreetmap.org/12/2035/1395.png','https://tile.openstreetmap.org/12/2036/1395.png','https://tile.openstreetmap.org/12/2037/1395.png','https://tile.openstreetmap.org/12/2038/1395.png'
@@ -54,16 +55,16 @@ self.addEventListener('fetch', e => {
     e.respondWith(cacheTile(e.request));
     return;
   }
-  if(e.request.mode === 'navigate' || SHELL.some(s => url.endsWith(s))){
+  // App shell : network-first pour recuperer les mises a jour rapidement
+  if(e.request.mode === 'navigate' || SHELL.some(s => url.endsWith(s.replace('./','')))){
     e.respondWith(
-      caches.match(e.request).then(cached => {
-        const network = fetch(e.request).then(resp => {
-          if(resp && resp.ok)
-            caches.open(CACHE_APP).then(c => c.put(e.request, resp.clone()));
-          return resp;
-        }).catch(() => cached);
-        return cached || network;
-      })
+      fetch(e.request).then(resp => {
+        if(resp && resp.ok){
+          const clone = resp.clone();
+          caches.open(CACHE_APP).then(c => c.put(e.request, clone));
+        }
+        return resp;
+      }).catch(() => caches.match(e.request))
     );
     return;
   }
