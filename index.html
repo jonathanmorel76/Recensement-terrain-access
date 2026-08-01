@@ -182,7 +182,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <img src="./logo.png" width="32" height="32" style="flex-shrink:0;border-radius:7px">
-      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.4.2</div></div>
+      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.5.0</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
@@ -201,22 +201,15 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 <div id="edit-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">✏ Modifier le point</div><div class="msub" id="em-coords">—</div><div class="fg"><label>Catégorie</label><div class="type-sel" id="em-types"><div class="topt sel" data-t="entree" onclick="pickType('entree',this)"><div class="ti">🚪</div><div class="tl">Entrée</div><div class="ts">SiteEntrance</div></div><div class="topt" data-t="equip_comp" onclick="pickType('equip_comp',this)"><div class="ti">🖥</div><div class="tl">Info voy.</div><div class="ts">PassengerInfo</div></div><div class="topt" data-t="equip_acces" onclick="pickType('equip_acces',this)"><div class="ti">🛗</div><div class="tl">Équip. accès</div><div class="ts">AccessEquip.</div></div><div class="topt" data-t="noeud" onclick="pickType('noeud',this)"><div class="ti">⬤</div><div class="tl">Nœud</div><div class="ts">PathJunction</div></div><div class="topt" data-t="autre" onclick="pickType('autre',this)"><div class="ti">📌</div><div class="tl">Autre</div><div class="ts">À classifier</div></div></div></div><div class="fg"><label>Sous-type</label><select id="em-sub"></select></div><div class="fg"><label>Nom</label><input id="em-name" type="text"></div><div class="fg"><label>Remarque</label><textarea id="em-desc"></textarea></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeEditModal()">Annuler</button><button class="mbtn-ok" onclick="saveEdit()">&#10003; Enregistrer</button></div></div></div>
 <div id="toast"></div>
 
-<!-- STUBS : fonctions definies dans sync.js mais appelees par app.js (charge avant). Evitent les ReferenceError qui stoppent l'execution. Sync.js les redefini avec les vraies implementations. -->
-<script>
-function load(){}
-function save(){}
-function hav(a,b){var R=6371000,dL=(b.lat-a.lat)*Math.PI/180,dO=(b.lon-a.lon)*Math.PI/180;var x=Math.sin(dL/2)*Math.sin(dL/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dO/2)*Math.sin(dO/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-var _tt;
-function toast(msg,type){var t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='show '+(type||'');clearTimeout(_tt);_tt=setTimeout(function(){t.className='';},2600);}
-var WAKE_LOCK=null;
-function requestWakeLock(){return Promise.resolve();}
-function releaseWakeLock(){}
-</script>
-
+<!-- ORDRE DE CHARGEMENT CRITIQUE :
+     1. Leaflet (dependance)
+     2. app.js  : declare S, MAP, WAKE_LOCK, esc, hav + toutes les fns UI/carte
+     3. sync.js : declare load, save, toast, goTab, exports + APPELLE LE BOOT
+     Ne PAS ajouter de <script> inline declarant des variables :
+     collision var/let avec app.js = SyntaxError silencieuse. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="./app.js"></script>
 <script src="./sync.js"></script>
-<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').then(function(r){r.addEventListener('updatefound',function(){toast('Mise a jour disponible - relancez','a');});}).catch(function(){});});}</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
 </body>
 </html>
