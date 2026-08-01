@@ -1,10 +1,10 @@
-// TickS Terrain — Service Worker v3
-// Pre-cache 704 tuiles OSM pour 15 gares LDM Normandie (z12+z13)
-const CACHE_APP   = 'ldm-app-v3';
-const CACHE_TILES = 'ldm-tiles-v1';
+// TickS Terrain — Service Worker v4
+// Force reinstall : ldm-app-v4 + ldm-tiles-v2
+const CACHE_APP   = 'ldm-app-v4';
+const CACHE_TILES = 'ldm-tiles-v2';
 const SHELL = ['./', './index.html', './manifest.json', './logo.png', './app.js', './sync.js'];
 
-// Tuiles OSM pre-cachees : 15 gares x 5x5 = 375 tuiles/zoom x 2 zooms = 704 tuiles
+// Tuiles OSM pre-cachees : 15 gares x 5x5 = 375 tuiles/zoom x 2 zooms
 const PRECACHE_TILES = [
   // Rouen z12
   'https://tile.openstreetmap.org/12/2056/1394.png','https://tile.openstreetmap.org/12/2057/1394.png','https://tile.openstreetmap.org/12/2058/1394.png','https://tile.openstreetmap.org/12/2059/1394.png','https://tile.openstreetmap.org/12/2060/1394.png',
@@ -28,7 +28,6 @@ self.addEventListener('install', e => {
       .then(c => c.addAll(SHELL))
       .then(() => self.skipWaiting())
   );
-  // Pre-cache tuiles en arriere-plan (sans bloquer l'install)
   caches.open(CACHE_TILES).then(tc => {
     PRECACHE_TILES.forEach(url => {
       fetch(url, {mode:'no-cors'}).then(r => {
