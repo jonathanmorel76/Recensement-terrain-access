@@ -128,12 +128,31 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 /* Attribution Leaflet decalee : le bouton geoloc occupe ce coin */
 .leaflet-bottom.leaflet-right{right:70px}
 .leaflet-control-attribution{font-size:10px;opacity:.75}
-/* Bandeaux de pointage manuel (enfants de #sheet, comme le bouton geoloc) */
-.pickbar{position:absolute;left:0;right:0;bottom:calc(100% + 10px);z-index:820;display:none;align-items:center;gap:10px;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1.5px solid var(--ticks);border-radius:14px;padding:10px 12px;box-shadow:0 2px 16px rgba(0,0,0,.18)}
+/* Bandeaux de pointage manuel (enfants de #sheet, comme le bouton geoloc).
+   Ancres a 72px pour passer AU-DESSUS du bouton de geolocalisation, qui
+   occupe -62 a -12 px : a 10px les deux se recouvraient sur 39 px et le
+   bandeau rendait le recentrage impossible pendant le pointage. */
+.pickbar{position:absolute;left:0;right:0;bottom:calc(100% + 72px);z-index:820;display:none;align-items:center;gap:10px;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1.5px solid var(--ticks);border-radius:14px;padding:10px 12px;box-shadow:0 2px 16px rgba(0,0,0,.18)}
 .pickbar.open{display:flex}
 .pickbar .pb-txt{flex:1;font-size:12.5px;font-weight:500;color:var(--c-icon);line-height:1.35}
 .pickbar .pb-x{flex-shrink:0;padding:6px 12px;border-radius:9px;font-size:12px;font-weight:600;color:var(--ticks);background:rgba(138,48,144,.10);border:1px solid rgba(138,48,144,.28);touch-action:manipulation}
 #map.picking{cursor:crosshair}
+/* iOS : l'appui long declenche par defaut la selection de texte et le menu
+   systeme (Copier / Rechercher...). Sur la carte c'est doublement genant :
+   la bulle recouvre le point vise, et l'appui long est justement le geste
+   du pointage manuel. On desactive donc callout et selection sur la carte
+   et sur toute l'interface flottante. */
+#map,.leaflet-container,#wpt-cluster,#right-pill,#gps-bar,#sheet,.pickbar,
+#filter-popover,#burger-panel{
+  -webkit-touch-callout:none;-webkit-user-select:none;
+  -moz-user-select:none;-ms-user-select:none;user-select:none}
+/* Les champs de saisie, eux, DOIVENT rester selectionnables : sans cette
+   contre-regle on ne pourrait plus coller la cle Supabase ni corriger un
+   nom de point. Les 10 champs de l'app sont couverts (#sheet ou .modal). */
+#sheet input,.modal input,.modal textarea,.modal select{
+  -webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
+/* La liste des points reste selectionnable pour copier des coordonnees. */
+.wmeta,.wname,.wdesc{-webkit-user-select:text;user-select:text}
 ::-webkit-scrollbar{display:none}
 </style>
 </head>
@@ -203,7 +222,7 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <svg width="32" height="32" viewBox="0 0 64 64" style="flex-shrink:0;border-radius:7px"><rect width="64" height="64" rx="14" fill="#8A3090"/><path d="M17 33 L27 43 L47 21" fill="none" stroke="#8DC63F" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.6.0</div></div>
+      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.6.1</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
