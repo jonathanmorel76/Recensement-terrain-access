@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.6.0
+// TickS Terrain — app.js v1.6.1
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.6.0';
-console.log('[TickS Terrain] app.js v1.6.0 charge');
+const APP_VERSION = '1.6.1';
+console.log('[TickS Terrain] app.js v1.6.1 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -21,8 +21,9 @@ const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20,
               lastTs:0, timer:null, deadline:0, rejected:0 };
 // Pointage manuel : MANUAL.pos = coords choisies par appui long sur la carte
 // PICK.type = type en attente quand on bascule du moyennage vers la carte
+// PICK.armedAt = instant d'activation, sert a filtrer le clic fantome iOS
 const MANUAL = { pos:null, marker:null };
-const PICK   = { active:false, type:null };
+const PICK   = { active:false, type:null, armedAt:0 };
 let EDIT_ID = null;
 let MAP = null, MAP_OK = false;
 let MAP_LAYER_OSM = null, MAP_LAYER_AERIAL = null, MAP_AERIAL = false;
@@ -140,6 +141,17 @@ function bindMapPicking(){
   });
   MAP.on('click', e=>{
     if(!PICK.active)return;
+    // Garde anti "clic fantome". Sur iOS, le tap qui ferme la fenetre de
+    // leve produit ensuite un click synthetique sur l'element situe dessous,
+    // c'est-a-dire la carte. Sans ce delai, ce clic parasite consommait
+    // immediatement le mode pointage et posait le point a l'aplomb du
+    // bouton : une fiche surgissait a une position aberrante, l'utilisateur
+    // l'annulait, et le mode etait deja termine — plus rien ne repondait
+    // ensuite. D'ou l'impression que le bouton ne servait a rien.
+    if(Date.now()-PICK.armedAt < 500){
+      console.warn('[TickS] Clic fantome ignore (', Date.now()-PICK.armedAt, 'ms )');
+      return;
+    }
     const type=PICK.type;
     endPick();
     S.pendingType=type;
@@ -151,6 +163,7 @@ function bindMapPicking(){
 // A. Appui long : on memorise la position, l'utilisateur choisit le type
 function setManual(lat,lon){
   clearManual();
+  PICK.armedAt=Date.now();
   MANUAL.pos={lat,lon};
   if(MAP){
     MANUAL.marker=L.marker([lat,lon],{icon:manualIcon()}).addTo(MAP);
@@ -168,6 +181,7 @@ function clearManual(){
 function startPick(type){
   if(!type){toast('Choisissez d\'abord un type','a');return;}
   PICK.active=true;PICK.type=type;
+  PICK.armedAt=Date.now();
   clearManual();
   showBar('pick-bar');
   const el=document.getElementById('map');
@@ -316,8 +330,12 @@ function commitAvg(){
   pts.forEach(p=>{const w=1/Math.pow(Math.max(p.acc,1),2);W+=w;sLat+=p.lat*w;sLon+=p.lon*w;});
   const lat=sLat/W, lon=sLon/W;
 
-  // 4) Precision resultante : la moyenne de N fixes independants est plus
-  //    fiable qu'un fix isole (~ecart-type / racine(N)).
+  // 4) Precision resultante. ATTENTION : la division par racine(N) suppose
+  //    des erreurs INDEPENDANTES entre mesures. Ce n'est pas le cas de fixes
+  //    pris a quelques secondes d'intervalle : ils partagent la meme
+  //    geometrie satellitaire et les memes reflexions, donc une large part
+  //    de l'erreur est commune et le moyennage ne l'elimine pas. Le chiffre
+  //    annonce est optimiste ; calibrage a revoir sur mesures terrain.
   const accMoy=pts.reduce((a,p)=>a+p.acc,0)/pts.length;
   const acc=Math.max(1,Math.round(accMoy/Math.sqrt(pts.length)));
 
