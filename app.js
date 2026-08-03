@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.8.1
+// TickS Terrain — app.js v1.8.2
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.8.1';
-console.log('[TickS Terrain] app.js v1.8.1 charge');
+const APP_VERSION = '1.8.2';
+console.log('[TickS Terrain] app.js v1.8.2 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -36,15 +36,18 @@ let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null, MAP_SCALE = null;
 // geolocalisation. Une fois recadre, on ne bouge plus : l'utilisateur reste
 // maitre du deplacement.
 let MAP_FIRST_FIX = false;
-// Zoom d'ouverture : 20, soit ~38 m de large sur un ecran de 390 px.
-// Historique du reglage : 18 (152 m) etait trop large pour situer un point,
-// 21 (19 m) trop serre — et surtout INTERPOLE, donc flou. Le 20 est le
-// dernier niveau NATIF de l'orthophoto IGN a 20 cm : l'image reste nette et
-// le cadrage reste lisible. Les boutons +/- permettent d'ajuster de 10 m en
-// 10 m selon la situation.
-// maxNativeZoom sur les couches evite les requetes de tuiles inexistantes
-// (OSM s'arrete au 19, l'IGN au 20) : sans lui, des carres gris.
-const ZOOM_LEVE = 20;
+// Zoom d'ouverture : 21, soit ~19 m de large sur un ecran de 390 px.
+// REGLAGE ARBITRE PAR L'USAGE, ne pas le changer sans raison :
+//   zoom 18 = 152 m  trop large pour situer un point
+//   zoom 20 =  38 m  dernier niveau NATIF de l'orthophoto IGN
+//   zoom 21 =  19 m  RETENU : le cadrage prime sur la nettete
+// Au-dela du zoom natif (19 pour OSM, 20 pour l'IGN a 20 cm), Leaflet
+// agrandit les dernieres tuiles : l'image devient floue mais aucun detail
+// n'est perdu, et le cadrage serre facilite le pointage manuel. Les
+// boutons +/- permettent d'elargir de 10 m en 10 m au besoin.
+// maxNativeZoom sur les couches evite les requetes de tuiles inexistantes,
+// qui afficheraient des carres gris.
+const ZOOM_LEVE = 21;
 let MAP_FILTER = 'all';
 // SOURCE UNIQUE des couleurs de type. Toute vue (boutons de capture, marqueurs
 // carte, liste, filtre, fenetre d'edition) lit ici : plus de valeur en dur.
