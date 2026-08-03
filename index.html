@@ -129,13 +129,22 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
 .leaflet-bottom.leaflet-right{right:70px}
 .leaflet-control-attribution{font-size:10px;opacity:.75}
 /* Bandeaux de pointage manuel (enfants de #sheet, comme le bouton geoloc).
-   Ancres a 72px pour passer AU-DESSUS du bouton de geolocalisation, qui
-   occupe -62 a -12 px : a 10px les deux se recouvraient sur 39 px et le
-   bandeau rendait le recentrage impossible pendant le pointage. */
-.pickbar{position:absolute;left:0;right:0;bottom:calc(100% + 72px);z-index:820;display:none;align-items:center;gap:10px;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1.5px solid var(--ticks);border-radius:14px;padding:10px 12px;box-shadow:0 2px 16px rgba(0,0,0,.18)}
+   Repere : 0 = bord haut du bandeau troncon, valeurs negatives vers le haut.
+   Trois zones a ne pas recouvrir :
+     attribution OSM  -14 a 0    (bas de carte, cote droit, obligatoire)
+     bouton geoloc    -62 a -12  (colonne droite, 50 px de large)
+     bouton « Autre » ~ -150     (bas du wpt-cluster, a gauche)
+   Le bandeau compact fait ~33 px ; ancre a 20 px il occupe -53 a -20, donc
+   sous le cluster et au-dessus de l'attribution. Il croise en revanche le
+   bouton geoloc en hauteur : on l'ecarte donc HORIZONTALEMENT en le
+   centrant avec 60 px de marge de chaque cote (le bouton n'occupe que les
+   50 px de droite). D'ou width:max-content plutot qu'une pleine largeur.
+   Les libelles doivent rester COURTS : white-space:nowrap, sinon ils sont
+   tronques par l'ellipse. */
+.pickbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 20px);z-index:820;width:max-content;max-width:calc(100% - 120px);display:none;align-items:center;gap:8px;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--ticks);border-radius:11px;padding:7px 9px 7px 12px;box-shadow:0 2px 12px rgba(0,0,0,.14)}
 .pickbar.open{display:flex}
-.pickbar .pb-txt{flex:1;font-size:12.5px;font-weight:500;color:var(--c-icon);line-height:1.35}
-.pickbar .pb-x{flex-shrink:0;padding:6px 12px;border-radius:9px;font-size:12px;font-weight:600;color:var(--ticks);background:rgba(138,48,144,.10);border:1px solid rgba(138,48,144,.28);touch-action:manipulation}
+.pickbar .pb-txt{font-size:11.5px;font-weight:500;color:var(--c-icon);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pickbar .pb-x{flex-shrink:0;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600;color:var(--ticks);background:rgba(138,48,144,.10);border:1px solid rgba(138,48,144,.28);touch-action:manipulation}
 #map.picking{cursor:crosshair}
 /* iOS : l'appui long declenche par defaut la selection de texte et le menu
    systeme (Copier / Rechercher...). Sur la carte c'est doublement genant :
@@ -183,8 +192,8 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <button class="wc-btn" onclick="startCapture('autre')"><svg class="wi" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg><span class="wl">Autre</span></button>
   </div>
   <div id="sheet">
-    <div id="manual-bar" class="pickbar"><span class="pb-txt">Position choisie sur la carte &mdash; s&eacute;lectionnez le type &agrave; gauche</span><button class="pb-x" onclick="clearManual()">Annuler</button></div>
-    <div id="pick-bar" class="pickbar"><span class="pb-txt">Touchez la carte pour placer le point</span><button class="pb-x" onclick="cancelPick()">Annuler</button></div>
+    <div id="manual-bar" class="pickbar"><span class="pb-txt">Point plac&eacute; &mdash; choisissez le type</span><button class="pb-x" onclick="clearManual()">Annuler</button></div>
+    <div id="pick-bar" class="pickbar"><span class="pb-txt">Touchez la carte</span><button class="pb-x" onclick="cancelPick()">Annuler</button></div>
     <button id="btn-geolocate" onclick="gotoGPS()" aria-label="Me localiser"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2.5 L20.5 20.5 L12 16.4 L3.5 20.5 Z" fill="currentColor" opacity=".30"/><path d="M12 2.5 L20.5 20.5 L12 16.4 Z" fill="currentColor"/></svg></button>
     <div id="sheet-handle"></div>
     <div id="trk-row"><input id="trk-name" type="text" placeholder="Nom du tronçon…"><div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div><div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div><div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur</div></div></div>
