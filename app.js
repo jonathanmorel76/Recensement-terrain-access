@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.7.0
+// TickS Terrain — app.js v1.7.1
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.7.0';
-console.log('[TickS Terrain] app.js v1.7.0 charge');
+const APP_VERSION = '1.7.1';
+console.log('[TickS Terrain] app.js v1.7.1 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -77,7 +77,20 @@ function paintTypeUI(){
     if(!slot)return;
     const wi=slot.classList.contains('wi');
     slot.innerHTML=typeSvg(t, wi?20:22, c, wi?1.7:1.6);
-    if(wi){ el.style.borderColor=c+'4D'; el.style.background=c+'12'; }
+    if(wi){
+      el.style.borderColor=c+'59';
+      // La teinte se SUPERPOSE au fond opaque, elle ne le remplace pas.
+      // Avec el.style.background=c+'12' on ecrasait var(--c-glass) : le
+      // bouton n'avait plus qu'un voile a 7 % d'opacite et laissait
+      // transparaitre la carte, illisible sur l'orthophoto.
+      // La couche de couleur passe donc en background-IMAGE, et
+      // var(--c-glass2) (0,95 d'opacite) reste en background-COLOR. La
+      // variable est resolue dans le contexte de l'element, donc le mode
+      // sombre suit sans code supplementaire.
+      el.style.background='linear-gradient('+c+'1F,'+c+'1F), var(--c-glass2)';
+      const lab=el.querySelector('.wl');
+      if(lab) lab.style.color=c;   // libelle a la couleur du type, plus lisible
+    }
   });
 }
 const SUBS = {
