@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.6.1
+// TickS Terrain — app.js v1.6.2
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.6.1';
-console.log('[TickS Terrain] app.js v1.6.1 charge');
+const APP_VERSION = '1.6.2';
+console.log('[TickS Terrain] app.js v1.6.2 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -105,11 +105,24 @@ function adaptGPS(){
 function gotoGPS(){if(!S.pos){toast('Position GPS inconnue','a');return;}MAP.setView([S.pos.lat,S.pos.lon],17);}
 function updateGpsBar(acc){
   const bar=document.getElementById('gps-bar-txt');
+  const fill=document.getElementById('gps-bar-fill');
   const btn=document.getElementById('btn-geolocate');
   if(!bar)return;
-  if(acc<=5){bar.textContent='\u00b1'+acc+'m';bar.style.color='var(--green,#34C759)';}
-  else if(acc<=15){bar.textContent='\u00b1'+acc+'m';bar.style.color='var(--orange,#FF9F0A)';}
-  else{bar.textContent='\u00b1'+acc+'m';bar.style.color='var(--red,#FF3B30)';}
+  const col = acc<=5 ? 'var(--green,#34C759)'
+            : acc<=15 ? 'var(--orange,#FF9F0A)'
+            : 'var(--red,#FF3B30)';
+  bar.textContent='\u00b1'+acc+'m';
+  bar.style.color=col;
+  // Jauge de qualite : pleine a 3 m ou mieux, vide a 30 m ou pire.
+  // Cet element existait dans le HTML depuis le debut mais AUCUNE ligne de
+  // JavaScript ne lui donnait de largeur : il restait fige a 0 %, ce qui le
+  // rendait inutile. Il suit desormais la precision en largeur et en
+  // couleur, et redonne la lecture de la progression du signal.
+  if(fill){
+    const q=Math.max(0,Math.min(100,Math.round(100*(30-acc)/27)));
+    fill.style.width=q+'%';
+    fill.style.background=col;
+  }
   if(btn)btn.classList.toggle('tracking',acc<=15);
 }
 
@@ -330,14 +343,25 @@ function commitAvg(){
   pts.forEach(p=>{const w=1/Math.pow(Math.max(p.acc,1),2);W+=w;sLat+=p.lat*w;sLon+=p.lon*w;});
   const lat=sLat/W, lon=sLon/W;
 
-  // 4) Precision resultante. ATTENTION : la division par racine(N) suppose
-  //    des erreurs INDEPENDANTES entre mesures. Ce n'est pas le cas de fixes
-  //    pris a quelques secondes d'intervalle : ils partagent la meme
-  //    geometrie satellitaire et les memes reflexions, donc une large part
-  //    de l'erreur est commune et le moyennage ne l'elimine pas. Le chiffre
-  //    annonce est optimiste ; calibrage a revoir sur mesures terrain.
+  // 4) Precision resultante.
+  //    L'ancienne formule divisait par racine(N), ce qui suppose des erreurs
+  //    INDEPENDANTES entre mesures. C'est faux ici : des fixes pris a
+  //    quelques secondes d'intervalle partagent la meme geometrie
+  //    satellitaire et les memes reflexions, donc une large part de l'erreur
+  //    est COMMUNE et le moyennage ne l'elimine pas. Le chiffre annonce
+  //    etait donc flatteur, et pouvait faire passer pour un leve a +/-3 m ce
+  //    qui restait a +/-8 m.
+  //    Deux garde-fous remplacent la division libre :
+  //      a) la dispersion reelle des mesures retenues autour du point final,
+  //         qui est une borne basse OBSERVEE de l'incertitude ;
+  //      b) un plafond de gain a 2x, le moyennage ne corrigeant que la part
+  //         aleatoire de l'erreur.
+  //    On annonce le plus pessimiste des deux. Calibrage a affiner sur des
+  //    releves terrain compares a des points de reference connus.
   const accMoy=pts.reduce((a,p)=>a+p.acc,0)/pts.length;
-  const acc=Math.max(1,Math.round(accMoy/Math.sqrt(pts.length)));
+  const disp=Math.sqrt(pts.reduce((a,p)=>a+Math.pow(hav({lat,lon},p),2),0)/pts.length);
+  const gain=Math.min(Math.sqrt(pts.length),2);
+  const acc=Math.max(1,Math.round(Math.max(accMoy/gain, disp)));
 
   AVG.active=false;AVG.samples=[];AVG.lastTs=0;
   document.getElementById('avg-modal').classList.remove('open');
