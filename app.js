@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.6.2
+// TickS Terrain — app.js v1.7.0
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.6.2';
-console.log('[TickS Terrain] app.js v1.6.2 charge');
+const APP_VERSION = '1.7.0';
+console.log('[TickS Terrain] app.js v1.7.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -31,7 +31,55 @@ const TILE_OSM    = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_AERIAL = 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
 let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null;
 let MAP_FILTER = 'all';
-const COLORS = { entree:'#a855f7', equip_comp:'#06b6d4', equip_acces:'#f97316', noeud:'#60a5fa', autre:'#f59e0b' };
+// SOURCE UNIQUE des couleurs de type. Toute vue (boutons de capture, marqueurs
+// carte, liste, filtre, fenetre d'edition) lit ici : plus de valeur en dur.
+// Teintes choisies pour rester distinguables sur une pastille de 22 px en
+// plein soleil. L'ancienne palette avait 13 deg d'ecart entre equip_acces et
+// autre, et 24 entre equip_comp et noeud : indiscernable a bout de bras.
+// 'autre' est volontairement DESATURE : l'absence de couleur traduit le
+// « a classifier », et libere une teinte pour les vraies categories.
+const COLORS = {
+  entree:      '#9333EA',  // violet   271 deg
+  equip_comp:  '#0891B2',  // cyan     192 deg
+  equip_acces: '#EA580C',  // orange    21 deg
+  noeud:       '#2563EB',  // bleu     221 deg
+  autre:       '#64748B'   // ardoise  desature
+};
+
+// SOURCE UNIQUE des pictogrammes. Contenu interne d'un SVG 24x24, trace en
+// currentColor : la couleur est donnee par l'element parent, ce qui permet de
+// reutiliser le meme glyphe en blanc sur un marqueur et en couleur ailleurs.
+const ICONS = {
+  entree:      '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  equip_comp:  '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  equip_acces: '<rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="10" x2="12" y2="16"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/>',
+  noeud:       '<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>',
+  autre:       '<circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/>'
+};
+
+function typeSvg(type,size,color,sw){
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" '
+    +'stroke="currentColor" stroke-width="'+(sw||1.7)+'" stroke-linecap="round" '
+    +'stroke-linejoin="round" style="color:'+(color||COLORS[type]||'#888')+';display:block">'
+    +(ICONS[type]||'')+'</svg>';
+}
+
+// Applique couleur et pictogramme a tout element portant data-t. Appele au
+// boot : les vues statiques d'index.html n'ont donc plus a dupliquer ni les
+// SVG ni les couleurs.
+function paintTypeUI(){
+  document.querySelectorAll('[data-t]').forEach(el=>{
+    const t=el.dataset.t, c=COLORS[t]||'#888';
+    el.style.setProperty('--tc', c);
+    const dot=el.querySelector('.fdot');
+    if(dot){dot.style.background=c;return;}
+    const slot=el.querySelector('.wi')||el.querySelector('.ti');
+    if(!slot)return;
+    const wi=slot.classList.contains('wi');
+    slot.innerHTML=typeSvg(t, wi?20:22, c, wi?1.7:1.6);
+    if(wi){ el.style.borderColor=c+'4D'; el.style.background=c+'12'; }
+  });
+}
 const SUBS = {
   entree:     ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
   equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
@@ -246,7 +294,18 @@ function refreshMap(){
 function wptIcon(type,manual){
   const c=COLORS[type]||'#888';
   const dash=manual?' stroke-dasharray="3 2.5"':'';
-  return L.divIcon({html:'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 22 28"><circle cx="11" cy="11" r="10" fill="'+c+'" stroke="#fff" stroke-width="2"'+dash+'/><line x1="11" y1="21" x2="11" y2="28" stroke="'+c+'" stroke-width="2"/></svg>',iconSize:[22,28],iconAnchor:[11,28],popupAnchor:[0,-28],className:''});
+  // Le glyphe est le MEME que celui des boutons, reduit de moitie et centre
+  // dans la pastille : on reconnait le type sans avoir a memoriser un code
+  // couleur.
+  const g='<g transform="translate(7,7) scale(0.5)" fill="none" stroke="#fff" '
+        +'stroke-width="3" stroke-linecap="round" stroke-linejoin="round" '
+        +'style="color:#fff">'+(ICONS[type]||'')+'</g>';
+  return L.divIcon({
+    html:'<svg xmlns="http://www.w3.org/2000/svg" width="26" height="33" viewBox="0 0 26 33">'
+      +'<line x1="13" y1="22" x2="13" y2="32" stroke="'+c+'" stroke-width="2.5"/>'
+      +'<circle cx="13" cy="13" r="11.5" fill="'+c+'" stroke="#fff" stroke-width="2"'+dash+'/>'
+      +g+'</svg>',
+    iconSize:[26,33],iconAnchor:[13,33],popupAnchor:[0,-33],className:''});
 }
 function mkPosIcon(){return L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:#007AFF;border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,255,.4)"></div>',iconSize:[14,14],iconAnchor:[7,7],className:''});}
 function updateMapLive(){
@@ -424,7 +483,7 @@ function renderPts(){
   el.innerHTML=all.map(obj=>{
     if(obj._k==='w'){
       const c=COLORS[obj.type]||'#888';
-      return '<div class="wpt-item"><div class="wdot" style="background:'+c+'20;color:'+c+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg></div><div class="winfo" onclick="editWpt(\''+obj.id+'\')" style="cursor:pointer"><div class="wname">'+esc(obj.name)+'</div><div class="wmeta">'+obj.lat.toFixed(5)+', '+obj.lon.toFixed(5)+' \u00b7 '+(obj.subtype||obj.type)+(obj.source==='manuel'?' \u00b7 manuel':(obj.acc?' \u00b7 \u00b1'+obj.acc+'m':''))+'</div>'+(obj.desc?'<div class="wdesc">'+esc(obj.desc)+'</div>':'')+'</div><button class="wbtn" onclick="delWpt(\''+obj.id+'\')">&times;</button></div>';
+      return '<div class="wpt-item" style="border-color:'+c+'40"><div class="wdot" style="background:'+c+'1A">'+typeSvg(obj.type,17,c)+'</div><div class="winfo" onclick="editWpt(\''+obj.id+'\')" style="cursor:pointer"><div class="wname">'+esc(obj.name)+'</div><div class="wmeta">'+obj.lat.toFixed(5)+', '+obj.lon.toFixed(5)+' \u00b7 '+(obj.subtype||obj.type)+(obj.source==='manuel'?' \u00b7 manuel':(obj.acc?' \u00b7 \u00b1'+obj.acc+'m':''))+'</div>'+(obj.desc?'<div class="wdesc">'+esc(obj.desc)+'</div>':'')+'</div><button class="wbtn" onclick="delWpt(\''+obj.id+'\')">&times;</button></div>';
     }else{
       const d=obj.pts&&obj.pts.length>=2?Math.round(obj.pts.reduce((s,p,i)=>i?s+hav(obj.pts[i-1],p):0,0)):0;
       return '<div class="wpt-item" style="border-color:#4ade8055"><div class="wdot" style="background:#4ade8020;color:#4ade80"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17 Q8 7 12 12 Q16 17 21 7"/></svg></div><div class="winfo"><div class="wname">'+esc(obj.name)+'</div><div class="wmeta">'+(obj.pts?obj.pts.length:0)+' pts \u00b7 '+d+' m</div></div><button class="wbtn" onclick="delTrk('+obj._i+')">&times;</button></div>';
@@ -580,6 +639,7 @@ document.addEventListener('click',e=>{
 
 // ══ BOOT MAP (appele depuis sync.js) ══
 function _bootMap(){
+  paintTypeUI();
   initMap();bindMapPicking();resizeMap();
   [200,600,1200].forEach(ms=>setTimeout(()=>{if(MAP)MAP.invalidateSize();resizeMap();},ms));
   const sheet=document.getElementById('sheet');
