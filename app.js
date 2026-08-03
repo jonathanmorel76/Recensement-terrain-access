@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.7.1
+// TickS Terrain — app.js v1.7.2
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.7.1';
-console.log('[TickS Terrain] app.js v1.7.1 charge');
+const APP_VERSION = '1.7.2';
+console.log('[TickS Terrain] app.js v1.7.2 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -29,7 +29,14 @@ let MAP = null, MAP_OK = false;
 let MAP_LAYER_OSM = null, MAP_LAYER_AERIAL = null, MAP_AERIAL = false;
 const TILE_OSM    = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_AERIAL = 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
-let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null;
+let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null, MAP_SCALE = null;
+// Recadrage au PREMIER fix GPS seulement : _bootMap s'execute ~100 ms apres
+// le chargement, bien avant que le GPS ne reponde. Sans ce drapeau la carte
+// restait sur la Normandie au zoom 9 jusqu'a ce qu'on touche le bouton de
+// geolocalisation. Une fois recadre, on ne bouge plus : l'utilisateur reste
+// maitre du deplacement.
+let MAP_FIRST_FIX = false;
+const ZOOM_LEVE = 18;   // ~0,4 m/px : on distingue une entree d'un ressaut
 let MAP_FILTER = 'all';
 // SOURCE UNIQUE des couleurs de type. Toute vue (boutons de capture, marqueurs
 // carte, liste, filtre, fenetre d'edition) lit ici : plus de valeur en dur.
@@ -121,6 +128,10 @@ function launchWatch(highAccuracy){
       S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude};
       S.acc=Math.round(pos.coords.accuracy);
       updateGpsBar(S.acc);
+      if(MAP_OK && !MAP_FIRST_FIX){
+        MAP_FIRST_FIX=true;
+        MAP.setView([S.pos.lat,S.pos.lon], ZOOM_LEVE);
+      }
       const now=Date.now(),throttle=(S.recording&&!S.paused)?2000:5000;
       if(MAP_OK&&S.pos&&(now-GPS_LAST_MAP)>throttle){
         GPS_LAST_MAP=now;
@@ -163,7 +174,7 @@ function adaptGPS(){
   if(needHigh&&!isHigh){S.gpsHighMode=true;launchWatch(true);}
   if(!needHigh&&isHigh){S.gpsHighMode=false;launchWatch(false);}
 }
-function gotoGPS(){if(!S.pos){toast('Position GPS inconnue','a');return;}MAP.setView([S.pos.lat,S.pos.lon],17);}
+function gotoGPS(){if(!S.pos){toast('Position GPS inconnue','a');return;}MAP.setView([S.pos.lat,S.pos.lon],ZOOM_LEVE);}
 function updateGpsBar(acc){
   const bar=document.getElementById('gps-bar-txt');
   const fill=document.getElementById('gps-bar-fill');
@@ -194,8 +205,28 @@ function initMap(){
     MAP_LAYER_OSM=L.tileLayer(TILE_OSM,{attribution:'\u00a9 <a href="https://openstreetmap.org">OSM</a>',maxZoom:19}).addTo(MAP);
     MAP_LAYER_AERIAL=L.tileLayer(TILE_AERIAL,{attribution:'\u00a9 IGN G\u00e9oplateforme',maxZoom:19});
     MAP.setView([49.18,0.35],9);
+    // Echelle en bas-GAUCHE : seul coin durablement libre. Le haut-gauche a la
+    // barre GPS, le haut-droit la pilule, le milieu-gauche les boutons de
+    // capture, le bas-droit l'attribution et le bouton de geolocalisation.
+    // Fond opaque et trait sombre pour rester lisible sur l'orthophoto.
+    MAP_SCALE=L.control.scale({position:'bottomleft',metric:true,imperial:false,maxWidth:110}).addTo(MAP);
+    const sc=MAP_SCALE.getContainer();
+    if(sc){
+      sc.style.margin='0 0 10px 12px';
+      const line=sc.querySelector('.leaflet-control-scale-line');
+      if(line){
+        line.style.background='rgba(255,255,255,.92)';
+        line.style.border='1px solid rgba(0,0,0,.45)';
+        line.style.borderTop='none';
+        line.style.color='rgba(0,0,0,.82)';
+        line.style.fontSize='10px';
+        line.style.fontWeight='600';
+        line.style.padding='1px 5px';
+        line.style.borderRadius='0 0 3px 3px';
+      }
+    }
     MAP_OK=true;
-    if(S.pos)MAP.setView([S.pos.lat,S.pos.lon],16);
+    if(S.pos){MAP_FIRST_FIX=true;MAP.setView([S.pos.lat,S.pos.lon],ZOOM_LEVE);}
   }
   refreshMap();
   setTimeout(()=>{if(MAP)MAP.invalidateSize();},150);
