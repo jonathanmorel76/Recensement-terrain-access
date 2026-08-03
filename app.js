@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.7.3
+// TickS Terrain — app.js v1.8.0
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.7.3';
-console.log('[TickS Terrain] app.js v1.7.3 charge');
+const APP_VERSION = '1.8.0';
+console.log('[TickS Terrain] app.js v1.8.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -207,7 +207,10 @@ function updateGpsBar(acc){
 // ══ CARTE ══
 function initMap(){
   if(!MAP_OK){
-    MAP=L.map('map',{zoomControl:false,attributionControl:true});
+    // zoomSnap:0 autorise les niveaux FRACTIONNAIRES. Sans cela Leaflet
+    // arrondit a l'entier le plus proche et un pas de 10 m serait impossible :
+    // d'un niveau a l'autre la largeur affichee double ou est divisee par deux.
+    MAP=L.map('map',{zoomControl:false,attributionControl:true,zoomSnap:0});
     MAP_LAYER_OSM=L.tileLayer(TILE_OSM,{attribution:'\u00a9 <a href="https://openstreetmap.org">OSM</a>',maxNativeZoom:19,maxZoom:21}).addTo(MAP);
     MAP_LAYER_AERIAL=L.tileLayer(TILE_AERIAL,{attribution:'\u00a9 IGN G\u00e9oplateforme',maxNativeZoom:20,maxZoom:21});
     MAP.setView([49.18,0.35],9);
@@ -236,6 +239,58 @@ function initMap(){
   }
   refreshMap();
   setTimeout(()=>{if(MAP)MAP.invalidateSize();},150);
+}
+
+// ══ ZOOM PAR PAS METRIQUE ══
+// Le zoom Leaflet est exponentiel : passer du niveau 20 au 21 divise la
+// largeur affichee par deux. Un pas CONSTANT de 10 m n'existe donc pas en
+// niveaux entiers. On calcule la largeur courante en metres, on retranche
+// (ou ajoute) 10 m, puis on repasse en niveau de zoom par un logarithme.
+const PAS_ZOOM_M = 10;
+
+function largeurCarteM(){
+  const el=document.getElementById('map');
+  const px=(el&&el.clientWidth)||390;
+  const lat=MAP.getCenter().lat*Math.PI/180;
+  const mpp=156543.03392*Math.cos(lat)/Math.pow(2,MAP.getZoom());
+  return mpp*px;
+}
+
+// deltaM > 0 : on resserre (zoom avant). deltaM < 0 : on elargit.
+function stepZoom(deltaM){
+  if(!MAP_OK)return;
+  const w=largeurCarteM();
+  // Plancher a 5 m : en dessous l'image n'est plus qu'un aplat de pixels
+  // agrandis. Plafond a 4 km : au-dela on perd le contexte du site.
+  const cible=Math.max(5, Math.min(4000, w-deltaM));
+  const z=MAP.getZoom()+Math.log2(w/cible);
+  MAP.setZoom(Math.max(3, Math.min(21, z)));
+}
+
+// Les boutons sont injectes dans #right-pill plutot qu'ecrits dans
+// index.html : le pas metrique et le rendu restent ainsi definis au meme
+// endroit que la logique de zoom. Ce sont des FRERES flex des boutons
+// existants, donc aucun risque de chevauchement.
+function addZoomButtons(){
+  const pill=document.getElementById('right-pill');
+  if(!pill||document.getElementById('btn-zoom-in'))return;
+  const svg=d=>'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" '
+    +'stroke="currentColor" stroke-width="2.2" stroke-linecap="round">'+d+'</svg>';
+  [['btn-zoom-in','<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',PAS_ZOOM_M,'Zoom avant'],
+   ['btn-zoom-out','<line x1="5" y1="12" x2="19" y2="12"/>',-PAS_ZOOM_M,'Zoom arriere']
+  ].forEach(([id,path,delta,label])=>{
+    const sep=document.createElement('div');
+    sep.className='rpill-sep';
+    pill.appendChild(sep);
+    const b=document.createElement('button');
+    b.id=id; b.className='rpill-btn'; b.setAttribute('aria-label',label);
+    b.innerHTML=svg(path);
+    b.addEventListener('click',()=>stepZoom(delta));
+    pill.appendChild(b);
+    if(typeof L!=='undefined'&&L.DomEvent){
+      L.DomEvent.disableClickPropagation(b);
+    }
+  });
 }
 
 // ══ POINTAGE MANUEL SUR LA CARTE ══
@@ -690,6 +745,7 @@ document.addEventListener('click',e=>{
 // ══ BOOT MAP (appele depuis sync.js) ══
 function _bootMap(){
   paintTypeUI();
+  addZoomButtons();
   initMap();bindMapPicking();resizeMap();
   [200,600,1200].forEach(ms=>setTimeout(()=>{if(MAP)MAP.invalidateSize();resizeMap();},ms));
   const sheet=document.getElementById('sheet');
