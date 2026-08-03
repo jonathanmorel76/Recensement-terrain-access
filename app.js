@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.8.0
+// TickS Terrain — app.js v1.8.1
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.8.0';
-console.log('[TickS Terrain] app.js v1.8.0 charge');
+const APP_VERSION = '1.8.1';
+console.log('[TickS Terrain] app.js v1.8.1 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -36,13 +36,15 @@ let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null, MAP_SCALE = null;
 // geolocalisation. Une fois recadre, on ne bouge plus : l'utilisateur reste
 // maitre du deplacement.
 let MAP_FIRST_FIX = false;
-// 21 -> ~0,05 m/px, soit ~19 m de large sur un ecran de 390 px. C'est le
-// niveau demande pour un recensement fin. ATTENTION : au-dela du zoom natif
-// des tuiles (19 pour OSM, ~20 pour l'orthophoto IGN a 20 cm), Leaflet
-// agrandit l'image existante — le cadrage se resserre mais AUCUN detail
-// supplementaire n'apparait. maxNativeZoom ci-dessous evite les requetes de
-// tuiles inexistantes, qui renverraient des carres gris.
-const ZOOM_LEVE = 21;
+// Zoom d'ouverture : 20, soit ~38 m de large sur un ecran de 390 px.
+// Historique du reglage : 18 (152 m) etait trop large pour situer un point,
+// 21 (19 m) trop serre — et surtout INTERPOLE, donc flou. Le 20 est le
+// dernier niveau NATIF de l'orthophoto IGN a 20 cm : l'image reste nette et
+// le cadrage reste lisible. Les boutons +/- permettent d'ajuster de 10 m en
+// 10 m selon la situation.
+// maxNativeZoom sur les couches evite les requetes de tuiles inexistantes
+// (OSM s'arrete au 19, l'IGN au 20) : sans lui, des carres gris.
+const ZOOM_LEVE = 20;
 let MAP_FILTER = 'all';
 // SOURCE UNIQUE des couleurs de type. Toute vue (boutons de capture, marqueurs
 // carte, liste, filtre, fenetre d'edition) lit ici : plus de valeur en dur.
