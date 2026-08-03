@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.7.2
+// TickS Terrain — app.js v1.7.3
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.7.2';
-console.log('[TickS Terrain] app.js v1.7.2 charge');
+const APP_VERSION = '1.7.3';
+console.log('[TickS Terrain] app.js v1.7.3 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -36,7 +36,13 @@ let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null, MAP_SCALE = null;
 // geolocalisation. Une fois recadre, on ne bouge plus : l'utilisateur reste
 // maitre du deplacement.
 let MAP_FIRST_FIX = false;
-const ZOOM_LEVE = 18;   // ~0,4 m/px : on distingue une entree d'un ressaut
+// 21 -> ~0,05 m/px, soit ~19 m de large sur un ecran de 390 px. C'est le
+// niveau demande pour un recensement fin. ATTENTION : au-dela du zoom natif
+// des tuiles (19 pour OSM, ~20 pour l'orthophoto IGN a 20 cm), Leaflet
+// agrandit l'image existante — le cadrage se resserre mais AUCUN detail
+// supplementaire n'apparait. maxNativeZoom ci-dessous evite les requetes de
+// tuiles inexistantes, qui renverraient des carres gris.
+const ZOOM_LEVE = 21;
 let MAP_FILTER = 'all';
 // SOURCE UNIQUE des couleurs de type. Toute vue (boutons de capture, marqueurs
 // carte, liste, filtre, fenetre d'edition) lit ici : plus de valeur en dur.
@@ -202,8 +208,8 @@ function updateGpsBar(acc){
 function initMap(){
   if(!MAP_OK){
     MAP=L.map('map',{zoomControl:false,attributionControl:true});
-    MAP_LAYER_OSM=L.tileLayer(TILE_OSM,{attribution:'\u00a9 <a href="https://openstreetmap.org">OSM</a>',maxZoom:19}).addTo(MAP);
-    MAP_LAYER_AERIAL=L.tileLayer(TILE_AERIAL,{attribution:'\u00a9 IGN G\u00e9oplateforme',maxZoom:19});
+    MAP_LAYER_OSM=L.tileLayer(TILE_OSM,{attribution:'\u00a9 <a href="https://openstreetmap.org">OSM</a>',maxNativeZoom:19,maxZoom:21}).addTo(MAP);
+    MAP_LAYER_AERIAL=L.tileLayer(TILE_AERIAL,{attribution:'\u00a9 IGN G\u00e9oplateforme',maxNativeZoom:20,maxZoom:21});
     MAP.setView([49.18,0.35],9);
     // Echelle en bas-GAUCHE : seul coin durablement libre. Le haut-gauche a la
     // barre GPS, le haut-droit la pilule, le milieu-gauche les boutons de
