@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.8.2
+// TickS Terrain — app.js v1.9.0
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.8.2';
-console.log('[TickS Terrain] app.js v1.8.2 charge');
+const APP_VERSION = '1.9.0';
+console.log('[TickS Terrain] app.js v1.9.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -36,18 +36,19 @@ let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null, MAP_SCALE = null;
 // geolocalisation. Une fois recadre, on ne bouge plus : l'utilisateur reste
 // maitre du deplacement.
 let MAP_FIRST_FIX = false;
-// Zoom d'ouverture : 21, soit ~19 m de large sur un ecran de 390 px.
-// REGLAGE ARBITRE PAR L'USAGE, ne pas le changer sans raison :
-//   zoom 18 = 152 m  trop large pour situer un point
-//   zoom 20 =  38 m  dernier niveau NATIF de l'orthophoto IGN
-//   zoom 21 =  19 m  RETENU : le cadrage prime sur la nettete
-// Au-dela du zoom natif (19 pour OSM, 20 pour l'IGN a 20 cm), Leaflet
-// agrandit les dernieres tuiles : l'image devient floue mais aucun detail
-// n'est perdu, et le cadrage serre facilite le pointage manuel. Les
-// boutons +/- permettent d'elargir de 10 m en 10 m au besoin.
-// maxNativeZoom sur les couches evite les requetes de tuiles inexistantes,
-// qui afficheraient des carres gris.
-const ZOOM_LEVE = 21;
+// Zoom d'ouverture FRACTIONNAIRE (possible grace a zoomSnap:0 ci-dessous).
+// 19,3 -> ~0,158 m/pixel, soit ~62 m de large sur un ecran de 390 px.
+// VALEUR MESUREE, pas estimee : relevee sur une capture d'ecran de l'app ou
+// la barre d'echelle affichait 10 m pour 62,7 px CSS. Ne pas l'arrondir a
+// l'entier sans raison, 19 donnerait 76 m et 20 seulement 38 m.
+// Historique des reglages essayes :
+//   18   = 152 m  trop large pour situer un point
+//   19,3 =  62 m  RETENU
+//   20   =  38 m  dernier niveau NATIF de l'orthophoto IGN
+//   21   =  19 m  trop serre a l'usage
+// maxNativeZoom sur les couches evite les requetes de tuiles inexistantes
+// (OSM s'arrete au 19, l'IGN au 20) : sans lui, des carres gris.
+const ZOOM_LEVE = 19.3;
 let MAP_FILTER = 'all';
 // SOURCE UNIQUE des couleurs de type. Toute vue (boutons de capture, marqueurs
 // carte, liste, filtre, fenetre d'edition) lit ici : plus de valeur en dur.
@@ -213,17 +214,33 @@ function updateGpsBar(acc){
 function initMap(){
   if(!MAP_OK){
     // zoomSnap:0 autorise les niveaux FRACTIONNAIRES. Sans cela Leaflet
-    // arrondit a l'entier le plus proche et un pas de 10 m serait impossible :
-    // d'un niveau a l'autre la largeur affichee double ou est divisee par deux.
+    // arrondit a l'entier le plus proche : ni le zoom d'ouverture a 19,3 ni
+    // le pas de 10 m des boutons +/- ne seraient possibles.
     MAP=L.map('map',{zoomControl:false,attributionControl:true,zoomSnap:0});
     MAP_LAYER_OSM=L.tileLayer(TILE_OSM,{attribution:'\u00a9 <a href="https://openstreetmap.org">OSM</a>',maxNativeZoom:19,maxZoom:21}).addTo(MAP);
     MAP_LAYER_AERIAL=L.tileLayer(TILE_AERIAL,{attribution:'\u00a9 IGN G\u00e9oplateforme',maxNativeZoom:20,maxZoom:21});
     MAP.setView([49.18,0.35],9);
+
+    // Echelle a paliers FINS. Leaflet ne propose que 1, 2 et 5 fois une
+    // puissance de dix : entre 10 et 20 m il n'a rien a offrir, la barre
+    // reste donc courte et le metrage saute grossierement. On intercale
+    // 1,5 / 2,5 / 3 / 4 / 7,5 pour qu'elle colle a l'echelle reelle et
+    // occupe mieux la largeur disponible — utile maintenant que le zoom
+    // est fractionnaire et peut tomber n'importe ou.
+    const ScaleFine = L.Control.Scale.extend({
+      _getRoundNum: function(num){
+        const pow10 = Math.pow(10, String(Math.floor(num)).length - 1);
+        let d = num / pow10;
+        d = d>=10 ? 10 : d>=7.5 ? 7.5 : d>=5 ? 5 : d>=4 ? 4
+          : d>=3 ? 3 : d>=2.5 ? 2.5 : d>=2 ? 2 : d>=1.5 ? 1.5 : 1;
+        return pow10 * d;
+      }
+    });
     // Echelle en bas-GAUCHE : seul coin durablement libre. Le haut-gauche a la
     // barre GPS, le haut-droit la pilule, le milieu-gauche les boutons de
     // capture, le bas-droit l'attribution et le bouton de geolocalisation.
     // Fond opaque et trait sombre pour rester lisible sur l'orthophoto.
-    MAP_SCALE=L.control.scale({position:'bottomleft',metric:true,imperial:false,maxWidth:110}).addTo(MAP);
+    MAP_SCALE=new ScaleFine({position:'bottomleft',metric:true,imperial:false,maxWidth:120}).addTo(MAP);
     const sc=MAP_SCALE.getContainer();
     if(sc){
       sc.style.margin='0 0 10px 12px';
