@@ -183,9 +183,14 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
    Les cinq boutons de type quittent la colonne de gauche a mi-hauteur pour
    un rail HORIZONTAL en zone de pouce. Ils gardent data-t, .wi et .wl :
    paintTypeUI() (app.js) les colore et les remplit sans modification. */
-#wpt-cluster{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:9px}
-#wpt-cluster::-webkit-scrollbar{display:none}
-.wc-btn{flex:1 0 auto;min-width:62px;position:relative;display:flex;flex-direction:column;
+/* Pas de defilement horizontal ici. Les cinq categories CNIG sont figees :
+   elles partagent la largeur a parts egales et tiennent sur tout ecran.
+   Le defilement precedent decoupait le compteur .wc-n, positionne en debord
+   negatif — un conteneur scrollable rogne aussi le debord VERTICAL. Si une
+   sixieme categorie apparaissait un jour, reduire min-width plutot que de
+   remettre overflow-x:auto. La marge haute reserve la place du compteur. */
+#wpt-cluster{display:flex;gap:7px;padding:6px 0 9px}
+.wc-btn{flex:1 1 0;min-width:0;position:relative;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:4px;height:var(--hit);border-radius:var(--r-chip);
   border:1.5px solid var(--c-brd);background:var(--c-glass2);touch-action:manipulation;
   transition:transform .09s}
@@ -492,7 +497,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:11px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAflBMVEWoZqeWm06TaHDWt9Z/f3+LPYv/AP+qVVWYuTvdxN2qVaqQOo/+/f4AAACZxjKILYfl0uWRO5DAkL9/AH+RPJCURpCOOo5VVVWRO5CQO5C7iLrMpszw5fCiXKLFmsXizOEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiRpmDAAAAIHRSTlP/////AiEBA///A/7/AP///9T/AlD/DwOdsf///////5UJJ84AAAF2SURBVHja7Zdbc4MgEIVX09y6EqCAUUH9//+yiKbT5rIYeOqMZ8yDM56PXWYxHmBeB8U+dSNxtWSjj0wdJi/43wdj+g33wtDBOAGurG4xQW3trR6g2F5ikuTem0GpOtHvCbVScGUtJqtlV2AaM6QZpDcwNwFkAWVxKoqSLAEayn8JoggNyKj/cjFED0DQixugIB76J4DyLQAP1yRzihfwBNDtzrafEWUgFOYdgBmrScNyVz7MEY8AztWsEfyTj0tzA4YE9NWPbH+/GkewruopAIfql8QA/W09YwCGqb2RbuEPIMiJSc655R4ie7CraNnYJhpB+ncr5oCqwa6aRHAv7AL4urNghmf2EdYfJm6Gu60Qw8NU0KfRz4w/E/NYO9vBCzd5nDlHHuroOCa+DxAD4AtNJiC7gg2wATbABtgAawEyDyDJj22M/7E09Od+HKDpwBEF+MBBRh6wQnSRyEOHLo7II6ErO/ZlB8/86JsfvkP8P6bG/29YOrk9O2Y5jAAAAABJRU5ErkJggg==" width="36" height="36" alt="" style="flex-shrink:0;display:block;border-radius:10px">
-      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v2.0.0</div></div>
+      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v2.1.1</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
@@ -509,7 +514,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
 <!-- MODALES -->
 <div id="sync-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">Connexion Supabase</div><div class="msub">Cl&eacute; publique uniquement &mdash; jamais la cl&eacute; de service</div><div class="fg"><label>URL Supabase</label><input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div><div class="fg"><label>Cl&eacute; publique (anon key)</label><input type="text" id="sc-sb-key" placeholder="eyJhbGci&hellip;"></div><div class="fg"><label>Nom de cette session</label><input type="text" id="sc-nom" placeholder="Gare de Rouen — sortie nord"></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeSyncConfig()">Annuler</button><button class="mbtn-ok" onclick="saveSyncConfig()">Enregistrer</button></div></div></div>
 
-<div id="avg-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="avg-title">Capture&hellip;</div><div class="msub">Position moyenn&eacute;e sur plusieurs mesures GPS</div>
+<div id="avg-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="avg-title">Capture&hellip;</div><div class="msub">Validation automatique d&egrave;s la pr&eacute;cision vis&eacute;e atteinte</div>
   <div id="avg-ring-wrap">
     <svg id="avg-ring" viewBox="0 0 172 172"><circle class="trk" cx="86" cy="86" r="78"/><circle id="avg-prog-fill" cx="86" cy="86" r="78" stroke-dasharray="490" stroke-dashoffset="490"/></svg>
     <div id="avg-mid"><div id="avg-acc">&plusmn;&mdash;</div><div id="avg-acc-lab">m&egrave;tres</div></div>

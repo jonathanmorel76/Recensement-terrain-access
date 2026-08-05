@@ -6,8 +6,8 @@
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '2.0.0';
-console.log('[TickS Terrain] app.js v2.0.0 charge');
+const APP_VERSION = '2.1.1';
+console.log('[TickS Terrain] app.js v2.1.1 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -17,7 +17,14 @@ const S = {
   recStart:null, recElapsed:0, recTimer:null,
   pendingType:null, pendingPos:null
 };
-const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20,
+// AVG.goal : precision VISEE, en metres. C'est desormais le critere d'arret.
+// AVG.target (8) n'est plus qu'un plafond de securite si la cible n'est
+// jamais atteinte. Le releve metro du 05/08 montrait pourquoi : 6 captures
+// sur 8 etaient forcees a la main, et les deux seules allees au bout des
+// 8 mesures etaient les MOINS precises de la serie (+/-6 et +/-5 contre
+// +/-2 pour une capture arretee a 3 mesures). Attendre n'achetait rien.
+const AVG_GOAL_M = 5;
+const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20, goal:AVG_GOAL_M,
               lastTs:0, timer:null, deadline:0, rejected:0 };
 // Pointage manuel : MANUAL.pos = coords choisies par appui long sur la carte
 // PICK.type = type en attente quand on bascule du moyennage vers la carte
@@ -167,7 +174,7 @@ function launchWatch(highAccuracy){
         AVG.lastTs=pos.timestamp;
         AVG.samples.push({lat:S.pos.lat,lon:S.pos.lon,acc:S.acc});
         updateAvgUI();
-        if(AVG.samples.length>=AVG.target)commitAvg();
+        if(avgReady())commitAvg();
       }
     },
     err=>{
@@ -460,15 +467,15 @@ function startCapture(type){
   // Cas 2 : leve GPS classique
   if(!S.pos){toast('GPS non disponible \u2014 pointez sur la carte','a');startPick(type);return;}
   S.pendingType=type;S.pendingPos={lat:S.pos.lat,lon:S.pos.lon,acc:S.acc};
-  AVG.active=true;AVG.type=type;AVG.samples=[];AVG.target=8;AVG.maxAcc=20;
+  AVG.active=true;AVG.type=type;AVG.samples=[];AVG.target=8;AVG.maxAcc=20;AVG.goal=AVG_GOAL_M;
   AVG.lastTs=0;AVG.rejected=0;
   AVG.deadline=Date.now()+30000;
   stopAvgTimer();AVG.timer=setInterval(avgTick,1000);avgTick();
   adaptGPS();requestWakeLock();
   const t=document.getElementById('avg-title');
   if(t)t.textContent='Lev\u00e9 '+typeLabel(type);
-  document.getElementById('avg-prog-fill').style.width='0%';
-  document.getElementById('avg-n').textContent='0/8';
+  document.getElementById('avg-prog-fill').style.strokeDashoffset='490';
+  document.getElementById('avg-n').textContent='En attente du GPS\u2026';
   document.getElementById('avg-acc').textContent='\u00b1\u2014 m';
   const fb=document.getElementById('avg-force');
   if(fb){fb.disabled=true;fb.style.opacity='.4';}
@@ -476,15 +483,41 @@ function startCapture(type){
 }
 function typeLabel(t){return {entree:'Entr\u00e9e',equip_comp:'Info voy.',equip_acces:'Equip.acc\u00e8s',noeud:'N\u0153ud',autre:'Autre'}[t]||t;}
 function updateAvgUI(){
-  const n=AVG.samples.length,tgt=AVG.target,pct=Math.min(100,Math.round(n/tgt*100));
-  document.getElementById('avg-prog-fill').style.strokeDashoffset=(490*(1-pct/100)).toFixed(1);
-  document.getElementById('avg-n').textContent=n+'/'+tgt;
+  const n=AVG.samples.length;
+  // L'anneau represente l'approche de la CIBLE de precision : plein des que
+  // la moyenne atteint AVG.goal, vide a maxAcc. Il portait auparavant
+  // l'avancement d'un decompte de mesures, information sans rapport avec la
+  // qualite du point et qui invitait a attendre pour rien.
+  const accMoy=n?AVG.samples.reduce((s2,p)=>s2+p.acc,0)/n:AVG.maxAcc;
+  const q=Math.max(0,Math.min(1,(AVG.maxAcc-accMoy)/(AVG.maxAcc-AVG.goal)));
+  document.getElementById('avg-prog-fill').style.strokeDashoffset=(490*(1-q)).toFixed(1);
+  document.getElementById('avg-prog-fill').style.stroke =
+    accMoy<=AVG.goal ? 'var(--green)' : accMoy<=12 ? 'var(--orange)' : 'var(--red)';
+  document.getElementById('avg-n').textContent =
+    n+' mesure'+(n>1?'s':'')+(n?' \u00b7 cible \u00b1'+AVG.goal+' m':'');
   const acc=AVG.samples.length?Math.round(AVG.samples.reduce((s,p)=>s+p.acc,0)/AVG.samples.length):0;
   const ea=document.getElementById('avg-acc');
   ea.textContent='\u00b1'+acc;
   ea.style.color = acc<=5 ? 'var(--green)' : acc<=12 ? 'var(--orange)' : 'var(--red)';
   const fb=document.getElementById('avg-force');
   if(fb&&n>=3&&fb.disabled){fb.disabled=false;fb.style.opacity='1';}
+}
+// Validation automatique : cible atteinte et TENUE sur deux relevés
+// consecutifs, avec au moins 3 mesures. Exiger deux lectures d'affilee evite
+// de valider sur un fix isole optimiste ; exiger 3 mesures laisse au rejet
+// des aberrants (commitAvg) de quoi travailler. Le plafond de 8 mesures
+// reste actif quand la cible n'est jamais atteinte.
+function avgReady(){
+  const n=AVG.samples.length;
+  if(n>=AVG.target)return true;
+  if(n<3)return false;
+  // Seules les DERNIERES lectures comptent, jamais la moyenne cumulee : les
+  // premieres mesures d'une capture sont toujours mauvaises, le temps que le
+  // recepteur accroche. Les inclure dans le critere retarderait la validation
+  // au-dela de ce qu'un operateur accepte, et pour rien : commitAvg pondere
+  // deja les positions par 1/precision^2, donc un fix a +/-18 m pese 36 fois
+  // moins qu'un fix a +/-3 m dans le point final.
+  return AVG.samples.slice(-2).every(p=>p.acc<=AVG.goal);
 }
 function forceAvg(){if(AVG.samples.length>=3)commitAvg();}
 function cancelAvg(){
@@ -572,7 +605,12 @@ function openWptModal(type,lat,lon,acc){
       : (acc? ' \u00b7 \u00b1'+acc+'m'+(p.n?' ('+p.n+' mesures)':'') : '');
   document.getElementById('wm-coords').textContent=lat.toFixed(5)+', '+lon.toFixed(5)+origine;
   document.getElementById('wm-name').value='';
-  document.getElementById('wm-sub').innerHTML=(SUBS[type]||['AUTRE']).map(v=>'<option>'+v+'</option>').join('');
+  // Presele le dernier sous-type retenu pour cette categorie. Sur un releve
+  // d'arrets, le defaut de la categorie (INTERSECTION pour un noeud) n'est
+  // jamais le bon : il fallait le corriger a chaque point.
+  const dernier=lastSub(type);
+  document.getElementById('wm-sub').innerHTML=(SUBS[type]||['AUTRE'])
+    .map(v=>'<option'+(v===dernier?' selected':'')+'>'+v+'</option>').join('');
   document.getElementById('wm-desc').value='';
   document.getElementById('wpt-modal').classList.add('open');
 }
@@ -583,6 +621,7 @@ function saveWpt(){
   const type=S.pendingType||'autre';
   const name=document.getElementById('wm-name').value.trim()||typeLabel(type)+' '+(S.waypoints.length+1);
   const subtype=document.getElementById('wm-sub').value;
+  rememberSub(type,subtype);
   const desc=document.getElementById('wm-desc').value.trim();
   S.waypoints.push({id:crypto.randomUUID?crypto.randomUUID():'wp-'+Date.now(),type,subtype,name,desc,
     lat:pos.lat,lon:pos.lon,acc:pos.acc||0,samples:pos.n||null,
@@ -878,3 +917,21 @@ function restoreSun(){
 }
 
 function initV2(){initSheetDrag();restoreSun();updateV2Stats();}
+
+// ── Memoire des sous-types, par categorie ─────────────────────
+// Portee : l'appareil, pas la session. Un operateur qui recense des arrets
+// un jour en recensera probablement le lendemain ; remettre INTERSECTION a
+// chaque ouverture de l'app n'aiderait personne.
+const SUB_KEY='ticks_last_sub';
+function lastSub(type){
+  try{const m=JSON.parse(localStorage.getItem(SUB_KEY)||'{}');return m[type]||null;}
+  catch(e){return null;}
+}
+function rememberSub(type,sub){
+  if(!type||!sub)return;
+  try{
+    const m=JSON.parse(localStorage.getItem(SUB_KEY)||'{}');
+    m[type]=sub;
+    localStorage.setItem(SUB_KEY,JSON.stringify(m));
+  }catch(e){}
+}
