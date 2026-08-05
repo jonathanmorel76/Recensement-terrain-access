@@ -8,185 +8,409 @@
 <meta name="apple-mobile-web-app-title" content="TickS Terrain">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAMAAAAKE/YAAAAAflBMVEWPOo6SaXDOqc7fx9+Wl1F0dHSROY2YujpxKnGiXKLAj7+TQ5OQOo/+/v4AAACZxDPo1+iURpGPOo6qVaqLN4yPOo9/AH//AP+JLojw5vCOOo2yd7HMpsyaUpW8iLupZ6gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB6BSKhAAAAIHRSTlOc/////wIt/wP//xP+/wD///9vAxPKAgH//0r//////45Ju3oAAAROSURBVHja7d3ZcqswDABQYXOz1RDMlgAG/v8vL4TJRkhSQErwVHrotDN9OHVlecmMBf5QHDbt1zgPIVFfiATCPG4Fm8MgD4bIUfNlFYL6akC4ahjR4VfolhyHiVpAJGE8yH5A/2vIoBYTEJ9IL9GHtBlltahoRjs9vEI3f1OeqIVFkvcH+w4dLSoz7nIkeoaO/FWiFhnJ6k4Nt7mRq8VGfpshV/TGD9WCI/Q3j+ho2eZWHfXRizffquFsztXiIz+rO3Tqr5QFsWqgF/QhjRMb0EncrY3QJQcoKwK6BIGlF+ihcg32JMc1QcCKatere9BMyFhZFM1G1Qd7ZuF1LkLq/yir4sdPgWafpJ02SqKdExxS/NLhuOt9G2vXxXcn6QHwF3DH3V9j7Wr8xRzQs+OW3IbroOcHYNeOvrkZbAe7fkBMbcZXx4C77XD2Q4Gc1zmgprRe74fVuEkNQJ0cpwRBHWpAvcvVz9B71KxOgD6j8fPjQ2jk/PhESjdR2oh2GP3n0VZORCtL3rNVHDk7cNEfWsaR0eVHNkzI6CdZjTzQ2OjhBME+cI1HH5Xe1kVdNt/8cqOHbR6P1pXMvDYCs/2Veo1uHo2uOnEXYnAb5NzNRoKbj5FoLb27yKrh6yX3cuuBP8xj0WXg9UMMFwbHcVzXcbRS30brR3OT2vVRfTrGoIU3GNWS0bX3JMTsuXbUlREFBVo+Q3uZmJe8WrQ1yRCgt96LyKrp7K3pymhNgK68l5ENrzVvB7k4z5RME6CF9y6kGOuuzbUgGfUV9GltL0qt1NsqeGx2MIW5K6H119AnuBDNfqqlt3FRXn/SZV0ZmfX+TSQlz3ijIgukMGJXFV1UOyGMEVIGQZYN/X5Bgi48ypA0i4vOKNElDfpdzZsV1ZEIrQIys6DbMG0XkdBj99NEczHQlGga9Wjz2DNijV9C5Pit1tiDrZbIZjNhezj+3mOHW+s+dMO0xRtsOWk7O+1aDGmZyaaeLiehj6X4UjbPu4As5i6PZsZpePqt6W5G9cvMrAP8dPSxO0NPWU0qPe+CZ8799CR2Zmo1905q3qX6UVej6l9gaozrvfmfBNTil3NSihrpQhLl44t69y5P2lP6Nz++eLIn2RZCnE6tfX4mRYF8sY78QZFuIpi58fw4+vFUFihGM5rRjGY0oxnNaEYzmtGMZjSjGc1oRjOa0YxmNKMZzWhGM5rRjGY0oxnNaEYzmtGMZjSjGc1oRjOa0Yxm9N9CJ/ahEwD70AChfegQcvvQOcTEaImPjgH/GXhqNBA8mk2Obh/NXtmGXvkED8ETo9uH4PGf3CdGt0/u4zc3IEa3zQ3w20jQok9g/IYddYD67li/SJ8adhC0RqnO7KDAz+iIrAlNLaSUBp18bUJD0u6H6OW/S7sfOxsr2dnCyspmYXa2ZbOzAZ6drQbtbOpoZ/tMOxuV2tkS1s7mu3a2ObazobSlrbvtbJJuQTv6/xfXFISZjSwoAAAAAElFTkSuQmCC">
-<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAflBMVEWXokqTbm3Jn8jdxN2gV5/Aj7+POo7+/f4AAACXQ5WZxTLo2OidU5uILYiRO4+QOpD/AP+oZqeNPI3x5/G7iLvWt9ZVVVV/Kn9/KqqNOI2YtT6yeLGSV36Vh1ya0CuiW6EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACEQTLfAAAAIHRSTlP////////+/wD//////4TIAf8k////AwYGEv///////0h+gfgAAAEhSURBVHja7ZbZkoQgDEWjziBbQBR6cWn//y8brJmqrqnQwvN0HniQewwmKS/A+cD5aCw7CWvGQwpxuRpWFOYaxTDwuxVlgLB3PsDlVqpPxO0C3BTrI2E4jJmtDDIC+cEC5nkjGQOW1D+kfABZXfJpE/UxGmqPBODQy60Y2GR5BkyLPvSzOAVcUGFPSDNLCSs7A1yfwh91WtdMU14BdQB95+LJEH+OiMx1igZE/xtT8IvTWu/OLW18TYt0hq6nY8odSU804LJVElQOtb/rg/+bZPLvG4fiW72owyLwbDRiGX0bkrp1gmHRLCGmCitkxcPHvhLAKgD9AT7A/wRsHWBpy8oDhjZFEf82IWOKtO0Kv+RsN2PsmDX26qtD9eWk9vrzBOgOPxpeN+I7AAAAAElFTkSuQmCC">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAflBMVEWXokqTbm3Jn8jdxN2gV5/Aj7+POo7+/f4AAACXQ5WZxTLo2OidU5uILYiRO4+QOpD/AP+oZqeNPI3x5/G7iLvWt9ZVVVV/Kn9/KqqNOI2YtT6yeLGSV36Vh1ya0CuiW6EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACEQTLfAAAAIHRSTlP////////+/wD//////4TIAf8k////AwYGEv///////0h+gfgAAAEhSURBVHja7ZbZkoQgDEWjziBbQBR6cWn//y8brJmqrqnQwvN0HriQewwmKS/A+cD5aCw7CWvGQwpxuRpWFOYaxTDwuxVlgLB3PsDlVqpPxO0C3BTrI2E4jJmtDDIC+cEC5nkjGQOW1D+kfABZXfJpE/UxGmqPBODQy60Y2GR5BkyLPvSzOAVcUGFPSDNLCSs7A1yfwh91WtdMU14BdQB95+LJEH+OiMx1igZE/xtT8IvTWu/OLW18TYt0hq6nY8odSU804LJVElQOtb/rg/+bZPLvG4fiW72owyLwbDRiGX0bkrp1gmHRLCGmCitkxcPHvhLAKgD9AT7A/wRsHWBpy8oDhjZFEf82IWOKtO0Kv+RsN2PsmDX26qtD9eWk9vrzBOgOPxpeN+I7AAAAAElFTkSuQmCC">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <title>TickS Terrain</title>
 <style>
+/* ══════════════════════════════════════════════════════════════
+   TickS Terrain — feuille de style V2
+   Palette IDENTIQUE a la V1 : violet #8A3090, vert #8DC63F, et les
+   cinq couleurs de categorie definies dans COLORS (app.js). Aucune
+   couleur de categorie n'est ecrite ici.
+   Les IDENTIFIANTS et CLASSES manipules par app.js / sync.js sont
+   tous conserves : #gps-bar-txt, #btn-geolocate, #wpt-cluster,
+   .wc-btn, .wi, .wl, #sheet, #trk-row, .wpt-item, .topt, etc.
+   ══════════════════════════════════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
   --bg:#F2F2F7;--surface:rgba(255,255,255,.88);--surface2:rgba(242,242,247,.92);
   --surface3:rgba(229,229,234,.85);--brd:rgba(0,0,0,.08);--brd2:rgba(0,0,0,.05);
   --txt:rgba(0,0,0,.88);--txt2:rgba(0,0,0,.45);--txt3:rgba(0,0,0,.26);--sep:rgba(0,0,0,.09);
   --blue:#007AFF;--green:#34C759;--orange:#FF9500;--red:#FF3B30;
-  --ticks:#8A3090;--ticks-green:#8DC63F;
-  --blur:blur(20px) saturate(180%);--r:16px;
-  --shadow:0 2px 20px rgba(0,0,0,.12);
-  --font:-apple-system,"SF Pro Display",system-ui,sans-serif
+  --ticks:#8A3090;--ticks-green:#8DC63F;--ticks-green-d:#6FA82E;
+  --font:-apple-system,"SF Pro Display",system-ui,sans-serif;
+  --c-glass:rgba(248,244,255,.86);--c-glass2:rgba(253,250,255,.96);
+  --c-brd:rgba(138,48,144,.12);--c-icon:rgba(60,20,100,.80);
+  --c-icon2:rgba(138,48,144,.48);--c-sep:rgba(138,48,144,.10);
+  --c-pill:rgba(138,48,144,.06);--c-active:rgba(138,48,144,.92);
+  --c-blur:blur(22px) saturate(200%);
+  --r-sheet:26px;--r-card:16px;--r-chip:14px;--hit:52px;
+  --shadow-sheet:0 -6px 32px rgba(60,20,100,.14);
+  --ease:cubic-bezier(.22,1,.36,1);
+  /* Hauteur de la feuille REPLIEE. Le bouton de geolocalisation, l'echelle
+     et l'attribution s'y ancrent : ils restent donc figes au fond de carte
+     quand la feuille est tiree vers le haut, qui les recouvre.
+     Ne PAS les rebrancher sur --sheet-h, qui suit le glissement. */
+  --sheet-min:190px;
 }
 @media(prefers-color-scheme:dark){:root{
   --bg:#000;--surface:rgba(28,28,30,.88);--surface2:rgba(44,44,46,.85);
   --surface3:rgba(58,58,60,.80);--brd:rgba(255,255,255,.09);--brd2:rgba(255,255,255,.05);
-  --txt:rgba(255,255,255,.92);--txt2:rgba(255,255,255,.48);--txt3:rgba(255,255,255,.26);--sep:rgba(255,255,255,.10);
+  --txt:rgba(255,255,255,.92);--txt2:rgba(255,255,255,.48);--txt3:rgba(255,255,255,.26);
+  --sep:rgba(255,255,255,.10);
   --blue:#0A84FF;--green:#30D158;--orange:#FF9F0A;--red:#FF453A;
-  --shadow:0 2px 20px rgba(0,0,0,.45)
+  --c-glass:rgba(30,15,50,.88);--c-glass2:rgba(20,8,38,.96);
+  --c-brd:rgba(180,140,236,.12);--c-icon:rgba(220,190,255,.90);
+  --c-icon2:rgba(180,140,236,.50);--c-sep:rgba(180,140,236,.10);
+  --c-pill:rgba(180,140,236,.08);--c-active:rgba(180,140,236,.92);
+  --shadow-sheet:0 -6px 32px rgba(0,0,0,.55);
 }}
-html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--font);-webkit-font-smoothing:antialiased}
+/* MODE PLEIN SOLEIL : le verre depoli devient opaque et les contrastes
+   montent. Sur un parvis en plein midi la translucidite rend l'interface
+   illisible ; la bascule est dans la pilule de droite et dans le menu. */
+body.sun{
+  --c-glass:#FFFFFF;--c-glass2:#FFFFFF;--c-brd:rgba(0,0,0,.22);
+  --c-icon:#1A0A2E;--c-icon2:#6B1F73;--c-sep:rgba(0,0,0,.14);
+  --c-pill:rgba(138,48,144,.10);--c-blur:none;
+  --surface:#FFFFFF;--surface2:#F2F2F7;--brd:rgba(0,0,0,.20);
+  --txt:#000;--txt2:rgba(0,0,0,.62);--txt3:rgba(0,0,0,.45);
+  --bg:#FFFFFF;--shadow-sheet:0 -6px 24px rgba(0,0,0,.28);
+}
+html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+  font-family:var(--font);-webkit-font-smoothing:antialiased}
 button{font-family:var(--font);cursor:pointer;border:none;outline:none;background:none;color:inherit}
 #app{position:fixed;inset:0;height:100dvh}
-#pane-terrain{display:block;position:absolute;inset:0;overflow:hidden;--c-glass:rgba(248,244,255,.85);--c-glass2:rgba(253,250,255,.95);--c-brd:rgba(138,48,144,.10);--c-icon:rgba(60,20,100,.78);--c-icon2:rgba(138,48,144,.45);--c-sep:rgba(138,48,144,.10);--c-pill:rgba(138,48,144,.06);--c-active:rgba(138,48,144,.90);--c-blur:blur(22px) saturate(200%)}
-@media(prefers-color-scheme:dark){#pane-terrain{--c-glass:rgba(30,15,50,.86);--c-glass2:rgba(20,8,38,.94);--c-brd:rgba(180,140,236,.10);--c-icon:rgba(220,190,255,.88);--c-icon2:rgba(180,140,236,.45);--c-sep:rgba(180,140,236,.10);--c-pill:rgba(180,140,236,.07);--c-active:rgba(180,140,236,.92);--c-blur:blur(22px) saturate(200%)}}
-#map{position:absolute;inset:0;bottom:130px;min-height:200px}
-#gps-bar{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);left:12px;width:auto;max-width:190px;z-index:700;pointer-events:none;display:flex;align-items:center;gap:8px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;padding:7px 14px;box-shadow:0 1px 12px rgba(0,0,0,.10)}
-#gps-bar-track{width:32px;height:3px;flex-shrink:0;background:var(--c-brd);border-radius:2px;overflow:hidden}
-#gps-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .5s,background .5s;background:var(--c-icon2)}
-#gps-bar-txt{font-size:12px;color:var(--c-icon2);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-/* Le burger est un ELEMENT de #right-pill (flex column) : des freres
-   ne peuvent pas se chevaucher. Ne PAS le repasser en position:absolute. */
-#burger-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
-#burger-btn:active{background:var(--c-pill)}
-.burger-icon{display:flex;flex-direction:column;gap:4px}.burger-icon span{display:block;width:16px;height:1.5px;background:var(--c-icon);border-radius:1px}
-#right-pill{position:absolute;top:calc(env(safe-area-inset-top,10px)+10px);right:12px;z-index:900;display:flex;flex-direction:column;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
-.rpill-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--c-icon);touch-action:manipulation}.rpill-btn:active{background:var(--c-pill)}.rpill-sep{height:1px;background:var(--c-sep);margin:0 10px}
-/* Le bouton geoloc est un ENFANT de #sheet, ancre sur son bord superieur
-   (top negatif) : il suit automatiquement la hauteur du bandeau, qui
-   grandit quand "Terminer ce troncon" apparait. Ne PAS revenir a un
-   bottom fixe : le bandeau passerait par-dessus. */
-#btn-geolocate{position:absolute;right:0;top:-62px;z-index:810;width:50px;height:50px;border-radius:50%;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 14px rgba(0,0,0,.16);touch-action:manipulation;color:var(--c-icon);transition:transform .08s,color .2s}
-#btn-geolocate:active{transform:scale(.92)}
-#btn-geolocate.tracking{color:var(--ticks-green)}
-#btn-layer svg{stroke:var(--c-icon);fill:none}#btn-filter-toggle svg{stroke:var(--c-icon)}
-#btn-filter-toggle.active{background:var(--c-active)}#btn-filter-toggle.active svg{stroke:var(--c-glass)}
-#filter-popover{position:absolute;z-index:890;right:68px;top:calc(env(safe-area-inset-top,10px)+100px);display:flex;flex-direction:column;gap:5px;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:16px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.14);opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
-#filter-popover.open{opacity:1;pointer-events:auto;transform:translateX(0)}
-#filter-popover button{background:var(--c-pill);border:1px solid var(--c-brd);border-radius:12px;padding:7px 14px;font-size:12px;font-weight:500;color:var(--c-icon2);touch-action:manipulation;white-space:nowrap;text-align:left}
-#filter-popover button.active{background:var(--c-active);border-color:transparent;color:var(--c-glass2)}
-#wpt-cluster{position:absolute;left:12px;top:50%;transform:translateY(-60%);z-index:700;display:flex;flex-direction:column;gap:8px}
-.wc-btn{width:52px;height:52px;border-radius:50%;background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;touch-action:manipulation;box-shadow:0 1px 10px rgba(0,0,0,.10);transition:transform .08s}.wc-btn:active{transform:scale(.90)}
-.wc-btn .wl{font-size:9px;font-weight:500;color:var(--c-icon2);letter-spacing:.01em;line-height:1}
-#sheet{position:absolute;left:0;right:0;bottom:0;z-index:800;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-radius:22px 22px 0 0;padding:0 14px;padding-bottom:env(safe-area-inset-bottom,12px);box-shadow:0 -2px 24px rgba(0,0,0,.10);pointer-events:auto;touch-action:manipulation}
-#sheet *{pointer-events:auto;touch-action:manipulation}
-#sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--c-sep);margin:8px auto 10px}
-#trk-row{display:flex;align-items:center;gap:8px;background:var(--c-pill);border:1px solid var(--c-brd);border-radius:12px;padding:8px 12px;margin-bottom:8px}
-#trk-row input{flex:1;background:none;border:none;color:var(--c-icon);font-size:13px;font-family:var(--font);outline:none;min-width:0}
-.trkstat{text-align:center;flex-shrink:0;min-width:26px}.trkstat .v{font-size:13px;font-weight:600;color:var(--c-icon);font-variant-numeric:tabular-nums;line-height:1}.trkstat .l{font-size:9px;color:var(--c-icon2);margin-top:1px;letter-spacing:.04em;text-transform:uppercase}
-#btn-rec{width:100%;padding:13px;border-radius:13px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--c-pill);border:1px solid var(--c-brd);color:var(--c-icon);touch-action:manipulation;transition:all .16s}
-#btn-finish{width:100%;padding:10px;border-radius:13px;margin-top:6px;font-size:13px;font-weight:600;background:var(--c-pill);border:1px solid var(--c-brd);color:var(--c-icon2);display:none;touch-action:manipulation}
-.subview{display:none;position:fixed;inset:0;flex-direction:column;background:var(--bg);z-index:900}
-.sv-header{flex-shrink:0;padding-top:env(safe-area-inset-top,0px);background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-bottom:1px solid var(--brd)}
-.sv-header-inner{height:48px;padding:0 12px;display:flex;align-items:center;gap:8px}
-.sv-back{display:flex;align-items:center;gap:4px;color:var(--ticks);font-size:16px;font-weight:500;touch-action:manipulation;padding:4px 6px;border-radius:8px;transition:opacity .12s}.sv-back:active{opacity:.5}.sv-back svg{stroke:var(--ticks);fill:none}
-.sv-title{font-size:15px;font-weight:600;letter-spacing:-.02em;margin-left:4px}
-.sv-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
-#burger-menu{position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,.30);opacity:0;pointer-events:none;transition:opacity .22s}
-@media(prefers-color-scheme:dark){#burger-menu{background:rgba(0,0,0,.55)}}
-#burger-menu.open{opacity:1;pointer-events:auto}
-#burger-panel{background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px 22px 0 0;padding:10px 0 calc(20px + env(safe-area-inset-bottom,12px));transform:translateY(100%);transition:transform .28s cubic-bezier(.32,0,.67,1)}
-#burger-menu.open #burger-panel{transform:translateY(0);transition-timing-function:cubic-bezier(.22,1,.36,1)}
-.bm-handle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 16px}
-.bm-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);padding:0 20px;margin-bottom:8px}
-.bmenu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;width:100%;font-size:16px;font-weight:400;color:var(--txt);touch-action:manipulation;transition:background .1s}.bmenu-item:active{background:var(--surface3)}.bmenu-item.active{color:var(--ticks)}
-.bmenu-item svg{flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.bm-sep{height:1px;background:var(--sep);margin:6px 20px}
-#bm-close{display:flex;align-items:center;justify-content:center;margin:8px 16px 0;padding:14px;border-radius:14px;font-size:15px;font-weight:600;color:var(--ticks);background:var(--surface2);border:1px solid var(--brd);touch-action:manipulation}
-.card{background:var(--surface);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:10px}
-.card-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px}
-.wpt-item{background:var(--surface2);border:1px solid var(--brd2);border-radius:12px;padding:11px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
-.wdot{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.winfo{flex:1;min-width:0}.wname{font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wmeta{font-size:11px;color:var(--txt3);margin-top:2px;font-variant-numeric:tabular-nums}
-.wdesc{font-size:11px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wbtn{padding:5px 8px;font-size:14px;color:var(--txt3);touch-action:manipulation}
-.empty{text-align:center;color:var(--txt3);padding:36px 16px;font-size:14px;line-height:1.7}
-.btn-main{width:100%;background:var(--blue);color:#fff;border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
-.btn-sec{width:100%;background:var(--surface2);border:1px solid var(--brd);color:var(--txt);border-radius:var(--r);padding:12px;font-size:13px;font-weight:500;margin-bottom:8px;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:8px}
-.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.stat-chip{background:var(--surface2);border:1px solid var(--brd2);border-radius:10px;padding:7px 12px;display:flex;align-items:center;gap:7px}.stat-chip .n{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.40);z-index:1000;align-items:flex-end}
-@media(prefers-color-scheme:dark){.modal{background:rgba(0,0,0,.60)}}
-.modal.open{display:flex}
-.modal-box{background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px 22px 0 0;padding:10px 16px calc(24px + env(safe-area-inset-bottom,12px));width:100%;max-height:90vh;overflow-y:auto}
-.mhandle{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 16px}
-.mtitle{font-size:17px;font-weight:600;margin-bottom:3px;letter-spacing:-.02em}
-.msub{font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
-.fg{margin-bottom:12px}.fg label{display:block;font-size:12px;font-weight:500;color:var(--txt3);margin-bottom:5px}
-.fg input,.fg select,.fg textarea{width:100%;background:var(--surface2);border:1px solid var(--brd);border-radius:12px;color:var(--txt);font-size:15px;padding:10px 12px;outline:none;font-family:var(--font)}
-.fg textarea{height:68px;resize:none}
-.mbtns{display:flex;gap:8px;margin-top:8px}
-.mbtn-ok{flex:2;background:var(--blue);color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:600;touch-action:manipulation}
-.mbtn-cancel{flex:1;background:var(--surface2);border:1px solid var(--brd);color:var(--txt2);border-radius:12px;padding:14px;font-size:15px;touch-action:manipulation}
-#avg-prog-bg{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-bottom:10px}
-#avg-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s;background:var(--ticks)}
-#avg-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
-.type-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.topt{background:var(--surface2);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;text-align:center;touch-action:manipulation;transition:all .12s}
-.topt .tl{font-size:11px;font-weight:500;color:var(--txt2)}.topt .ts{font-size:10px;color:var(--txt3);margin-top:1px}
-#toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--surface);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--brd);border-radius:22px;padding:9px 18px;font-size:13px;font-weight:500;z-index:1200;transition:transform .22s;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
-#toast.show{transform:translateX(-50%) translateY(0)}
-#toast.g{border-color:rgba(52,199,89,.4);color:var(--green)}
-#toast.a{border-color:rgba(255,149,0,.4);color:var(--orange)}
-#toast.r{border-color:rgba(255,59,48,.4);color:var(--red)}
-/* Attribution Leaflet decalee : le bouton geoloc occupe ce coin */
-.leaflet-bottom.leaflet-right{right:70px}
-.leaflet-control-attribution{font-size:10px;opacity:.75}
-/* Bandeaux de pointage manuel (enfants de #sheet, comme le bouton geoloc).
-   Repere : 0 = bord haut du bandeau troncon, valeurs negatives vers le haut.
-   Trois zones a ne pas recouvrir :
-     attribution OSM  -14 a 0    (bas de carte, cote droit, obligatoire)
-     bouton geoloc    -62 a -12  (colonne droite, 50 px de large)
-     bouton « Autre » ~ -150     (bas du wpt-cluster, a gauche)
-   Le bandeau compact fait ~33 px ; ancre a 20 px il occupe -53 a -20, donc
-   sous le cluster et au-dessus de l'attribution. Il croise en revanche le
-   bouton geoloc en hauteur : on l'ecarte donc HORIZONTALEMENT en le
-   centrant avec 60 px de marge de chaque cote (le bouton n'occupe que les
-   50 px de droite). D'ou width:max-content plutot qu'une pleine largeur.
-   Les libelles doivent rester COURTS : white-space:nowrap, sinon ils sont
-   tronques par l'ellipse. */
-.pickbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 20px);z-index:820;width:max-content;max-width:calc(100% - 120px);display:none;align-items:center;gap:8px;background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);border:1px solid var(--ticks);border-radius:11px;padding:7px 9px 7px 12px;box-shadow:0 2px 12px rgba(0,0,0,.14)}
+#pane-terrain{display:block;position:absolute;inset:0;overflow:hidden}
+#map{position:absolute;inset:0;min-height:200px}
+
+/* ── ORDRE D'EMPILEMENT ────────────────────────────────────────
+   feuille 800 > bouton GPS 780 > echelle et attribution 760 > carte.
+   Leaflet place ses coins en 1000 par defaut : sans la regle ci-dessous
+   l'echelle et l'attribution flotteraient PAR-DESSUS la feuille deployee.
+   ──────────────────────────────────────────────────────────── */
+.leaflet-bottom,.leaflet-top{z-index:760}
+.leaflet-control{z-index:760}
+.leaflet-bottom.leaflet-right{right:8px;bottom:calc(var(--sheet-min) + 4px)}
+.leaflet-bottom.leaflet-left{left:10px;bottom:calc(var(--sheet-min) + 6px)}
+.leaflet-control-attribution{font-size:9px;opacity:.72}
+/* Echelle : le controle Leaflet est redessine en pastille de verre. Le trait
+   epais du bas conserve la lecture « barre d'echelle ». Les styles en ligne
+   poses par initMap() dans app.js ont ete retires au profit de ces regles. */
+.leaflet-control-scale{margin:0!important;box-shadow:none}
+.leaflet-control-scale-line{background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);
+  backdrop-filter:var(--c-blur);border:1px solid var(--c-brd);border-bottom:2.5px solid var(--c-icon2);
+  border-radius:9px 9px 3px 3px;padding:3px 9px 2px;font-family:var(--font);font-size:10.5px;
+  font-weight:700;line-height:1.35;color:var(--c-icon);font-variant-numeric:tabular-nums;
+  text-shadow:none;box-shadow:0 1px 8px rgba(0,0,0,.10)}
+.leaflet-control-scale-line:not(:first-child){border-top:none;margin-top:2px}
+
+/* ── HAUT DE CARTE ───────────────────────────────────────────── */
+#topbar{position:absolute;top:calc(env(safe-area-inset-top,10px) + 10px);left:12px;right:12px;
+  z-index:700;display:flex;align-items:flex-start;gap:8px;pointer-events:none}
+#session-pill{pointer-events:auto;display:flex;align-items:center;gap:9px;min-width:0;max-width:66%;
+  background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);border-radius:20px;padding:7px 14px 7px 11px;box-shadow:0 1px 12px rgba(0,0,0,.10)}
+#session-pill .sdot{width:8px;height:8px;border-radius:50%;background:var(--ticks-green);flex-shrink:0}
+#session-pill .sname{font-size:12.5px;font-weight:600;color:var(--c-icon);line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em}
+#session-pill .smeta{font-size:10px;color:var(--c-icon2);margin-top:1px;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Le burger et les boutons de zoom injectes par addZoomButtons() sont des
+   FRERES flex : ils ne peuvent pas se chevaucher. Ne PAS les repasser en
+   position:absolute. */
+#right-pill{pointer-events:auto;margin-left:auto;display:flex;flex-direction:column;
+  background:var(--c-glass);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);border-radius:20px;overflow:hidden;box-shadow:0 1px 12px rgba(0,0,0,.10)}
+.rpill-btn,#burger-btn{width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  color:var(--c-icon);touch-action:manipulation;transition:background .12s}
+.rpill-btn:active,#burger-btn:active{background:var(--c-pill)}
+.rpill-btn svg{stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.rpill-sep{height:1px;background:var(--c-sep);margin:0 9px}
+.rpill-btn.active,.rpill-btn.on{background:var(--c-active);color:#fff}
+.rpill-btn.active svg,.rpill-btn.on svg{stroke:#fff}
+.burger-icon{display:flex;flex-direction:column;gap:4px}
+.burger-icon span{display:block;width:16px;height:1.6px;background:currentColor;border-radius:1px}
+
+#filter-popover{position:absolute;z-index:890;right:12px;top:calc(env(safe-area-inset-top,10px) + 62px);
+  display:flex;flex-direction:column;gap:4px;background:var(--c-glass);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--c-brd);border-radius:16px;padding:8px;box-shadow:0 6px 24px rgba(0,0,0,.16);
+  opacity:0;pointer-events:none;transform:translateX(10px) scale(.96);transform-origin:top right;
+  transition:opacity .18s var(--ease),transform .18s var(--ease)}
+#filter-popover.open{opacity:1;pointer-events:auto;transform:none}
+#filter-popover button{display:flex;align-items:center;gap:9px;background:transparent;border:none;
+  border-radius:11px;padding:8px 12px 8px 10px;font-size:12.5px;font-weight:500;color:var(--c-icon);
+  white-space:nowrap;text-align:left;touch-action:manipulation;font-family:var(--font)}
+#filter-popover button.active{background:var(--c-pill)}
+.fdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block}
+
+/* ── BOUTON DE GEOLOCALISATION + ANNEAU DE QUALITE ────────────
+   Ancre sur --sheet-min, donc fige au fond de carte. Il n'est PLUS enfant
+   de #sheet : la feuille etant desormais de hauteur variable, un ancrage
+   relatif la ferait suivre le glissement. */
+#btn-geolocate{position:absolute;right:12px;bottom:calc(var(--sheet-min) + 14px);z-index:780;
+  width:62px;height:62px;touch-action:manipulation;background:none;border:none;padding:0}
+#gps-ring{position:absolute;inset:0;transform:rotate(-90deg)}
+#gps-ring circle{fill:none;stroke-linecap:round}
+#gps-ring .trk{stroke:var(--c-brd);stroke-width:3}
+#gps-ring .arc{stroke:var(--c-icon2);stroke-width:3;
+  transition:stroke-dashoffset .6s var(--ease),stroke .4s}
+#gps-core{position:absolute;inset:6px;border-radius:50%;background:var(--c-glass2);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 2px 14px rgba(0,0,0,.18);transition:transform .09s}
+#btn-geolocate:active #gps-core{transform:scale(.9)}
+/* Fleche de navigation en trace OUVERT, au violet de marque. Ne pas la
+   remplir : sur orthophoto une fleche pleine sombre se confond avec le
+   bitume, alors qu'un contour laisse voir le fond au travers. */
+#gps-arrow{color:var(--ticks);margin-top:-1px;transition:color .25s}
+#btn-geolocate.tracking #gps-arrow{color:var(--ticks-green-d)}
+#gps-bar-txt{font-size:8.5px;font-weight:700;color:var(--c-icon2);font-variant-numeric:tabular-nums;
+  line-height:1;margin-top:1px}
+#gps-bar-fill{display:none}
+
+/* ── FEUILLE INFERIEURE ──────────────────────────────────────── */
+#sheet{position:absolute;left:0;right:0;bottom:0;z-index:800;
+  background:var(--c-glass2);-webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border-top:1px solid var(--c-brd);border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  box-shadow:var(--shadow-sheet);display:flex;flex-direction:column;
+  height:var(--sheet-h,190px);transition:height .3s var(--ease);will-change:height;
+  touch-action:manipulation}
+#sheet.dragging{transition:none}
+#sheet-handle{flex-shrink:0;width:100%;padding:9px 0 5px;display:flex;justify-content:center;
+  touch-action:none;cursor:grab}
+#sheet-handle i{display:block;width:38px;height:4px;border-radius:2px;background:var(--c-sep)}
+#sheet-fixed{flex-shrink:0;padding:0 12px calc(env(safe-area-inset-bottom,10px) + 8px)}
+#sheet.open #sheet-fixed{padding-bottom:10px}
+#sheet-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 12px;
+  padding-bottom:calc(env(safe-area-inset-bottom,10px) + 10px);opacity:0;transition:opacity .22s;pointer-events:none}
+#sheet.open #sheet-scroll{opacity:1;pointer-events:auto}
+#sheet-hint{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--c-icon2);text-align:center;opacity:.55;transition:opacity .2s;padding-top:2px}
+#sheet.open #sheet-hint{opacity:0}
+
+/* ── DOCK DE CAPTURE ──────────────────────────────────────────
+   Les cinq boutons de type quittent la colonne de gauche a mi-hauteur pour
+   un rail HORIZONTAL en zone de pouce. Ils gardent data-t, .wi et .wl :
+   paintTypeUI() (app.js) les colore et les remplit sans modification. */
+#wpt-cluster{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:9px}
+#wpt-cluster::-webkit-scrollbar{display:none}
+.wc-btn{flex:1 0 auto;min-width:62px;position:relative;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;height:var(--hit);border-radius:var(--r-chip);
+  border:1.5px solid var(--c-brd);background:var(--c-glass2);touch-action:manipulation;
+  transition:transform .09s}
+.wc-btn:active{transform:scale(.94)}
+.wc-btn .wi{width:19px;height:19px;display:block}
+.wc-btn .wl{font-size:9.5px;font-weight:600;letter-spacing:.01em;line-height:1}
+/* Compteur par categorie : savoir sans ouvrir la liste si l'ascenseur a
+   deja ete releve. Rempli par updateDockCounts() en fin d'app.js. */
+.wc-n{position:absolute;top:-5px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
+  color:#fff;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums;box-shadow:0 1px 4px rgba(0,0,0,.28)}
+.wc-n.on{display:flex}
+body.sun .wc-btn{border-width:2px}
+body.sun .wc-btn .wl{font-size:10.5px}
+
+/* ── BARRE TRONCON ───────────────────────────────────────────── */
+#trk-row{display:flex;align-items:center;gap:9px;height:48px;padding:0 6px 0 14px;
+  border-radius:var(--r-chip);background:var(--c-pill);border:1px solid var(--c-brd);
+  transition:background .2s,border-color .2s}
+#trk-row.rec{background:rgba(255,59,48,.10);border-color:rgba(255,59,48,.38)}
+#trk-row input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--c-icon);
+  font-size:13.5px;font-family:var(--font);font-weight:500}
+#trk-row input::placeholder{color:var(--c-icon2)}
+#trk-live{display:none;flex:1;min-width:0;gap:12px;align-items:center}
+#trk-row.rec #trk-live{display:flex}
+#trk-row.rec input{display:none}
+.trkstat{display:flex;flex-direction:column;line-height:1}
+.trkstat .v{font-size:13.5px;font-weight:700;color:var(--c-icon);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.trkstat .l{font-size:8.5px;font-weight:600;color:var(--c-icon2);letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
+#btn-rec{flex-shrink:0;height:36px;padding:0 15px;border-radius:11px;font-size:12.5px;font-weight:600;
+  display:flex;align-items:center;gap:7px;background:var(--ticks);color:#fff;touch-action:manipulation;
+  transition:background .18s}
+#btn-rec.rec{background:var(--red)}
+#btn-rec .rdot{width:8px;height:8px;border-radius:50%;background:#fff}
+#btn-rec.rec .rdot{border-radius:2px}
+/* Le bouton « Terminer » de la V1 fait double emploi avec #btn-rec, qui
+   bascule deja en Stop. Il reste dans le DOM car finishTrack() y est
+   attache, mais n'est plus affiche. */
+#btn-finish{display:none!important}
+
+/* ── CONTENU DEPLOYE ─────────────────────────────────────────── */
+.sect{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--c-icon2);margin:14px 2px 8px}
+.sumgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.sumcell{background:var(--c-pill);border:1px solid var(--c-brd);border-radius:12px;padding:9px 6px;text-align:center}
+.sumcell .v{font-size:19px;font-weight:700;color:var(--c-icon);font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1}
+.sumcell .l{font-size:9px;font-weight:600;color:var(--c-icon2);letter-spacing:.04em;text-transform:uppercase;margin-top:4px}
+
+/* ── BARRES DE POINTAGE MANUEL ────────────────────────────────
+   Ancrees sur --sheet-min comme le bouton GPS, et non plus sur le bord
+   superieur de la feuille. Libelles COURTS : white-space:nowrap. */
+.pickbar{position:absolute;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--sheet-min) + 88px);z-index:790;width:max-content;max-width:calc(100% - 120px);
+  display:none;align-items:center;gap:8px;background:var(--c-glass2);
+  -webkit-backdrop-filter:var(--c-blur);backdrop-filter:var(--c-blur);
+  border:1px solid var(--ticks);border-radius:11px;padding:7px 9px 7px 12px;
+  box-shadow:0 2px 12px rgba(0,0,0,.14)}
 .pickbar.open{display:flex}
-.pickbar .pb-txt{font-size:11.5px;font-weight:500;color:var(--c-icon);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pickbar .pb-x{flex-shrink:0;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600;color:var(--ticks);background:rgba(138,48,144,.10);border:1px solid rgba(138,48,144,.28);touch-action:manipulation}
+.pickbar .pb-txt{font-size:11.5px;font-weight:500;color:var(--c-icon);line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pickbar .pb-x{flex-shrink:0;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600;
+  color:var(--ticks);background:rgba(138,48,144,.10);border:1px solid rgba(138,48,144,.28);
+  touch-action:manipulation}
 #map.picking{cursor:crosshair}
+
+/* ── SOUS-VUES ───────────────────────────────────────────────── */
+.subview{display:none;position:fixed;inset:0;flex-direction:column;background:var(--bg);z-index:1000}
+.sv-header{flex-shrink:0;padding-top:env(safe-area-inset-top,0px);background:var(--surface);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--brd)}
+.sv-header-inner{height:50px;padding:0 10px;display:flex;align-items:center;gap:6px}
+.sv-back{display:flex;align-items:center;gap:3px;color:var(--ticks);font-size:16px;font-weight:500;
+  padding:6px 8px 6px 4px;border-radius:9px;touch-action:manipulation}
+.sv-back:active{opacity:.5}
+.sv-back svg{stroke:var(--ticks);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sv-title{font-size:16px;font-weight:700;letter-spacing:-.02em;margin-left:2px}
+.sv-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;
+  padding-bottom:calc(env(safe-area-inset-bottom,10px) + 20px)}
+.card{background:var(--surface);border:1px solid var(--brd);border-radius:var(--r-card);padding:14px;margin-bottom:11px}
+.card-title{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px}
+
+/* ── LISTE DES POINTS (markup produit par renderPts) ──────────── */
+.wpt-item{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:13px;
+  background:var(--surface2);border:1px solid var(--brd2);margin-bottom:7px}
+.wdot{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.winfo{flex:1;min-width:0}
+.wname{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmeta{font-size:10.5px;color:var(--txt3);margin-top:2px;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wdesc{font-size:11px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wbtn{flex-shrink:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;color:var(--txt3);border-radius:9px;touch-action:manipulation}
+.wbtn:active{background:var(--surface3)}
+.empty{text-align:center;color:var(--txt3);padding:30px 16px;font-size:13.5px;line-height:1.7}
+.btn-main{width:100%;background:var(--ticks);color:#fff;border-radius:13px;padding:14px;font-size:14.5px;
+  font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+.btn-sec{width:100%;background:var(--surface2);border:1px solid var(--brd);color:var(--txt);
+  border-radius:13px;padding:12px;font-size:13.5px;font-weight:500;margin-bottom:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+.stat-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.stat-chip{background:var(--surface2);border:1px solid var(--brd2);border-radius:11px;padding:8px 13px;
+  display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--txt2)}
+.stat-chip .n{font-size:16px;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums}
+
+/* ── MENU ────────────────────────────────────────────────────── */
+#burger-menu{position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;
+  background:rgba(30,10,50,.34);opacity:0;pointer-events:none;transition:opacity .24s}
+@media(prefers-color-scheme:dark){#burger-menu{background:rgba(0,0,0,.58)}}
+#burger-menu.open{opacity:1;pointer-events:auto}
+#burger-panel{background:var(--surface);-webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);border-top:1px solid var(--brd);border-radius:26px 26px 0 0;
+  padding:10px 0 calc(16px + env(safe-area-inset-bottom,10px));transform:translateY(100%);
+  transition:transform .3s var(--ease)}
+#burger-menu.open #burger-panel{transform:none}
+.bm-handle{width:38px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 15px}
+.bm-label{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);
+  padding:0 20px;margin:10px 0 6px}
+.bmenu-item{display:flex;align-items:center;gap:14px;padding:13px 20px;width:100%;font-size:16px;
+  font-weight:400;color:var(--txt);touch-action:manipulation;transition:background .1s}
+.bmenu-item:active{background:var(--surface3)}
+.bmenu-item.active{color:var(--ticks)}
+.bmenu-item svg{flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bmenu-item .mcount{margin-left:auto;font-size:13px;color:var(--txt3);font-variant-numeric:tabular-nums}
+.msw{margin-left:auto;width:48px;height:29px;border-radius:15px;background:var(--surface3);position:relative;
+  transition:background .22s;flex-shrink:0}
+.msw i{position:absolute;top:2.5px;left:2.5px;width:24px;height:24px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.25);transition:transform .22s var(--ease)}
+.bmenu-item.on .msw{background:var(--ticks-green)}
+.bmenu-item.on .msw i{transform:translateX(19px)}
+.bm-sep{height:1px;background:var(--sep);margin:6px 20px}
+#bm-close{display:flex;align-items:center;justify-content:center;margin:10px 16px 0;padding:14px;
+  border-radius:14px;font-size:15px;font-weight:600;color:var(--ticks);background:var(--surface2);
+  border:1px solid var(--brd);width:calc(100% - 32px);touch-action:manipulation}
+
+/* ── MODALES ─────────────────────────────────────────────────── */
+.modal{display:none;position:fixed;inset:0;background:rgba(30,10,50,.42);z-index:1200;align-items:flex-end}
+@media(prefers-color-scheme:dark){.modal{background:rgba(0,0,0,.62)}}
+.modal.open{display:flex}
+.modal-box{background:var(--surface);-webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);border-top:1px solid var(--brd);border-radius:26px 26px 0 0;
+  padding:10px 16px calc(20px + env(safe-area-inset-bottom,10px));width:100%;max-height:92vh;overflow-y:auto}
+.mhandle{width:38px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 15px}
+.mtitle{font-size:19px;font-weight:700;letter-spacing:-.03em;margin-bottom:3px}
+.msub{font-size:12.5px;color:var(--txt3);margin-bottom:16px;font-variant-numeric:tabular-nums}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:6px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--surface2);border:1px solid var(--brd);
+  border-radius:12px;color:var(--txt);font-size:16px;padding:11px 12px;outline:none;font-family:var(--font)}
+.fg textarea{height:72px;resize:none}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--ticks)}
+.mbtns{display:flex;gap:8px;margin-top:6px}
+.mbtn-ok{flex:2;background:var(--ticks);color:#fff;border-radius:13px;padding:15px;font-size:15px;
+  font-weight:600;touch-action:manipulation}
+.mbtn-cancel{flex:1;background:var(--surface2);border:1px solid var(--brd);color:var(--txt2);
+  border-radius:13px;padding:15px;font-size:15px;touch-action:manipulation}
+/* Capture : anneau de moyennage. #avg-prog-fill reste present et pilote par
+   updateAvgUI(), mais c'est desormais stroke-dashoffset et non width. */
+#avg-modal .modal-box{text-align:center}
+#avg-ring-wrap{position:relative;width:172px;height:172px;margin:6px auto 14px}
+#avg-ring{position:absolute;inset:0;transform:rotate(-90deg)}
+#avg-ring circle{fill:none;stroke-linecap:round}
+#avg-ring .trk{stroke:var(--surface3);stroke-width:9}
+#avg-prog-fill{stroke:var(--ticks);stroke-width:9;transition:stroke-dashoffset .35s var(--ease)}
+#avg-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+#avg-acc{font-size:34px;font-weight:800;letter-spacing:-.05em;font-variant-numeric:tabular-nums;line-height:1}
+#avg-acc-lab{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)}
+#avg-stats{display:flex;justify-content:center;gap:14px;font-size:12.5px;color:var(--txt2);
+  margin-bottom:14px;font-variant-numeric:tabular-nums}
+.type-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+.topt{background:var(--surface2);border:1.5px solid var(--brd2);border-radius:12px;padding:10px 6px;
+  text-align:center;touch-action:manipulation;transition:all .12s}
+.topt .ti{display:flex;align-items:center;justify-content:center;height:22px;margin-bottom:4px}
+.topt .tl{font-size:11px;font-weight:600;color:var(--txt2)}
+.topt .ts{font-size:9.5px;color:var(--txt3);margin-top:1px}
+.topt.sel{border-color:var(--tc)}
+
+/* ── TOAST ───────────────────────────────────────────────────── */
+#toast{position:fixed;left:50%;bottom:38px;z-index:1400;transform:translateX(-50%) translateY(80px);
+  background:var(--surface);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border:1px solid var(--brd);border-radius:22px;padding:10px 20px;font-size:13.5px;font-weight:600;
+  white-space:nowrap;pointer-events:none;box-shadow:0 4px 22px rgba(0,0,0,.20);
+  transition:transform .26s var(--ease)}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.g{color:var(--green);border-color:rgba(52,199,89,.42)}
+#toast.a{color:var(--orange);border-color:rgba(255,149,0,.42)}
+#toast.r{color:var(--red);border-color:rgba(255,59,48,.42)}
+
 /* iOS : l'appui long declenche par defaut la selection de texte et le menu
-   systeme (Copier / Rechercher...). Sur la carte c'est doublement genant :
-   la bulle recouvre le point vise, et l'appui long est justement le geste
-   du pointage manuel. On desactive donc callout et selection sur la carte
-   et sur toute l'interface flottante. */
-#map,.leaflet-container,#wpt-cluster,#right-pill,#gps-bar,#sheet,.pickbar,
-#filter-popover,#burger-panel{
-  -webkit-touch-callout:none;-webkit-user-select:none;
-  -moz-user-select:none;-ms-user-select:none;user-select:none}
-/* Les champs de saisie, eux, DOIVENT rester selectionnables : sans cette
-   contre-regle on ne pourrait plus coller la cle Supabase ni corriger un
-   nom de point. Les 10 champs de l'app sont couverts (#sheet ou .modal). */
+   systeme. Sur la carte c'est doublement genant, l'appui long etant le geste
+   du pointage manuel. */
+#map,.leaflet-container,#wpt-cluster,#right-pill,#topbar,#sheet,.pickbar,
+#filter-popover,#burger-panel,#btn-geolocate{
+  -webkit-touch-callout:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}
 #sheet input,.modal input,.modal textarea,.modal select{
   -webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
-/* La liste des points reste selectionnable pour copier des coordonnees. */
 .wmeta,.wname,.wdesc{-webkit-user-select:text;user-select:text}
-/* Couleur de type : --tc est pose par paintTypeUI() depuis COLORS (app.js).
-   AUCUNE couleur de categorie n'est ecrite en dur dans ce fichier, et AUCUN
-   pictogramme n'y est duplique : les emplacements .wi / .ti / .fdot sont
-   remplis au boot. Pour changer une couleur ou une icone, modifier COLORS
-   ou ICONS dans app.js — pas ici. */
-.wc-btn .wi{width:20px;height:20px;display:block}
-.topt .ti{display:flex;align-items:center;justify-content:center;height:22px;margin-bottom:4px}
-.topt.sel{border-color:var(--tc)}
-.fdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:8px}
-#filter-popover button{display:flex;align-items:center}
 ::-webkit-scrollbar{display:none}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 <div id="app">
 <div id="pane-terrain">
   <div id="map"></div>
-  <div id="gps-bar"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAflBMVEWoZqeWm06TaHDWt9Z/f3+LPYv/AP+qVVWYuTvdxN2qVaqQOo/+/f4AAACZxjKILYfl0uWRO5DAkL9/AH+RPJCURpCOOo5VVVWRO5CQO5C7iLrMpszw5fCiXKLFmsXizOEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiRpmDAAAAIHRSTlP/////AiEBA///A/7/AP///9T/AlD/DwOdsf///////5UJJ84AAAF2SURBVHja7Zdbc4MgEIVX09y6EqCAUUH9//+yiKbT5rIYeOqMZ8yDM56PXWYxHmBeB8U+dSNxtWSjj0wdJi/43wdj+g33wtDBOAGurG4xQW3trR6g2F5ikuTem0GpOtHvCbVScGUtJqtlV2AaM6QZpDcwNwFkAWVxKoqSLAEayn8JoggNyKj/cjFED0DQixugIB76J4DyLQAP1yRzihfwBNDtzrafEWUgFOYdgBmrScNyVz7MEY8AztWsEfyTj0tzA4YE9NWPbH+/GkewruopAIfql8QA/W09YwCGqb2RbuEPIMiJSc655R4ie7CraNnYJhpB+ncr5oCqwa6aRHAv7AL4urNghmf2EdYfJm6Gu60Qw8NU0KfRz4w/E/NYO9vBCzd5nDlHHuroOCa+DxAD4AtNJiC7gg2wATbABtgAawEyDyDJj22M/7E09Od+HKDpwBEF+MBBRh6wQnSRyEOHLo7II6ErO/ZlB8/86JsfvkP8P6bG/29YOrk9O2Y5jAAAAABJRU5ErkJggg==" width="16" height="16" alt="" style="flex-shrink:0;display:block"><div id="gps-bar-track"><div id="gps-bar-fill"></div></div><span id="gps-bar-txt">GPS…</span></div>
-  <div id="right-pill">
-    <button id="burger-btn" class="rpill-btn" onclick="openBurger()" aria-label="Menu"><div class="burger-icon"><span></span><span></span><span></span></div></button>
-    <div class="rpill-sep"></div>
-    <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()" aria-label="Changer de fond"><svg width="17" height="17" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></button>
-    <div class="rpill-sep"></div>
-    <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()" aria-label="Filtrer"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+
+  <div id="topbar">
+    <div id="session-pill" onclick="openBurger()">
+      <div class="sdot"></div>
+      <div style="min-width:0">
+        <div class="sname" id="sess-name">Session terrain</div>
+        <div class="smeta" id="sess-meta">Aucun point</div>
+      </div>
+    </div>
+    <div id="right-pill">
+      <button id="burger-btn" onclick="openBurger()" aria-label="Menu"><div class="burger-icon"><span></span><span></span><span></span></div></button>
+      <div class="rpill-sep"></div>
+      <button class="rpill-btn" id="btn-layer" onclick="toggleLayer()" aria-label="Changer de fond"><svg width="17" height="17" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></button>
+      <div class="rpill-sep"></div>
+      <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()" aria-label="Filtrer"><svg width="16" height="16" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+      <div class="rpill-sep"></div>
+      <button class="rpill-btn" id="btn-sun" onclick="toggleSun()" aria-label="Mode plein soleil"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg></button>
+    </div>
   </div>
+
   <div id="filter-popover">
     <button class="active" onclick="applyFilter('all',this)"><span class="fdot" style="background:var(--c-icon2)"></span>Tout afficher</button>
     <button data-t="entree" onclick="applyFilter('entree',this)"><span class="fdot"></span>Entr&eacute;es</button>
@@ -195,80 +419,117 @@ button{font-family:var(--font);cursor:pointer;border:none;outline:none;backgroun
     <button data-t="noeud" onclick="applyFilter('noeud',this)"><span class="fdot"></span>N&oelig;uds</button>
     <button data-t="autre" onclick="applyFilter('autre',this)"><span class="fdot"></span>Autre</button>
   </div>
-  <div id="wpt-cluster">
-    <button class="wc-btn" data-t="entree" onclick="startCapture('entree')"><span class="wi"></span><span class="wl">Entr&eacute;e</span></button>
-    <button class="wc-btn" data-t="equip_comp" onclick="startCapture('equip_comp')"><span class="wi"></span><span class="wl">Info</span></button>
-    <button class="wc-btn" data-t="equip_acces" onclick="startCapture('equip_acces')"><span class="wi"></span><span class="wl">Acc&egrave;s</span></button>
-    <button class="wc-btn" data-t="noeud" onclick="startCapture('noeud')"><span class="wi"></span><span class="wl">N&oelig;ud</span></button>
-    <button class="wc-btn" data-t="autre" onclick="startCapture('autre')"><span class="wi"></span><span class="wl">Autre</span></button>
-  </div>
+
+  <div id="manual-bar" class="pickbar"><span class="pb-txt">Point plac&eacute; &mdash; choisissez le type</span><button class="pb-x" onclick="clearManual()">Annuler</button></div>
+  <div id="pick-bar" class="pickbar"><span class="pb-txt">Touchez la carte</span><button class="pb-x" onclick="cancelPick()">Annuler</button></div>
+
+  <button id="btn-geolocate" onclick="gotoGPS()" aria-label="Recentrer sur ma position">
+    <svg id="gps-ring" viewBox="0 0 62 62"><circle class="trk" cx="31" cy="31" r="28.5"/><circle class="arc" cx="31" cy="31" r="28.5" stroke-dasharray="179" stroke-dashoffset="179"/></svg>
+    <div id="gps-core">
+      <svg id="gps-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="3.2 10.6 21.4 2.6 13.4 20.8 11.4 12.6 3.2 10.6"/></svg>
+      <span id="gps-bar-txt">GPS&hellip;</span>
+      <span id="gps-bar-fill"></span>
+    </div>
+  </button>
+
   <div id="sheet">
-    <div id="manual-bar" class="pickbar"><span class="pb-txt">Point plac&eacute; &mdash; choisissez le type</span><button class="pb-x" onclick="clearManual()">Annuler</button></div>
-    <div id="pick-bar" class="pickbar"><span class="pb-txt">Touchez la carte</span><button class="pb-x" onclick="cancelPick()">Annuler</button></div>
-    <button id="btn-geolocate" onclick="gotoGPS()" aria-label="Me localiser"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2.5 L20.5 20.5 L12 16.4 L3.5 20.5 Z" fill="currentColor" opacity=".30"/><path d="M12 2.5 L20.5 20.5 L12 16.4 Z" fill="currentColor"/></svg></button>
-    <div id="sheet-handle"></div>
-    <div id="trk-row"><input id="trk-name" type="text" placeholder="Nom du tronçon…"><div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div><div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div><div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur</div></div></div>
-    <button id="btn-rec" onclick="toggleRec()"><span>●</span><span> Enregistrer un tronçon</span></button>
-    <button id="btn-finish" onclick="finishTrack()">&#10003; Terminer ce tronçon</button>
+    <div id="sheet-handle"><i></i></div>
+    <div id="sheet-fixed">
+      <div id="wpt-cluster">
+        <button class="wc-btn" data-t="entree" onclick="startCapture('entree')"><span class="wi"></span><span class="wl">Entr&eacute;e</span><span class="wc-n"></span></button>
+        <button class="wc-btn" data-t="equip_comp" onclick="startCapture('equip_comp')"><span class="wi"></span><span class="wl">Info</span><span class="wc-n"></span></button>
+        <button class="wc-btn" data-t="equip_acces" onclick="startCapture('equip_acces')"><span class="wi"></span><span class="wl">Acc&egrave;s</span><span class="wc-n"></span></button>
+        <button class="wc-btn" data-t="noeud" onclick="startCapture('noeud')"><span class="wi"></span><span class="wl">N&oelig;ud</span><span class="wc-n"></span></button>
+        <button class="wc-btn" data-t="autre" onclick="startCapture('autre')"><span class="wi"></span><span class="wl">Autre</span><span class="wc-n"></span></button>
+      </div>
+      <div id="trk-row">
+        <input id="trk-name" type="text" placeholder="Nom du tronçon…">
+        <div id="trk-live">
+          <div class="trkstat"><div class="v" id="s-pts">0</div><div class="l">pts</div></div>
+          <div class="trkstat"><div class="v" id="s-dst">0</div><div class="l">m</div></div>
+          <div class="trkstat"><div class="v" id="s-tim">00:00</div><div class="l">dur&eacute;e</div></div>
+        </div>
+        <button id="btn-rec" onclick="toggleRec()"><span class="rdot"></span><span id="btn-rec-lab">Tron&ccedil;on</span></button>
+      </div>
+      <button id="btn-finish" onclick="finishTrack()">Terminer ce tron&ccedil;on</button>
+      <div id="sheet-hint">Tirez vers le haut pour la session</div>
+    </div>
+    <div id="sheet-scroll">
+      <div class="sect">Session en cours</div>
+      <div class="sumgrid" id="sum-grid"></div>
+      <div class="sect">Derniers relev&eacute;s</div>
+      <div id="sheet-recent"></div>
+    </div>
   </div>
 </div>
 
 <div id="pane-points" class="subview">
-  <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="10" height="16" viewBox="0 0 10 16"><polyline points="9 1 1 8 9 15" stroke-width="2"/></svg>Carte</button><span class="sv-title">Points &amp; Tronçons</span></div></div>
+  <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="11" height="17" viewBox="0 0 11 17"><polyline points="9 1.5 2 8.5 9 15.5"/></svg>Carte</button><span class="sv-title">Points &amp; tron&ccedil;ons</span></div></div>
   <div class="sv-content"><div id="pts-list"></div></div>
 </div>
 
 <div id="pane-export" class="subview">
-  <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="10" height="16" viewBox="0 0 10 16"><polyline points="9 1 1 8 9 15" stroke-width="2"/></svg>Carte</button><span class="sv-title">Sync &amp; Export</span></div></div>
+  <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="11" height="17" viewBox="0 0 11 17"><polyline points="9 1.5 2 8.5 9 15.5"/></svg>Carte</button><span class="sv-title">Envoi &amp; export</span></div></div>
   <div class="sv-content">
     <div class="card"><div class="card-title">Session</div><div class="stat-row" id="exp-stats"></div><button class="btn-main" onclick="exportGPX()">Exporter en GPX</button><button class="btn-sec" onclick="exportJSON()">Sauvegarder (.json)</button><button class="btn-sec" onclick="loadSession()">Reprendre une session</button></div>
     <div class="card">
       <div class="card-title">Envoyer vers TickS SIG</div>
-      <div id="sync-status-row" style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid var(--brd2);margin-bottom:10px">
-        <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:var(--txt3);flex-shrink:0"></div>
-        <div style="flex:1"><div id="sync-status-txt" style="font-size:12px;color:var(--txt2)">Non configuré</div><div id="sync-last" style="font-size:10px;color:var(--txt3);display:none">Dernière sync : <span id="sync-last-time">—</span></div></div>
-        <button onclick="openSyncConfig()" style="font-size:11px;color:var(--ticks);font-family:var(--font);padding:4px 10px;border-radius:6px;border:1px solid rgba(138,48,144,.3);background:rgba(138,48,144,.07)">⚙</button>
+      <div id="sync-status-row" style="display:flex;align-items:center;gap:10px;padding-bottom:11px;border-bottom:1px solid var(--brd2);margin-bottom:11px">
+        <div id="sync-dot" style="width:9px;height:9px;border-radius:50%;background:var(--txt3);flex-shrink:0"></div>
+        <div style="flex:1"><div id="sync-status-txt" style="font-size:12.5px;color:var(--txt2)">Non configur&eacute;</div><div id="sync-last" style="font-size:10.5px;color:var(--txt3);display:none">Derni&egrave;re sync : <span id="sync-last-time">&mdash;</span></div></div>
+        <button onclick="openSyncConfig()" style="font-size:11px;color:var(--ticks);font-family:var(--font);padding:6px 11px;border-radius:8px;border:1px solid rgba(138,48,144,.3);background:rgba(138,48,144,.07)">R&eacute;glages</button>
       </div>
-      <button class="btn-main" id="btn-sync" onclick="syncToCloud()" style="background:var(--ticks)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Synchroniser vers TickS SIG</button>
-      <div id="sync-cfg-row" style="display:none;margin-top:8px"><button class="btn-sec" onclick="openSyncConfig()" style="color:var(--orange)">&#9888; Configurer la connexion Supabase</button></div>
-      <div id="queue-status-row" style="display:none;align-items:center;gap:8px;padding:8px 0;margin-top:6px;border-top:1px solid var(--brd2)"><span style="font-size:16px">📤</span><span id="queue-label" style="font-size:12px;color:var(--orange);flex:1">En attente d'envoi</span><button onclick="flushQueue()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--orange);color:var(--orange);background:none;font-family:var(--font)">Réessayer</button></div>
+      <button class="btn-main" id="btn-sync" onclick="syncToCloud()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Synchroniser vers TickS SIG</button>
+      <div id="sync-cfg-row" style="display:none;margin-top:8px"><button class="btn-sec" onclick="openSyncConfig()" style="color:var(--orange)">Configurer la connexion Supabase</button></div>
+      <div id="queue-status-row" style="display:none;align-items:center;gap:9px;padding-top:11px;margin-top:9px;border-top:1px solid var(--brd2)"><span id="queue-label" style="font-size:12.5px;color:var(--orange);flex:1">En attente d'envoi</span><button onclick="flushQueue()" style="font-size:11px;padding:5px 11px;border-radius:8px;border:1px solid var(--orange);color:var(--orange);background:none;font-family:var(--font)">R&eacute;essayer</button></div>
     </div>
-    <div class="card"><button class="btn-sec" style="color:var(--red);border-color:rgba(255,59,48,.28)" onclick="resetSession()">Effacer la session</button></div>
+    <div class="card"><button class="btn-sec" style="color:var(--red);border-color:rgba(255,59,48,.28);margin:0" onclick="resetSession()">Effacer la session</button></div>
   </div>
 </div>
 
 <div id="burger-menu" onclick="closeBurger()">
   <div id="burger-panel" onclick="event.stopPropagation()">
     <div class="bm-handle"></div>
-    <div style="display:flex;align-items:center;gap:10px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
-      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAflBMVEWoZqeWm06TaHDWt9Z/f3+LPYv/AP+qVVWYuTvdxN2qVaqQOo/+/f4AAACZxjKILYfl0uWRO5DAkL9/AH+RPJCURpCOOo5VVVWRO5CQO5C7iLrMpszw5fCiXKLFmsXizOEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiRpmDAAAAIHRSTlP/////AiEBA///A/7/AP///9T/AlD/DwOdsf///////5UJJ84AAAF2SURBVHja7Zdbc4MgEIVX09y6EqCAUUH9//+yiKbT5rIYeOqMZ8yDM56PXWYxHmBeB8U+dSNxtWSjj0wdJi/43wdj+g33wtDBOAGurG4xQW3trR6g2F5ikuTem0GpOtHvCbVScGUtJqtlV2AaM6QZpDcwNwFkAWVxKoqSLAEayn8JoggNyKj/cjFED0DQixugIB76J4DyLQAP1yRzihfwBNDtzrafEWUgFOYdgBmrScNyVz7MEY8AztWsEfyTj0tzA4YE9NWPbH+/GkewruopAIfql8QA/W09YwCGqb2RbuEPIMiJSc655R4ie7CraNnYJhpB+ncr5oCqwa6aRHAv7AL4urNghmf2EdYfJm6Gu60Qw8NU0KfRz4w/E/NYO9vBCzd5nDlHHuroOCa+DxAD4AtNJiC7gg2wATbABtgAawEyDyDJj22M/7E09Od+HKDpwBEF+MBBRh6wQnSRyEOHLo7II6ErO/ZlB8/86JsfvkP8P6bG/29YOrk9O2Y5jAAAAABJRU5ErkJggg==" width="32" height="32" alt="" style="flex-shrink:0;display:block">
-      <div><div style="font-size:15px;font-weight:600">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11px;color:var(--txt3)">Accessibilité — recensement terrain</div><div style="font-size:10px;color:var(--txt3);margin-top:2px" id="app-version">v1.7.0</div></div>
+    <div style="display:flex;align-items:center;gap:11px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAflBMVEWoZqeWm06TaHDWt9Z/f3+LPYv/AP+qVVWYuTvdxN2qVaqQOo/+/f4AAACZxjKILYfl0uWRO5DAkL9/AH+RPJCURpCOOo5VVVWRO5CQO5C7iLrMpszw5fCiXKLFmsXizOEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiRpmDAAAAIHRSTlP/////AiEBA///A/7/AP///9T/AlD/DwOdsf///////5UJJ84AAAF2SURBVHja7Zdbc4MgEIVX09y6EqCAUUH9//+yiKbT5rIYeOqMZ8yDM56PXWYxHmBeB8U+dSNxtWSjj0wdJi/43wdj+g33wtDBOAGurG4xQW3trR6g2F5ikuTem0GpOtHvCbVScGUtJqtlV2AaM6QZpDcwNwFkAWVxKoqSLAEayn8JoggNyKj/cjFED0DQixugIB76J4DyLQAP1yRzihfwBNDtzrafEWUgFOYdgBmrScNyVz7MEY8AztWsEfyTj0tzA4YE9NWPbH+/GkewruopAIfql8QA/W09YwCGqb2RbuEPIMiJSc655R4ie7CraNnYJhpB+ncr5oCqwa6aRHAv7AL4urNghmf2EdYfJm6Gu60Qw8NU0KfRz4w/E/NYO9vBCzd5nDlHHuroOCa+DxAD4AtNJiC7gg2wATbABtgAawEyDyDJj22M/7E09Od+HKDpwBEF+MBBRh6wQnSRyEOHLo7II6ErO/ZlB8/86JsfvkP8P6bG/29YOrk9O2Y5jAAAAABJRU5ErkJggg==" width="36" height="36" alt="" style="flex-shrink:0;display:block;border-radius:10px">
+      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v2.0.0</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
+    <button class="bmenu-item" data-view="points" onclick="goTab('points')"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>Points relev&eacute;s<span class="mcount" id="bm-count">0</span></button>
+    <button class="bmenu-item" data-view="export" onclick="goTab('export')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Envoi &amp; export</button>
     <div class="bm-sep"></div>
-    <button class="bmenu-item" data-view="points" onclick="goTab('points')"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>Points relevés</button>
-    <button class="bmenu-item" data-view="export" onclick="goTab('export')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Sync &amp; Export</button>
+    <div class="bm-label">Affichage</div>
+    <button class="bmenu-item" id="bm-sun" onclick="toggleSun()"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/></svg>Mode plein soleil<span class="msw"><i></i></span></button>
     <button id="bm-close" onclick="closeBurger()">Fermer</button>
   </div>
 </div>
 </div>
 
 <!-- MODALES -->
-<div id="sync-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">☁ Connexion Supabase</div><div class="fg"><label>URL Supabase</label><input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div><div class="fg"><label>Clé publique (anon key)</label><input type="text" id="sc-sb-key" placeholder="eyJhbGci…"></div><div class="fg"><label>Nom de cette session</label><input type="text" id="sc-nom" placeholder="Gare de Rouen — sortie nord"></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeSyncConfig()">Annuler</button><button class="mbtn-ok" onclick="saveSyncConfig()">Enregistrer</button></div></div></div>
-<div id="avg-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="avg-title">Capture…</div><div class="msub">Accumulation des mesures GPS</div><div id="avg-prog-bg"><div id="avg-prog-fill"></div></div><div id="avg-stats"><span id="avg-n">0/8</span><span id="avg-timer" style="color:var(--txt3)"></span><span id="avg-acc">±— m</span></div><div class="mbtns"><button class="mbtn-ok" id="avg-force" onclick="forceAvg()" disabled style="opacity:.4">⚡ Forcer</button><button class="mbtn-cancel" onclick="cancelAvg()">Annuler</button></div><button class="btn-sec" style="margin:10px 0 0;color:var(--ticks);border-color:rgba(138,48,144,.30)" onclick="pickFromAvg()"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:2px"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg> Pointer sur la carte</button></div></div>
-<div id="wpt-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="wm-title">Point de levé</div><div class="msub" id="wm-coords">—</div><div class="fg"><label>Nom</label><input id="wm-name" type="text" placeholder="Nom du point"></div><div class="fg"><label>Sous-type</label><select id="wm-sub"></select></div><div class="fg"><label>Remarque</label><textarea id="wm-desc" placeholder="Observations…"></textarea></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeWptModal()">Annuler</button><button class="mbtn-ok" onclick="saveWpt()">&#128205; Enregistrer</button></div></div></div>
-<div id="edit-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">✏ Modifier le point</div><div class="msub" id="em-coords">—</div><div class="fg"><label>Catégorie</label><div class="type-sel" id="em-types"><div class="topt sel" data-t="entree" onclick="pickType('entree',this)"><div class="ti"></div><div class="tl">Entr&eacute;e</div><div class="ts">SiteEntrance</div></div><div class="topt" data-t="equip_comp" onclick="pickType('equip_comp',this)"><div class="ti"></div><div class="tl">Info voy.</div><div class="ts">PassengerInfo</div></div><div class="topt" data-t="equip_acces" onclick="pickType('equip_acces',this)"><div class="ti"></div><div class="tl">&Eacute;quip. acc&egrave;s</div><div class="ts">AccessEquip.</div></div><div class="topt" data-t="noeud" onclick="pickType('noeud',this)"><div class="ti"></div><div class="tl">N&oelig;ud</div><div class="ts">PathJunction</div></div><div class="topt" data-t="autre" onclick="pickType('autre',this)"><div class="ti"></div><div class="tl">Autre</div><div class="ts">&Agrave; classifier</div></div></div></div><div class="fg"><label>Sous-type</label><select id="em-sub"></select></div><div class="fg"><label>Nom</label><input id="em-name" type="text"></div><div class="fg"><label>Remarque</label><textarea id="em-desc"></textarea></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeEditModal()">Annuler</button><button class="mbtn-ok" onclick="saveEdit()">&#10003; Enregistrer</button></div></div></div>
+<div id="sync-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">Connexion Supabase</div><div class="msub">Cl&eacute; publique uniquement &mdash; jamais la cl&eacute; de service</div><div class="fg"><label>URL Supabase</label><input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div><div class="fg"><label>Cl&eacute; publique (anon key)</label><input type="text" id="sc-sb-key" placeholder="eyJhbGci&hellip;"></div><div class="fg"><label>Nom de cette session</label><input type="text" id="sc-nom" placeholder="Gare de Rouen — sortie nord"></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeSyncConfig()">Annuler</button><button class="mbtn-ok" onclick="saveSyncConfig()">Enregistrer</button></div></div></div>
+
+<div id="avg-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="avg-title">Capture&hellip;</div><div class="msub">Position moyenn&eacute;e sur plusieurs mesures GPS</div>
+  <div id="avg-ring-wrap">
+    <svg id="avg-ring" viewBox="0 0 172 172"><circle class="trk" cx="86" cy="86" r="78"/><circle id="avg-prog-fill" cx="86" cy="86" r="78" stroke-dasharray="490" stroke-dashoffset="490"/></svg>
+    <div id="avg-mid"><div id="avg-acc">&plusmn;&mdash;</div><div id="avg-acc-lab">m&egrave;tres</div></div>
+  </div>
+  <div id="avg-stats"><span id="avg-n">0/8</span><span id="avg-timer"></span></div>
+  <div class="mbtns"><button class="mbtn-cancel" onclick="cancelAvg()">Annuler</button><button class="mbtn-ok" id="avg-force" onclick="forceAvg()" disabled style="opacity:.4">Valider maintenant</button></div>
+  <button class="btn-sec" style="margin:10px 0 0;color:var(--ticks);border-color:rgba(138,48,144,.30)" onclick="pickFromAvg()">Placer sur la carte &agrave; la place</button></div></div>
+
+<div id="wpt-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="wm-title">Point de lev&eacute;</div><div class="msub" id="wm-coords">&mdash;</div><div class="fg"><label>Nom</label><input id="wm-name" type="text" placeholder="Ex. Entr&eacute;e principale nord"></div><div class="fg"><label>Sous-type</label><select id="wm-sub"></select></div><div class="fg"><label>Remarque</label><textarea id="wm-desc" placeholder="Observation, mesure, contexte…"></textarea></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeWptModal()">Annuler</button><button class="mbtn-ok" onclick="saveWpt()">Enregistrer le point</button></div></div></div>
+
+<div id="edit-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">Modifier le point</div><div class="msub" id="em-coords">&mdash;</div><div class="fg"><label>Cat&eacute;gorie</label><div class="type-sel" id="em-types"><div class="topt sel" data-t="entree" onclick="pickType('entree',this)"><div class="ti"></div><div class="tl">Entr&eacute;e</div><div class="ts">SiteEntrance</div></div><div class="topt" data-t="equip_comp" onclick="pickType('equip_comp',this)"><div class="ti"></div><div class="tl">Info voy.</div><div class="ts">PassengerInfo</div></div><div class="topt" data-t="equip_acces" onclick="pickType('equip_acces',this)"><div class="ti"></div><div class="tl">&Eacute;quip. acc&egrave;s</div><div class="ts">AccessEquip.</div></div><div class="topt" data-t="noeud" onclick="pickType('noeud',this)"><div class="ti"></div><div class="tl">N&oelig;ud</div><div class="ts">PathJunction</div></div><div class="topt" data-t="autre" onclick="pickType('autre',this)"><div class="ti"></div><div class="tl">Autre</div><div class="ts">&Agrave; classifier</div></div></div></div><div class="fg"><label>Sous-type</label><select id="em-sub"></select></div><div class="fg"><label>Nom</label><input id="em-name" type="text"></div><div class="fg"><label>Remarque</label><textarea id="em-desc"></textarea></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeEditModal()">Annuler</button><button class="mbtn-ok" onclick="saveEdit()">Enregistrer</button></div></div></div>
+
 <div id="toast"></div>
 
 <!-- ORDRE DE CHARGEMENT CRITIQUE :
      1. Leaflet  2. app.js  3. sync.js (contient le BOOT)
      Ne PAS ajouter de script inline declarant des variables :
      collision var/let avec app.js = SyntaxError silencieuse.
-     Les logos sont des data-URI PNG verifiees (signature + bloc IEND) :
-     ne PAS revenir a un fichier logo.png externe, celui du depot est un
-     base64 tronque irrecuperable.
-     apple-touch-icon DOIT etre un PNG : iOS ignore les SVG.
+     Les logos sont des data-URI PNG verifiees : ne PAS revenir a un fichier
+     logo.png externe, celui du depot est un base64 tronque irrecuperable.
      Les pictogrammes de type sont injectes par paintTypeUI() (app.js) dans
      les emplacements .wi / .ti / .fdot : ne PAS les recopier ici. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>

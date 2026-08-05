@@ -1,13 +1,13 @@
 // ========================================
-// TickS Terrain — app.js v1.9.0
+// TickS Terrain — app.js v2.0.0
 // GPS, Carte, Capture, UI
 // NOTE : le BOOT (load/startGPS/_bootMap) est en fin de sync.js
 // car sync.js charge en dernier. Ne PAS le remettre ici.
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '1.9.0';
-console.log('[TickS Terrain] app.js v1.9.0 charge');
+const APP_VERSION = '2.0.0';
+console.log('[TickS Terrain] app.js v2.0.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -27,7 +27,7 @@ const PICK   = { active:false, type:null, armedAt:0 };
 let EDIT_ID = null;
 let MAP = null, MAP_OK = false;
 let MAP_LAYER_OSM = null, MAP_LAYER_AERIAL = null, MAP_AERIAL = false;
-const TILE_OSM    = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_OSM    = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_AERIAL = 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
 let MAP_LAYERS = [], MAP_REC_LINE = null, MAP_POS = null, MAP_SCALE = null;
 // Recadrage au PREMIER fix GPS seulement : _bootMap s'execute ~100 ms apres
@@ -188,24 +188,21 @@ function adaptGPS(){
 }
 function gotoGPS(){if(!S.pos){toast('Position GPS inconnue','a');return;}MAP.setView([S.pos.lat,S.pos.lon],ZOOM_LEVE);}
 function updateGpsBar(acc){
-  const bar=document.getElementById('gps-bar-txt');
-  const fill=document.getElementById('gps-bar-fill');
+  const txt=document.getElementById('gps-bar-txt');
+  const arc=document.querySelector('#gps-ring .arc');
   const btn=document.getElementById('btn-geolocate');
-  if(!bar)return;
+  if(!txt)return;
   const col = acc<=5 ? 'var(--green,#34C759)'
             : acc<=15 ? 'var(--orange,#FF9F0A)'
             : 'var(--red,#FF3B30)';
-  bar.textContent='\u00b1'+acc+'m';
-  bar.style.color=col;
-  // Jauge de qualite : pleine a 3 m ou mieux, vide a 30 m ou pire.
-  // Cet element existait dans le HTML depuis le debut mais AUCUNE ligne de
-  // JavaScript ne lui donnait de largeur : il restait fige a 0 %, ce qui le
-  // rendait inutile. Il suit desormais la precision en largeur et en
-  // couleur, et redonne la lecture de la progression du signal.
-  if(fill){
-    const q=Math.max(0,Math.min(100,Math.round(100*(30-acc)/27)));
-    fill.style.width=q+'%';
-    fill.style.background=col;
+  txt.textContent='\u00b1'+acc+' m';
+  // Anneau de qualite : plein a 3 m ou mieux, vide a 30 m ou pire.
+  // La V1 pilotait la LARGEUR d'une jauge rectiligne ; on pilote desormais
+  // stroke-dashoffset sur un cercle de rayon 28,5 (circonference 179).
+  if(arc){
+    const q=Math.max(0,Math.min(1,(30-acc)/27));
+    arc.style.strokeDashoffset=(179*(1-q)).toFixed(1);
+    arc.style.stroke=col;
   }
   if(btn)btn.classList.toggle('tracking',acc<=15);
 }
@@ -241,21 +238,9 @@ function initMap(){
     // capture, le bas-droit l'attribution et le bouton de geolocalisation.
     // Fond opaque et trait sombre pour rester lisible sur l'orthophoto.
     MAP_SCALE=new ScaleFine({position:'bottomleft',metric:true,imperial:false,maxWidth:120}).addTo(MAP);
-    const sc=MAP_SCALE.getContainer();
-    if(sc){
-      sc.style.margin='0 0 10px 12px';
-      const line=sc.querySelector('.leaflet-control-scale-line');
-      if(line){
-        line.style.background='rgba(255,255,255,.92)';
-        line.style.border='1px solid rgba(0,0,0,.45)';
-        line.style.borderTop='none';
-        line.style.color='rgba(0,0,0,.82)';
-        line.style.fontSize='10px';
-        line.style.fontWeight='600';
-        line.style.padding='1px 5px';
-        line.style.borderRadius='0 0 3px 3px';
-      }
-    }
+    // Le rendu de l'echelle est defini dans index.html (.leaflet-control-scale-line).
+    // Ne PAS y remettre de styles en ligne : ils l'emporteraient sur le mode
+    // sombre et sur le mode plein soleil.
     MAP_OK=true;
     if(S.pos){MAP_FIRST_FIX=true;MAP.setView([S.pos.lat,S.pos.lon],ZOOM_LEVE);}
   }
@@ -399,9 +384,12 @@ function manualIcon(){
 function resizeMap(){
   const el=document.getElementById('map'),sheet=document.getElementById('sheet');
   if(!el||!sheet)return;
-  el.style.height=(window.innerHeight-(sheet.offsetHeight||130))+'px';
+  // V2 : la feuille flotte PAR-DESSUS la carte au lieu de la rogner.
+  // Rogner la carte ferait sauter le centre a chaque cran de la feuille.
+  el.style.height=window.innerHeight+'px';
 }
 function refreshMap(){
+  if(typeof updateV2Stats==='function')updateV2Stats();
   if(!MAP_OK)return;
   MAP_LAYERS.forEach(l=>{try{MAP.removeLayer(l);}catch(e){}});
   MAP_LAYERS=[];
@@ -489,10 +477,12 @@ function startCapture(type){
 function typeLabel(t){return {entree:'Entr\u00e9e',equip_comp:'Info voy.',equip_acces:'Equip.acc\u00e8s',noeud:'N\u0153ud',autre:'Autre'}[t]||t;}
 function updateAvgUI(){
   const n=AVG.samples.length,tgt=AVG.target,pct=Math.min(100,Math.round(n/tgt*100));
-  document.getElementById('avg-prog-fill').style.width=pct+'%';
+  document.getElementById('avg-prog-fill').style.strokeDashoffset=(490*(1-pct/100)).toFixed(1);
   document.getElementById('avg-n').textContent=n+'/'+tgt;
   const acc=AVG.samples.length?Math.round(AVG.samples.reduce((s,p)=>s+p.acc,0)/AVG.samples.length):0;
-  document.getElementById('avg-acc').textContent='\u00b1'+acc+'m';
+  const ea=document.getElementById('avg-acc');
+  ea.textContent='\u00b1'+acc;
+  ea.style.color = acc<=5 ? 'var(--green)' : acc<=12 ? 'var(--orange)' : 'var(--red)';
   const fb=document.getElementById('avg-force');
   if(fb&&n>=3&&fb.disabled){fb.disabled=false;fb.style.opacity='1';}
 }
@@ -604,6 +594,7 @@ function saveWpt(){
 
 // ══ LISTE POINTS ══
 function renderPts(){
+  if(typeof updateV2Stats==='function')updateV2Stats();
   const el=document.getElementById('pts-list');
   const all=[...S.waypoints.map(w=>({...w,_k:'w'})),...S.tracks.map((t,i)=>({...t,_k:'t',_i:i}))].sort((a,b)=>(a.ts||a.startTs)-(b.ts||b.startTs));
   if(!all.length){el.innerHTML='<div class="empty">Aucun point enregistr\u00e9.<br>Allez dans Terrain pour commencer.</div>';return;}
@@ -682,16 +673,12 @@ function updateTrkStats(){
   if(ed)ed.textContent=d;
 }
 function updateSheetUI(){
-  const btn=document.getElementById('btn-rec'),fin=document.getElementById('btn-finish');
-  const nm=document.getElementById('trk-name');
-  if(S.recording){
-    if(nm)nm.value=S.curTrack!==null?S.tracks[S.curTrack].name:'Tron\u00e7on';
-    if(btn){btn.innerHTML='<span>\u23f9</span><span> Stop</span>';btn.style.background='var(--red,#FF3B30)';btn.style.color='#fff';}
-    if(fin)fin.style.display='block';
-  }else{
-    if(btn){btn.innerHTML='<span>\u25cf</span><span> Enregistrer un tron\u00e7on</span>';btn.style.background='';btn.style.color='';}
-    if(fin)fin.style.display='none';
-  }
+  const btn=document.getElementById('btn-rec'),row=document.getElementById('trk-row');
+  const lab=document.getElementById('btn-rec-lab'),nm=document.getElementById('trk-name');
+  if(S.recording&&nm)nm.value=S.curTrack!==null?S.tracks[S.curTrack].name:'Tron\u00e7on';
+  if(row)row.classList.toggle('rec',S.recording);
+  if(btn)btn.classList.toggle('rec',S.recording);
+  if(lab)lab.textContent=S.recording?'Terminer':'Tron\u00e7on';
 }
 
 // ══ UTILS (definis ici, PAS dans sync.js) ══
@@ -768,8 +755,126 @@ document.addEventListener('click',e=>{
 function _bootMap(){
   paintTypeUI();
   addZoomButtons();
+  initV2();
   initMap();bindMapPicking();resizeMap();
   [200,600,1200].forEach(ms=>setTimeout(()=>{if(MAP)MAP.invalidateSize();resizeMap();},ms));
+  // La feuille etant desormais glissable, sa hauteur change a chaque image
+  // pendant le geste : declencher invalidateSize() a chaque fois saccade le
+  // deplacement. On ignore donc les redimensionnements en cours de glissement
+  // et on recalcule une seule fois a l'arrivee sur le cran.
   const sheet=document.getElementById('sheet');
-  if(sheet)new ResizeObserver(()=>{resizeMap();if(MAP)MAP.invalidateSize();}).observe(sheet);
+  if(sheet){
+    let deb=null;
+    new ResizeObserver(()=>{
+      if(sheet.classList.contains('dragging'))return;
+      clearTimeout(deb);
+      deb=setTimeout(()=>{resizeMap();if(MAP)MAP.invalidateSize();},120);
+    }).observe(sheet);
+  }
 }
+// ══════════════════════════════════════════════════════════════
+// V2 — INTERFACE
+// Ajoute apres coup : la logique metier ci-dessus est inchangee.
+// Trois apports : la feuille a deux crans, les compteurs par categorie
+// sur les boutons de capture, et le mode plein soleil.
+// ══════════════════════════════════════════════════════════════
+
+// ── Feuille a deux crans ──────────────────────────────────────
+// Repli : dock de capture + barre troncon. Deploye : bilan de session et
+// derniers releves, sans quitter la carte.
+// --sheet-min (index.html) reste FIGE : le bouton de geolocalisation,
+// l'echelle et l'attribution s'y ancrent et ne doivent pas suivre le
+// glissement, sinon ils flottent au-dessus de la feuille deployee.
+const SHEET_MIN=190;
+function sheetMax(){return Math.round(window.innerHeight*0.72);}
+let SHEET_H=SHEET_MIN;
+function setSheet(h){
+  const s=document.getElementById('sheet');if(!s)return;
+  SHEET_H=Math.max(SHEET_MIN,Math.min(sheetMax(),h));
+  document.documentElement.style.setProperty('--sheet-h',SHEET_H+'px');
+  s.classList.toggle('open',SHEET_H>SHEET_MIN+60);
+}
+function initSheetDrag(){
+  const g=document.getElementById('sheet-handle'),s=document.getElementById('sheet');
+  if(!g||!s)return;
+  let y0=0,h0=0,on=false,moved=false;
+  const down=e=>{on=true;moved=false;h0=SHEET_H;y0=(e.touches?e.touches[0].clientY:e.clientY);s.classList.add('dragging');};
+  const move=e=>{if(!on)return;e.preventDefault();
+    const y=(e.touches?e.touches[0].clientY:e.clientY);
+    if(Math.abs(y-y0)>4)moved=true;
+    setSheet(h0+(y0-y));};
+  const up=()=>{if(!on)return;on=false;s.classList.remove('dragging');
+    if(moved)setSheet(SHEET_H>(SHEET_MIN+sheetMax())/2?sheetMax():SHEET_MIN);
+    else setSheet(SHEET_H>SHEET_MIN+60?SHEET_MIN:sheetMax());};
+  g.addEventListener('touchstart',down,{passive:true});
+  g.addEventListener('touchmove',move,{passive:false});
+  g.addEventListener('touchend',up);
+  g.addEventListener('mousedown',down);
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+  setSheet(SHEET_MIN);
+}
+
+// ── Compteurs, bilan de session, derniers releves ─────────────
+// Appele depuis refreshMap() et renderPts(), donc apres toute mutation.
+function updateV2Stats(){
+  const w=S.waypoints||[];
+  document.querySelectorAll('#wpt-cluster .wc-btn').forEach(b=>{
+    const n=w.filter(p=>p.type===b.dataset.t).length;
+    const badge=b.querySelector('.wc-n');
+    if(!badge)return;
+    badge.textContent=n;
+    badge.style.background=COLORS[b.dataset.t]||'#888';
+    badge.classList.toggle('on',n>0);
+  });
+  const c=document.getElementById('bm-count');if(c)c.textContent=w.length;
+  const meta=document.getElementById('sess-meta');
+  if(meta){
+    const t=(S.tracks||[]).length;
+    meta.textContent = w.length||t
+      ? w.length+' point'+(w.length>1?'s':'')+' \u00b7 '+t+' tron\u00e7on'+(t>1?'s':'')
+      : 'Aucun point';
+  }
+  const accs=w.filter(p=>p.acc).map(p=>p.acc);
+  const moy=accs.length?Math.round(accs.reduce((a,b)=>a+b,0)/accs.length):null;
+  const grid=document.getElementById('sum-grid');
+  if(grid){
+    grid.innerHTML=[['Points',w.length],['Tron\u00e7ons',(S.tracks||[]).length],
+      ['Pr\u00e9cision',moy!==null?'\u00b1'+moy:'\u2014'],
+      ['Manuels',w.filter(p=>p.source==='manuel').length]]
+      .map(([l,v])=>'<div class="sumcell"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>').join('');
+  }
+  const rec=document.getElementById('sheet-recent');
+  if(rec){
+    const last=[...w].sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,6);
+    rec.innerHTML=last.length?last.map(p=>{
+      const col=COLORS[p.type]||'#888';
+      return '<div class="wpt-item"><div class="wdot" style="background:'+col+'1A">'+typeSvg(p.type,17,col)+'</div>'
+        +'<div class="winfo" onclick="editWpt(\''+p.id+'\')" style="cursor:pointer"><div class="wname">'+esc(p.name)+'</div>'
+        +'<div class="wmeta">'+(p.subtype||p.type)+(p.source==='manuel'?' \u00b7 manuel':(p.acc?' \u00b7 \u00b1'+p.acc+'m':''))+'</div></div></div>';
+    }).join(''):'<div class="empty">Aucun point pour l\'instant.<br>Choisissez une cat\u00e9gorie ci-dessus.</div>';
+  }
+}
+
+// ── Mode plein soleil ─────────────────────────────────────────
+// Le verre depoli est confortable au bureau et illisible sur un parvis en
+// plein midi. La preference est conservee d'une sortie a l'autre.
+function toggleSun(){
+  const on=!document.body.classList.contains('sun');
+  document.body.classList.toggle('sun',on);
+  const b=document.getElementById('btn-sun'),m=document.getElementById('bm-sun');
+  if(b)b.classList.toggle('on',on);
+  if(m)m.classList.toggle('on',on);
+  try{localStorage.setItem('ticks_sun',on?'1':'0');}catch(e){}
+  toast(on?'Mode plein soleil activ\u00e9':'Mode plein soleil d\u00e9sactiv\u00e9');
+}
+function restoreSun(){
+  let on=false;try{on=localStorage.getItem('ticks_sun')==='1';}catch(e){}
+  if(!on)return;
+  document.body.classList.add('sun');
+  const b=document.getElementById('btn-sun'),m=document.getElementById('bm-sun');
+  if(b)b.classList.add('on');
+  if(m)m.classList.add('on');
+}
+
+function initV2(){initSheetDrag();restoreSun();updateV2Stats();}
