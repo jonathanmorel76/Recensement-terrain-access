@@ -6,8 +6,8 @@
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '2.1.1';
-console.log('[TickS Terrain] app.js v2.1.1 charge');
+const APP_VERSION = '2.2.0';
+console.log('[TickS Terrain] app.js v2.2.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -119,13 +119,56 @@ function paintTypeUI(){
     }
   });
 }
+// Sous-types alignes sur le standard CNIG Accessibilite.
+// ATTENTION — ces listes sont dupliquees en contraintes CHECK cote Supabase
+// (equipement_acces_type_equip_check, point_autre_sous_type_check, etc.).
+// Toute valeur ajoutee ici DOIT l'etre en base AVANT deploiement, sinon le
+// point part en file d'attente sans que rien ne le signale a l'operateur.
+// Ordre des listes = ordre d'affichage : les valeurs les plus frequentes en
+// tete, le menu natif iOS n'ayant pas de recherche.
 const SUBS = {
   entree:     ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
   equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
-  equip_acces:['ESCALIER','ASCENSEUR','RAMPE_ACCES','TRAVERSEE_PIETONS','ABAISSEMENT_TROTTOIR','RESSAUT','AUTRE'],
+  // ESCALATOR / TAPIS_ROULANT / ELEVATEUR sont distingues d'ESCALIER et
+  // d'ASCENSEUR parce que NeTEx en fait des classes separees
+  // (EscalatorEquipment, TravelatorEquipment, LiftEquipment) et que le flux
+  // SNCF « Accessibilite des gares » les publie deja separement.
+  equip_acces:['ESCALIER','ESCALATOR','TAPIS_ROULANT','ASCENSEUR','ELEVATEUR',
+               'RAMPE_ACCES','TRAVERSEE_PIETONS','ABAISSEMENT_TROTTOIR','RESSAUT',
+               'PASSAGE_SELECTIF','AUTRE'],
   noeud:      ['INTERSECTION','CARREFOUR','ENTREE_ERP','ARRET_TC','AUTRE'],
-  autre:      ['A_CLASSIFIER','OBSTACLE','REMARQUE','PHOTO_REF']
+  // Mobilier de confort, services et stationnement : ni acces, ni information
+  // voyageur, ni noeud de cheminement. Sans ces valeurs, 52 points de la base
+  // etaient bloques en A_CLASSIFIER, dont les bancs, appuis debout, abris et
+  // telephones d'assistance de Cherbourg. A_CLASSIFIER reste en DERNIER : il
+  // doit rester un aveu d'incertitude, pas un defaut commode.
+  autre:      ['BANC','APPUI_ISCHIATIQUE','ABRI','SALLE_ATTENTE','TOILETTES','ASSISTANCE',
+               'STATIONNEMENT_VELO','STATIONNEMENT_PMR',
+               'OBSTACLE','REMARQUE','PHOTO_REF','A_CLASSIFIER']
 };
+
+// Libelles lisibles pour le menu de saisie. La valeur STOCKEE reste le code
+// en majuscules ci-dessus : c'est lui que la base contraint et que
+// normalise_releve.py attend. Ne jamais enregistrer le libelle.
+const SUB_LABELS = {
+  ESCALATOR:'Escalier m\u00e9canique', TAPIS_ROULANT:'Tapis roulant',
+  ELEVATEUR:'\u00c9l\u00e9vateur / plateforme', PASSAGE_SELECTIF:'Passage s\u00e9lectif (chicane)',
+  ABAISSEMENT_TROTTOIR:'Abaissement de trottoir', TRAVERSEE_PIETONS:'Travers\u00e9e pi\u00e9tons',
+  RAMPE_ACCES:'Rampe d\u2019acc\u00e8s',
+  APPUI_ISCHIATIQUE:'Appui debout / chaise haute', SALLE_ATTENTE:'Salle d\u2019attente',
+  STATIONNEMENT_VELO:'Stationnement v\u00e9lo', STATIONNEMENT_PMR:'Stationnement PMR',
+  ASSISTANCE:'Assistance / t\u00e9l\u00e9phone', A_CLASSIFIER:'\u00c0 classifier',
+  BORNE_INFO:'Borne d\u2019information', PLAN_TACTILE:'Plan tactile',
+  ANNONCE_SONORE:'Annonce sonore', DISTRIBUTEUR_TITRES:'Distributeur de titres',
+  SIGNALETIQUE_VISUELLE:'Signal\u00e9tique visuelle', AFFICHEUR_QUAI:'Afficheur de quai',
+  PHOTO_REF:'Photo de r\u00e9f\u00e9rence',
+  ENTREE_ERP:'Entr\u00e9e ERP', ARRET_TC:'Arr\u00eat de transport'
+};
+function subLabel(v){return SUB_LABELS[v]||v.replace(/_/g,' ').toLowerCase().replace(/^./,c=>c.toUpperCase());}
+function subOptions(type,selected){
+  return (SUBS[type]||['AUTRE']).map(v =>
+    '<option value="'+v+'"'+(v===selected?' selected':'')+'>'+subLabel(v)+'</option>').join('');
+}
 
 // ══ GPS ══
 let GPS_WATCH_ID = null;
@@ -608,9 +651,7 @@ function openWptModal(type,lat,lon,acc){
   // Presele le dernier sous-type retenu pour cette categorie. Sur un releve
   // d'arrets, le defaut de la categorie (INTERSECTION pour un noeud) n'est
   // jamais le bon : il fallait le corriger a chaque point.
-  const dernier=lastSub(type);
-  document.getElementById('wm-sub').innerHTML=(SUBS[type]||['AUTRE'])
-    .map(v=>'<option'+(v===dernier?' selected':'')+'>'+v+'</option>').join('');
+  document.getElementById('wm-sub').innerHTML=subOptions(type,lastSub(type));
   document.getElementById('wm-desc').value='';
   document.getElementById('wpt-modal').classList.add('open');
 }
@@ -654,7 +695,7 @@ function editWpt(id){
   EDIT_ID=id;
   document.getElementById('em-coords').textContent=w.lat.toFixed(6)+', '+w.lon.toFixed(6)+(w.source==='manuel'?' \u00b7 point\u00e9 sur la carte':(w.acc?' \u00b7 \u00b1'+w.acc+'m':''));
   document.querySelectorAll('#em-types .topt').forEach(el=>el.classList.toggle('sel',el.dataset.t===w.type));
-  document.getElementById('em-sub').innerHTML=(SUBS[w.type]||['AUTRE']).map(v=>'<option '+(v===w.subtype?'selected':'')+'>'+v+'</option>').join('');
+  document.getElementById('em-sub').innerHTML=subOptions(w.type,w.subtype);
   document.getElementById('em-name').value=w.name||'';
   document.getElementById('em-desc').value=w.desc||'';
   document.getElementById('edit-modal').classList.add('open');
@@ -662,7 +703,7 @@ function editWpt(id){
 function pickType(t,el){
   document.querySelectorAll('#em-types .topt').forEach(e=>e.classList.remove('sel'));
   el.classList.add('sel');
-  document.getElementById('em-sub').innerHTML=(SUBS[t]||['AUTRE']).map(v=>'<option>'+v+'</option>').join('');
+  document.getElementById('em-sub').innerHTML=subOptions(t,lastSub(t));
 }
 function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');EDIT_ID=null;}
 function saveEdit(){
