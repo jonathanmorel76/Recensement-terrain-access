@@ -6,8 +6,8 @@
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '2.2.0';
-console.log('[TickS Terrain] app.js v2.2.0 charge');
+const APP_VERSION = '2.2.1';
+console.log('[TickS Terrain] app.js v2.2.1 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -128,7 +128,11 @@ function paintTypeUI(){
 // tete, le menu natif iOS n'ayant pas de recherche.
 const SUBS = {
   entree:     ['PRINCIPALE','SECONDAIRE','SERVICE','URGENCE','QUAI','AUTRE'],
-  equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
+  // VALIDATEUR = TicketValidatorEquipment en NeTEx, classe DISTINCTE de
+  // TicketingEquipment (la vente, ici DISTRIBUTEUR_TITRES). Place a cote de
+  // celui-ci : sur le terrain les deux se relevent souvent au meme endroit.
+  equip_comp: ['BORNE_INFO','PLAN_TACTILE','ANNONCE_SONORE','DISTRIBUTEUR_TITRES',
+               'VALIDATEUR','SIGNALETIQUE_VISUELLE','AFFICHEUR_QUAI','AUTRE'],
   // ESCALATOR / TAPIS_ROULANT / ELEVATEUR sont distingues d'ESCALIER et
   // d'ASCENSEUR parce que NeTEx en fait des classes separees
   // (EscalatorEquipment, TravelatorEquipment, LiftEquipment) et que le flux
@@ -161,6 +165,7 @@ const SUB_LABELS = {
   BORNE_INFO:'Borne d\u2019information', PLAN_TACTILE:'Plan tactile',
   ANNONCE_SONORE:'Annonce sonore', DISTRIBUTEUR_TITRES:'Distributeur de titres',
   SIGNALETIQUE_VISUELLE:'Signal\u00e9tique visuelle', AFFICHEUR_QUAI:'Afficheur de quai',
+  VALIDATEUR:'Valideur de titre',
   PHOTO_REF:'Photo de r\u00e9f\u00e9rence',
   ENTREE_ERP:'Entr\u00e9e ERP', ARRET_TC:'Arr\u00eat de transport'
 };
