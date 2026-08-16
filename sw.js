@@ -1,7 +1,7 @@
 // TickS Terrain — Service Worker v6
 // logo.png retire du SHELL : le fichier du repo est un base64 tronque,
 // le logo est desormais un SVG inline dans index.html.
-const CACHE_APP   = 'ldm-app-v10';
+const CACHE_APP   = 'ldm-app-v12';
 const CACHE_TILES = 'ldm-tiles-v3';
 const SHELL = ['./', './index.html', './manifest.json', './app.js', './sync.js'];
 

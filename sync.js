@@ -26,6 +26,10 @@ function renderExp(){
   if(cfgBtn)cfgBtn.style.display=getSyncCfg().sbUrl?'none':'flex';
 }
 
+// Repli utilise uniquement si un nom manque malgre tout (session reprise
+// d'une version anterieure). Une seule definition, pour que les chemins en
+// ligne et hors ligne ne puissent pas diverger.
+function nomParDefaut(){return `Session ${new Date().toLocaleDateString('fr-FR')}`;}
 function getSyncCfg(){
   return{sbUrl:localStorage.getItem('ldm_sb_url')||'',sbKey:localStorage.getItem('ldm_sb_key')||'',nomSession:localStorage.getItem('ldm_nom_session')||''};
 }
@@ -38,9 +42,16 @@ function openSyncConfig(){
 }
 function closeSyncConfig(){document.getElementById('sync-modal').classList.remove('open');}
 function saveSyncConfig(){
+  const nom=document.getElementById('sc-nom').value.trim();
+  if(!nom){
+    const champ=document.getElementById('sc-nom');
+    champ.focus();champ.style.borderColor='var(--orange)';
+    toast('Le nom de session est obligatoire','a');return;
+  }
+  document.getElementById('sc-nom').style.borderColor='';
   localStorage.setItem('ldm_sb_url',document.getElementById('sc-sb-url').value.trim().replace(/\/$/,''));
   localStorage.setItem('ldm_sb_key',document.getElementById('sc-sb-key').value.trim());
-  localStorage.setItem('ldm_nom_session',document.getElementById('sc-nom').value.trim());
+  localStorage.setItem('ldm_nom_session',nom);
   closeSyncConfig();toast('Configuration enregistrée','g');renderExp();
 }
 
@@ -158,10 +169,21 @@ document.addEventListener('DOMContentLoaded',()=>{updateQueueBadge();});
 async function syncToCloud(){
   if(!S.waypoints.length&&!S.tracks.length){toast('Rien à synchroniser','a');return;}
   const cfg=getSyncCfg();if(!cfg.sbUrl||!cfg.sbKey){openSyncConfig();return;}
+  // Un nom de session est exige. Sans lui, toutes les sorties s'appellent
+  // « Session 13/08/2026 » et deviennent impossibles a rattacher a une gare :
+  // sur 33 sites, le rapprochement a posteriori coute bien plus cher que les
+  // dix secondes de saisie evitees ici.
+  if(!cfg.nomSession){
+    openSyncConfig();
+    toast('Nommez la session avant l\'envoi (ex. gare, accès)','a');
+    const champ=document.getElementById('sc-nom');
+    if(champ){champ.focus();champ.style.borderColor='var(--orange)';}
+    return;
+  }
   const btn=document.getElementById('btn-sync');btn.textContent='↑ Synchronisation…';btn.disabled=true;
   try{
     const sessionId=crypto.randomUUID?crypto.randomUUID():'ses-'+Date.now();
-    await sbInsert(cfg,'session_terrain',{id:sessionId,nom:cfg.nomSession||`Session ${new Date().toLocaleDateString('fr-FR')}`,statut:'en_cours'});
+    await sbInsert(cfg,'session_terrain',{id:sessionId,nom:cfg.nomSession||nomParDefaut(),statut:'en_cours'});
     let ok=0,errs=0;
     for(const w of S.waypoints){
       const {table,data}=routePoint(w, sessionId);
@@ -174,12 +196,29 @@ async function syncToCloud(){
       try{await sbInsert(cfg,table,data);ok++;}
       catch(e){errs++;console.warn('[TickS] Echec insert',table,e);}
     }
+    // Aucun element passe : c'est un ECHEC, pas un demi-succes. La version
+    // precedente affichait « ✓ 0 elements envoyes (52 erreurs) » en orange,
+    // message qu'on chasse d'un revers de pouce en croyant l'envoi fait. Les
+    // sessions vides du 13 et 14 aout viennent de la. On remet donc le lot en
+    // file d'attente, et on le dit franchement.
+    if(ok===0 && (S.waypoints.length||S.tracks.length)){
+      const rows=[];
+      for(const w of S.waypoints) rows.push(routePoint(w, sessionId));
+      for(const trk of S.tracks){ if(trk.pts&&trk.pts.length>=2) rows.push(routeTrack(trk, sessionId)); }
+      try{
+        await queuePush({sessionId,sessionNom:cfg.nomSession||nomParDefaut(),rows});
+        await updateQueueBadge();
+        toast(`⚠ Échec : ${errs} erreur(s), lot remis en file`,'r');
+      }catch(qe){ toast(`⚠ Échec total (${errs} erreurs)`,'r'); }
+      return;
+    }
     localStorage.setItem('ldm_last_session_id',sessionId);
     const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     localStorage.setItem('ldm_last_sync_time',now);
     const lastEl=document.getElementById('sync-last'),lastTm=document.getElementById('sync-last-time');
     if(lastEl)lastEl.style.display='block';if(lastTm)lastTm.textContent=now;
-    toast(`✓ ${ok} éléments envoyés${errs?` (${errs} erreurs)`:''}`,errs?'a':'g');
+    if(errs) toast(`${ok} envoyé(s), ${errs} en échec — vérifier la file`,'a');
+    else toast(`✓ ${ok} éléments envoyés`,'g');
   }catch(e){
     if(!navigator.onLine||e.message?.includes('fetch')||e.name==='TypeError'){
       try{
@@ -190,7 +229,7 @@ async function syncToCloud(){
           if(!trk.pts||trk.pts.length<2)continue;
           rows.push(routeTrack(trk, sessionId));
         }
-        const sessionNom=cfg.nomSession||`Session ${new Date().toLocaleDateString('fr-FR')}`;
+        const sessionNom=cfg.nomSession||nomParDefaut();
         await queuePush({sessionId,sessionNom,rows});
         await updateQueueBadge();
         toast(`Hors ligne — ${rows.length} élément(s) en file`,'a');
@@ -205,8 +244,19 @@ async function syncToCloud(){
 function exportGPX(){
   if(!S.waypoints.length&&!S.tracks.length){toast('Rien à exporter','a');return;}
   const ts=new Date().toISOString();
-  let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TickS Terrain" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><name>Session LDM</name><time>${ts}</time></metadata>\n`;
-  S.waypoints.forEach(w=>{g+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n  <name>${xe(w.name)}</name>\n  <desc>${xe([w.subtype,w.desc,w.source==='manuel'?'point\u00e9 sur la carte':null].filter(Boolean).join(' | '))}</desc>\n  <time>${new Date(w.ts).toISOString()}</time>\n</wpt>\n`;});
+  // Le GPX standard ne sait porter ni categorie, ni precision, ni identifiant.
+  // On les place dans <extensions> sous un espace de noms TickS : les autres
+  // outils (QGIS, Garmin) les ignorent poliment, et notre propre import les
+  // relit, ce qui rend l'aller-retour fidele. Sans cela, reimporter un GPX
+  // exporte perdait le type du point et toute la qualite GPS.
+  let g=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TickS Terrain" xmlns="http://www.topografix.com/GPX/1/1" xmlns:ticks="https://ticks.fr/terrain/1">\n<metadata><name>Session LDM</name><time>${ts}</time></metadata>\n`;
+  S.waypoints.forEach(w=>{
+    const ext=`  <extensions>\n    <ticks:id>${xe(w.id)}</ticks:id>\n    <ticks:type>${xe(w.type)}</ticks:type>\n    <ticks:subtype>${xe(w.subtype||'')}</ticks:subtype>\n`
+      +(w.acc!=null?`    <ticks:acc>${w.acc}</ticks:acc>\n`:'')
+      +(w.samples!=null?`    <ticks:samples>${w.samples}</ticks:samples>\n`:'')
+      +`    <ticks:source>${xe(w.source||'gps')}</ticks:source>\n  </extensions>\n`;
+    g+=`<wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n  <name>${xe(w.name)}</name>\n  <desc>${xe([w.subtype,w.desc,w.source==='manuel'?'pointé sur la carte':null].filter(Boolean).join(' | '))}</desc>\n  <time>${new Date(w.ts).toISOString()}</time>\n${ext}</wpt>\n`;
+  });
   S.tracks.forEach(t=>{if(!t.pts||t.pts.length<2)return;g+=`<trk>\n  <name>${xe(t.name)}</name>\n  <trkseg>\n`;t.pts.forEach(p=>{g+=`    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><time>${new Date(p.ts).toISOString()}</time></trkpt>\n`;});g+=`  </trkseg>\n</trk>\n`;});
   g+='</gpx>';
   dl(g,'application/gpx+xml',`LDM_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,'GPX exporté');
@@ -214,9 +264,151 @@ function exportGPX(){
 function exportJSON(){
   dl(JSON.stringify({waypoints:S.waypoints,tracks:S.tracks,v:1},null,2),'application/json',`session_${new Date().toISOString().slice(0,10)}.json`,'Session sauvegardée');
 }
+// ══════════════════════════════════════════════════════════════
+// IMPORT DE SESSIONS EXISTANTES (JSON ou GPX)
+// Permet de reprendre un releve deja fait pour le retoucher.
+// ══════════════════════════════════════════════════════════════
+
+// Un meme code de sous-type n'appartient qu'a une seule categorie, ce qui
+// permet de retrouver le type d'un point a partir de son seul sous-type —
+// utile pour un GPX depourvu d'extensions TickS. SEULE EXCEPTION : 'AUTRE',
+// present dans quatre categories, donc indecidable : ces points partent en
+// 'autre'/'A_CLASSIFIER' et sont signales, plutot que d'etre ranges au hasard
+// dans une categorie plausible.
+function typeDepuisSubtype(sub){
+  if(!sub||sub==='AUTRE')return null;
+  for(const t of Object.keys(SUBS)) if((SUBS[t]||[]).includes(sub)) return t;
+  return null;
+}
+
+// Sous-types disparus ou renommes au fil des versions. Un import qui les
+// laisserait passer produirait des points rejetes par les contraintes CHECK
+// de Supabase, et l'echec n'apparaitrait qu'a la synchronisation.
+const SUBS_OBSOLETES = {
+  'ESCALIER_MECANIQUE':'ESCALATOR',
+  'ESCALATOR_MECANIQUE':'ESCALATOR',
+  'PLATEFORME':'ELEVATEUR',
+  'BANC_PUBLIC':'BANC',
+  'CHAISE_HAUTE':'APPUI_ISCHIATIQUE',
+  'ABRI_VOYAGEUR':'ABRI',
+  'WC':'TOILETTES',
+  'VELO':'STATIONNEMENT_VELO',
+  'PMR':'STATIONNEMENT_PMR'
+};
+
+function normaliserImport(w, rapport){
+  let type=w.type, sub=(w.subtype||'').toUpperCase().trim();
+  if(SUBS_OBSOLETES[sub]){rapport.migres++; sub=SUBS_OBSOLETES[sub];}
+  if(!type||!SUBS[type]) type=typeDepuisSubtype(sub)||'autre';
+  if(!SUBS[type].includes(sub)){
+    // Le sous-type ne fait pas partie de la categorie : on ne devine pas, on
+    // marque le point comme a reclasser. C'est le meme principe que dans
+    // normalise_releve.py : aucune valeur n'est inventee.
+    rapport.aReclasser++;
+    if(type==='autre') sub='A_CLASSIFIER';
+    else sub='AUTRE';
+  }
+  return {...w, type, subtype:sub};
+}
+
+function parseGPX(txt, rapport){
+  const doc=new DOMParser().parseFromString(txt,'application/xml');
+  if(doc.querySelector('parsererror')) throw new Error('GPX illisible');
+  const NS='https://ticks.fr/terrain/1';
+  const tv=(el,tag)=>{const n=el.getElementsByTagNameNS(NS,tag)[0];return n?n.textContent.trim():null;};
+  const wps=[],tracks=[];
+  doc.querySelectorAll('wpt').forEach((el,i)=>{
+    const nom=el.querySelector('name')?.textContent||`Point ${i+1}`;
+    const desc=el.querySelector('desc')?.textContent||'';
+    const t=el.querySelector('time')?.textContent;
+    // Sans extensions TickS, le sous-type est le premier segment de <desc>,
+    // tel que l'ecrivait l'export des versions precedentes.
+    // <desc> est ecrit par l'export sous la forme « SOUS_TYPE | remarque |
+    // pointé sur la carte ». On retire systematiquement le segment de tete
+    // s'il ressemble a un code, MEME quand le sous-type vient des extensions :
+    // sinon chaque aller-retour recolle le code devant la remarque et la
+    // description grossit a chaque cycle.
+    const seg=desc.split('|').map(x=>x.trim()).filter(Boolean);
+    const subExt=tv(el,'subtype');
+    const codeEnTete=seg.length&&/^[A-Z][A-Z_]+$/.test(seg[0])?seg[0]:'';
+    const sub=subExt||codeEnTete;
+    const manuel=seg.some(x=>/point\u00e9 sur la carte/i.test(x));
+    const reste=seg.slice(codeEnTete?1:0)
+                   .filter(x=>!/point\u00e9 sur la carte/i.test(x))
+                   .join(' | ');
+    const acc=tv(el,'acc'), n=tv(el,'samples');
+    wps.push({
+      id: tv(el,'id') || (crypto.randomUUID?crypto.randomUUID():'wp-'+Date.now()+'-'+i),
+      type: tv(el,'type')||null, subtype: sub,
+      name: nom, desc: reste||'',
+      lat: parseFloat(el.getAttribute('lat')), lon: parseFloat(el.getAttribute('lon')),
+      acc: acc!=null?parseFloat(acc):null,
+      samples: n!=null?parseInt(n,10):null,
+      source: tv(el,'source')||(manuel?'manuel':'gps'),
+      ts: t?Date.parse(t):Date.now()
+    });
+  });
+  doc.querySelectorAll('trk').forEach((el,i)=>{
+    const pts=[...el.querySelectorAll('trkpt')].map(p=>({
+      lat:parseFloat(p.getAttribute('lat')), lon:parseFloat(p.getAttribute('lon')),
+      ts:Date.parse(p.querySelector('time')?.textContent||'')||Date.now()}));
+    if(pts.length>=2) tracks.push({name:el.querySelector('name')?.textContent||`Tronçon ${i+1}`, pts});
+  });
+  if(!wps.length&&!tracks.length) throw new Error('GPX sans point ni tronçon');
+  rapport.sansPrecision=wps.filter(w=>w.acc==null).length;
+  return {waypoints:wps, tracks};
+}
+
 function loadSession(){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
-  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!d.waypoints)throw 0;S.waypoints=d.waypoints||[];S.tracks=d.tracks||[];save();renderPts();renderExp();toast(`${S.waypoints.length} pts, ${S.tracks.length} tronçons chargés`,'g');}catch(e){toast('Fichier invalide','r');}};r.readAsText(f);};inp.click();
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,.gpx,application/gpx+xml';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      const rapport={migres:0,aReclasser:0,sansPrecision:0};
+      let d;
+      try{
+        const txt=ev.target.result;
+        if(/\.gpx$/i.test(f.name)||txt.trim().startsWith('<')) d=parseGPX(txt,rapport);
+        else { d=JSON.parse(txt); if(!d.waypoints) throw new Error('JSON sans waypoints'); }
+      }catch(err){ toast('Fichier illisible : '+err.message,'r'); return; }
+
+      const wps=(d.waypoints||[]).map(w=>normaliserImport(w,rapport));
+      const trks=d.tracks||[];
+
+      // Fusion par identifiant : reimporter un releve deja present met les
+      // points A JOUR au lieu de les dupliquer. C'est ce qui rend la retouche
+      // possible — exporter, corriger ailleurs, reimporter.
+      let mode='remplacer';
+      if(S.waypoints.length||S.tracks.length){
+        mode=confirm(`${wps.length} point(s) dans le fichier.\n\nOK = fusionner avec la session en cours\nAnnuler = remplacer la session`)
+          ?'fusionner':'remplacer';
+      }
+      let ajoutes=0,majs=0;
+      if(mode==='fusionner'){
+        const idx=new Map(S.waypoints.map(w=>[w.id,w]));
+        wps.forEach(w=>{ if(idx.has(w.id)){Object.assign(idx.get(w.id),w);majs++;} else {S.waypoints.push(w);ajoutes++;} });
+        const noms=new Set(S.tracks.map(t=>t.name));
+        trks.forEach(t=>{ if(!noms.has(t.name)) S.tracks.push(t); });
+      }else{
+        S.waypoints=wps;S.tracks=trks;ajoutes=wps.length;
+      }
+      save();renderPts();renderExp();refreshMap();
+      if(typeof updateV2Stats==='function')updateV2Stats();
+
+      const bits=[];
+      if(majs) bits.push(`${majs} mis à jour`);
+      if(ajoutes) bits.push(`${ajoutes} ajouté(s)`);
+      if(rapport.migres) bits.push(`${rapport.migres} sous-type(s) migré(s)`);
+      if(rapport.aReclasser) bits.push(`${rapport.aReclasser} à reclasser`);
+      toast(bits.join(' · ')||'Rien à importer', rapport.aReclasser?'a':'g');
+      if(rapport.sansPrecision){
+        setTimeout(()=>toast(`${rapport.sansPrecision} point(s) sans précision GPS`,'a'),2400);
+      }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
 }
 function resetSession(){
   if(!confirm('Effacer toute la session ?'))return;
