@@ -25,16 +25,23 @@
 // ══════════════════════════════════════════════════════════════
 
 const OSM_DB = 'ticks-osm-ref', OSM_VER = 1;
-// Le relais Vercel (api/overpass.js) est essaye EN PREMIER : il s'execute
-// cote serveur, donc sans contrainte CORS, avec un User-Agent conforme et
-// depuis une adresse IP stable. Les appels directs restent en repli, pour le
-// cas ou l'app tournerait ailleurs que sur Vercel — ils fonctionnent parfois,
-// mais leurs erreurs arrivent opaques.
-const RELAIS = '/api/overpass';
+// Relais configurable. Par defaut la fonction Vercel, mais Overpass BLOQUE
+// les plages AWS et Azure depuis octobre 2025 pour se proteger d'un usage
+// abusif depuis le cloud : Vercel s'executant sur AWS, ses requetes sont
+// rejetees sans code d'erreur, ce qui se lit comme un depassement de delai
+// sur tous les miroirs a la fois. Un relais Cloudflare (worker.mjs) contourne
+// le probleme ; son URL se colle dans l'ecran Reference OSM.
+const RELAIS_DEFAUT = '/api/overpass';
+function relaisURL(){
+  try{ return localStorage.getItem('ticks_relais_osm') || RELAIS_DEFAUT; }
+  catch(e){ return RELAIS_DEFAUT; }
+}
+// Instance francaise en tete : la plus proche pour des donnees normandes, et
+// moins sollicitee que l'instance principale allemande.
 const MIROIRS_OVERPASS = [
+  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter'
+  'https://overpass.kumi.systems/api/interpreter'
 ];
 const RAYON_DEFAUT = 500;
 
@@ -133,7 +140,7 @@ async function overpass(ql){
   try{
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 70000);
-    const r = await fetch(RELAIS + '?data=' + encodeURIComponent(ql), {signal:ctrl.signal});
+    const r = await fetch(relaisURL() + '?data=' + encodeURIComponent(ql), {signal:ctrl.signal});
     clearTimeout(t);
     const d = await r.json().catch(() => null);
     if(r.ok && d && !d.erreur) return d;
@@ -387,7 +394,36 @@ function adopterCheminement(idWay){
 }
 
 // ── Interface de gestion ──────────────────────────────────────
+function enregistrerRelais(){
+  const v = document.getElementById('osm-relais').value.trim();
+  try{
+    if(v) localStorage.setItem('ticks_relais_osm', v.replace(/\/$/,''));
+    else localStorage.removeItem('ticks_relais_osm');
+  }catch(e){}
+  toast(v ? 'Relais enregistr\u00e9' : 'Relais par d\u00e9faut r\u00e9tabli','g');
+}
+
+async function testerRelais(){
+  const res = document.getElementById('osm-res');
+  res.innerHTML = '<div class="empty">Test en cours\u2026</div>';
+  const t0 = Date.now();
+  try{
+    // Requete deliberement minuscule : elle mesure la joignabilite du relais,
+    // pas la capacite d'Overpass a traiter une vraie demande.
+    const d = await overpass('[out:json][timeout:10];node(1);out;');
+    res.innerHTML = '<div class="empty" style="color:var(--green)"><b>Relais op\u00e9rationnel</b><br>'
+      + 'r\u00e9ponse en ' + ((Date.now()-t0)/1000).toFixed(1) + ' s</div>';
+  }catch(e){
+    res.innerHTML = '<div class="empty" style="text-align:left"><b>\u00c9chec du test</b><br><br>'
+      + (e.detail||[e.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
+  }
+}
+
 async function renderOSM(){
+  const champ = document.getElementById('osm-relais');
+  if(champ && !champ.value){
+    try{ champ.value = localStorage.getItem('ticks_relais_osm') || ''; }catch(e){}
+  }
   const el = document.getElementById('osm-list'); if(!el) return;
   const gares = await osmList();
   if(!gares.length){
