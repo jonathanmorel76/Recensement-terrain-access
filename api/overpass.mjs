@@ -47,6 +47,19 @@ const MIROIRS = [
 // benevole qu'une condition d'acces.
 const UA = 'TickS-Terrain/2.7 (recensement accessibilite gares; contact via ticks.fr)';
 
+// Duree maximale d'execution accordee par Vercel. Sans cette declaration, la
+// limite par defaut est de 10 s sur l'offre Hobby : la fonction etait tuee
+// avant d'avoir interroge le moindre miroir, et le client voyait un simple
+// depassement de delai sans jamais savoir pourquoi.
+export const config = { maxDuration: 60 };
+
+// Budget TOTAL, garde sous maxDuration pour qu'il reste de quoi serialiser la
+// reponse. Chaque miroir recoit le reliquat, plafonne : mieux vaut trois
+// tentatives courtes qu'une seule longue, un miroir sature ne se debloquant
+// pas en attendant davantage.
+const BUDGET_MS = 50000;
+const PAR_MIROIR_MS = 20000;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -71,11 +84,19 @@ export default async function handler(req, res) {
   }
 
   const echecs = [];
+  const debut = Date.now();
   for (const url of MIROIRS) {
+    const reste = BUDGET_MS - (Date.now() - debut);
+    if (reste < 3000) {
+      echecs.push({ hote: new URL(url).hostname, statut: 0,
+        message: 'non interroge : budget de temps epuise' });
+      continue;
+    }
     const hote = new URL(url).hostname;
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 55000);
+      const delai = Math.min(PAR_MIROIR_MS, reste);
+      const t = setTimeout(() => ctrl.abort(), delai);
       const r = await fetch(url, {
         method: 'POST',
         headers: {
@@ -113,7 +134,9 @@ export default async function handler(req, res) {
       echecs.push({
         hote,
         statut: 0,
-        message: e.name === 'AbortError' ? 'delai de 55 s depasse' : String(e.message || e)
+        message: e.name === 'AbortError'
+          ? 'delai de ' + Math.round(Math.min(PAR_MIROIR_MS, BUDGET_MS - (Date.now() - debut) + PAR_MIROIR_MS) / 1000) + ' s depasse'
+          : String(e.message || e)
       });
     }
   }
@@ -132,4 +155,3 @@ function motif(code) {
   if (code === 504) return 'delai serveur depasse, reduire le rayon';
   return 'HTTP ' + code;
 }
-
