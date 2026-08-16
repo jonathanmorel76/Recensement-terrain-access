@@ -31,11 +31,20 @@
 //      avec d'autres abonnes et peut deja etre limitee. L'IP du relais est
 //      stable et connue.
 //
+// LIMITE CONNUE : Overpass bloque les plages AWS et Azure depuis octobre 2025.
+// Vercel s'executant sur AWS, ce relais est susceptible d'etre rejete sans
+// code d'erreur — les requetes expirent alors sur tous les miroirs a la fois.
+// Dans ce cas, deployer worker.mjs sur Cloudflare et renseigner son URL dans
+// l'ecran « Reference OSM » de l'app.
+//
 // Le relais essaie les miroirs en sequence et renvoie TOUJOURS du JSON avec
 // les en-tetes CORS, y compris en cas d'echec : le client peut donc afficher
 // un diagnostic exact au lieu d'un message generique.
 
 const MIROIRS = [
+  // Instance francaise OSM-FR en tete : plus proche pour des donnees
+  // normandes, et moins sollicitee que l'instance principale.
+  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
