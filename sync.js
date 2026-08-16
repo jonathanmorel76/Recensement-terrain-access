@@ -453,7 +453,7 @@ function goTab(id){
   if(id==='terrain'){setTimeout(()=>{if(MAP)MAP.invalidateSize();},100);}
   if(id==='points')renderPts();
   if(id==='export')renderExp();
-  if(id==='osm'&&typeof renderOSM==='function')renderOSM();
+  if(id==='osm'&&typeof renderOSM==='function'){renderOSM();chargerCatalogue();}
   closeBurger();
   closeFilterPopover();
 }

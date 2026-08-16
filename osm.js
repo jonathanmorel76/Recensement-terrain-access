@@ -113,22 +113,13 @@ function mapperOSM(tags){
   if(t.highway === 'crossing')                 return ['equip_acces','TRAVERSEE_PIETONS'];
   if(t.kerb === 'lowered' || t.barrier === 'kerb') return ['equip_acces','ABAISSEMENT_TROTTOIR'];
   if(t.barrier === 'turnstile')                return ['equip_acces','PASSAGE_SELECTIF'];
-  if(t.amenity === 'ticket_validator')         return ['equip_comp','VALIDATEUR'];
-  if(t.amenity === 'vending_machine' && /ticket/.test(t.vending||'')) return ['equip_comp','DISTRIBUTEUR_TITRES'];
-  if(t.tourism === 'information')              return ['equip_comp','BORNE_INFO'];
-  if(t.amenity === 'bench')                    return ['autre','BANC'];
-  if(t.amenity === 'shelter')                  return ['autre','ABRI'];
-  if(t.amenity === 'toilets')                  return ['autre','TOILETTES'];
-  if(t.amenity === 'waiting_room' || t.public_transport === 'waiting_room') return ['autre','SALLE_ATTENTE'];
-  if(t.amenity === 'bicycle_parking')          return ['autre','STATIONNEMENT_VELO'];
-  if(t.emergency === 'phone' || t.amenity === 'help_point') return ['autre','ASSISTANCE'];
   if(t.railway === 'subway_entrance' || t.railway === 'train_station_entrance') return ['entree','PRINCIPALE'];
   if(t.entrance){
     const m = {main:'PRINCIPALE', yes:'SECONDAIRE', service:'SERVICE', emergency:'URGENCE'};
     return ['entree', m[t.entrance] || 'SECONDAIRE'];
   }
   if(t.railway === 'platform' || t.public_transport === 'platform') return ['noeud','ARRET_TC'];
-  return ['autre','A_CLASSIFIER'];
+  return ['noeud','INTERSECTION'];
 }
 
 // ── Requetes Overpass ─────────────────────────────────────────
@@ -237,6 +228,11 @@ function qlGare(lat, lon, rayon){
   // jamais essaye. Mieux vaut qu'Overpass renonce vite et renvoie un « remark »
   // exploitable.
   //
+  // Reseau pietonnier et noeuds de cheminement UNIQUEMENT : le mobilier et
+  // les services releves sur le terrain sont volontairement exclus, pour que
+  // deux versions du meme objet — l'une observee, l'autre supposee — ne
+  // cohabitent jamais sur la carte.
+  //
   // Les clauses sont regroupees par type d'objet plutot qu'une par tag : le
   // filtre « around » est evalue en premier et ramene un ensemble reduit, sur
   // lequel une expression reguliere ne coute plus rien. Onze clauses separees
@@ -249,12 +245,9 @@ function qlGare(lat, lon, rayon){
   way(${a})["railway"="platform"];
   way(${a})["public_transport"="platform"];
   node(${a})["highway"~"^(elevator|crossing)$"];
-  node(${a})["amenity"~"^(bench|shelter|toilets|ticket_validator|bicycle_parking|waiting_room|vending_machine|help_point)$"];
   node(${a})["railway"~"^(subway_entrance|train_station_entrance)$"];
   node(${a})["barrier"~"^(turnstile|kerb|gate)$"];
   node(${a})["entrance"];
-  node(${a})["emergency"="phone"];
-  node(${a})["tourism"="information"];
 );
 out geom;`;
 }
@@ -264,9 +257,8 @@ out geom;`;
 // difference entre 80 Ko et 900 Ko par gare.
 const TAGS_UTILES = ['wheelchair','tactile_paving','ramp','handrail','step_count',
   'incline','width','surface','smoothness','kerb','conveying','automatic_door',
-  'door','name','ref','level','indoor','covered','capacity','capacity:disabled',
-  'highway','railway','amenity','entrance','barrier','public_transport','emergency',
-  'tourism','vending','information','access','foot'];
+  'door','name','ref','level','indoor','covered',
+  'highway','railway','entrance','barrier','public_transport','access','foot'];
 
 function compacter(elements){
   const lignes = [], points = [];
@@ -417,6 +409,65 @@ async function testerRelais(){
     res.innerHTML = '<div class="empty" style="text-align:left"><b>\u00c9chec du test</b><br><br>'
       + (e.detail||[e.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// CATALOGUE PRE-PREPARE
+// Les fichiers de gares/ sont produits par preparer_gares_osm.py depuis un
+// poste de travail, ou Overpass repond, et servis par le meme hebergeur que
+// l'app. C'est le chemin NORMAL : instantane, disponible hors ligne une fois
+// charge, et insensible a l'etat d'Overpass. La recherche en direct reste en
+// place pour une gare absente du catalogue, mais elle est devenue le cas
+// exceptionnel et non l'inverse.
+// ══════════════════════════════════════════════════════════════
+const CATALOGUE = './gares/index.json';
+
+async function chargerCatalogue(){
+  const el = document.getElementById('cat-list');
+  if(!el) return;
+  el.innerHTML = '<div class="empty">Lecture du catalogue\u2026</div>';
+  let idx;
+  try{
+    const r = await fetch(CATALOGUE, {cache:'no-cache'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    idx = await r.json();
+  }catch(e){
+    el.innerHTML = '<div class="empty" style="text-align:left">Aucun catalogue publi\u00e9.<br><br>'
+      + '<span style="color:var(--txt3)">Lancer <code>preparer_gares_osm.py</code> depuis le poste '
+      + 'de travail, puis committer le dossier <code>gares/</code> \u00e0 la racine du d\u00e9p\u00f4t.</span></div>';
+    return;
+  }
+  const locales = new Set((await osmList()).map(g => g.slug));
+  el.innerHTML = (idx.gares||[]).map(g =>
+    '<div class="wpt-item">'
+    + '<div class="wdot" style="background:rgba(138,48,144,.12);color:var(--ticks)">'
+    + (locales.has(g.slug)
+        ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>')
+    + '</div><div class="winfo"><div class="wname">' + esc(g.nom) + '</div>'
+    + '<div class="wmeta">' + g.nb_lignes + ' cheminements \u00b7 ' + g.nb_points + ' objets \u00b7 '
+    + Math.round(g.taille/1024) + ' Ko' + (locales.has(g.slug) ? ' \u00b7 hors ligne' : '') + '</div></div>'
+    + '<button class="wbtn" onclick="installerDepuisCatalogue(\'' + g.slug + '\')" '
+    + 'style="width:auto;padding:0 12px;font-size:12.5px;font-weight:600;color:var(--ticks)">'
+    + (locales.has(g.slug) ? 'Ouvrir' : 'Installer') + '</button></div>').join('')
+    || '<div class="empty">Catalogue vide.</div>';
+  const info = document.getElementById('cat-info');
+  if(info) info.textContent = (idx.gares||[]).length + ' gare(s) \u00b7 catalogue du '
+    + (idx.genere_le||'').slice(0,10);
+}
+
+async function installerDepuisCatalogue(slug){
+  const deja = await osmGet(slug);
+  if(deja){ chargerGare(slug); return; }
+  try{
+    const r = await fetch('./gares/' + slug + '.json', {cache:'no-cache'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const rec = await r.json();
+    delete rec.meta;   // redondant une fois en base locale
+    await osmPut(rec);
+    await renderOSM(); await chargerCatalogue();
+    toast(rec.nom + ' \u2014 ' + Math.round((rec.taille||0)/1024) + ' Ko install\u00e9s','g');
+  }catch(e){ toast('\u00c9chec : ' + e.message,'r'); }
 }
 
 async function renderOSM(){

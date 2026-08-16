@@ -524,7 +524,14 @@ body.sun .wc-btn .wl{font-size:10.5px}
   <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="11" height="17" viewBox="0 0 11 17"><polyline points="9 1.5 2 8.5 9 15.5"/></svg>Carte</button><span class="sv-title">R&eacute;f&eacute;rence OSM par gare</span></div></div>
   <div class="sv-content">
     <div class="card">
-      <div class="card-title">T&eacute;l&eacute;charger une gare</div>
+      <div class="card-title">Catalogue des gares</div>
+      <p style="font-size:12.5px;color:var(--txt2);line-height:1.55;margin-bottom:12px">
+        Donn&eacute;es pr&eacute;par&eacute;es au bureau et publi&eacute;es avec l&rsquo;app. Installation imm&eacute;diate,
+        sans d&eacute;pendre d&rsquo;Overpass. <span id="cat-info" style="color:var(--txt3)"></span></p>
+      <div id="cat-list"><div class="empty">Lecture du catalogue&hellip;</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">T&eacute;l&eacute;charger une gare &mdash; hors catalogue</div>
       <p style="font-size:12.5px;color:var(--txt2);line-height:1.55;margin-bottom:12px">
         Pr&eacute;parez au bureau, avec du r&eacute;seau. Les cheminements et &eacute;quipements
         d&eacute;j&agrave; cartographi&eacute;s dans OpenStreetMap seront consultables hors ligne sur place.</p>
@@ -553,7 +560,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
     </div>
     <div class="card">
       <p style="font-size:12px;color:var(--txt3);line-height:1.6;margin:0">
-        Ces donn&eacute;es viennent d&rsquo;OpenStreetMap et ne sont jamais envoy&eacute;es au SIG.
+        Seuls le r&eacute;seau pi&eacute;tonnier et les n&oelig;uds de cheminement sont import&eacute;s : le mobilier et l&rsquo;information voyageur rel&egrave;vent du recensement terrain. Ces donn&eacute;es viennent d&rsquo;OpenStreetMap et ne sont jamais envoy&eacute;es au SIG.
         Elles servent de r&eacute;f&eacute;rence &agrave; v&eacute;rifier, pas de relev&eacute;.
         Un cheminement peut &ecirc;tre repris comme trac&eacute; depuis sa bulle sur la carte,
         puis corrig&eacute; sommet par sommet avant enregistrement.</p>
@@ -566,7 +573,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:11px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAflBMVEWoZqeWm06TaHDWt9Z/f3+LPYv/AP+qVVWYuTvdxN2qVaqQOo/+/f4AAACZxjKILYfl0uWRO5DAkL9/AH+RPJCURpCOOo5VVVWRO5CQO5C7iLrMpszw5fCiXKLFmsXizOEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiRpmDAAAAIHRSTlP/////AiEBA///A/7/AP///9T/AlD/DwOdsf///////5UJJ84AAAF2SURBVHja7Zdbc4MgEIVX09y6EqCAUUH9//+yiKbT5rIYeOqMZ8yDM56PXWYxHmBeB8U+dSNxtWSjj0wdJi/43wdj+g33wtDBOAGurG4xQW3trR6g2F5ikuTem0GpOtHvCbVScGUtJqtlV2AaM6QZpDcwNwFkAWVxKoqSLAEayn8JoggNyKj/cjFED0DQixugIB76J4DyLQAP1yRzihfwBNDtzrafEWUgFOYdgBmrScNyVz7MEY8AztWsEfyTj0tzA4YE9NWPbH+/GkewruopAIfql8QA/W09YwCGqb2RbuEPIMiJSc655R4ie7CraNnYJhpB+ncr5oCqwa6aRHAv7AL4urNghmf2EdYfJm6Gu60Qw8NU0KfRz4w/E/NYO9vBCzd5nDlHHuroOCa+DxAD4AtNJiC7gg2wATbABtgAawEyDyDJj22M/7E09Od+HKDpwBEF+MBBRh6wQnSRyEOHLo7II6ErO/ZlB8/86JsfvkP8P6bG/29YOrk9O2Y5jAAAAABJRU5ErkJggg==" width="36" height="36" alt="" style="flex-shrink:0;display:block;border-radius:10px">
-      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v2.8.0</div></div>
+      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v2.9.1</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
