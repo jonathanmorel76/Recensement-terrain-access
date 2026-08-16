@@ -141,7 +141,17 @@ async function overpass(ql){
         // il s'agit d'attendre ou de reduire le rayon.
         const corps = await r.text().catch(() => '');
         echecs.push(`${hote(url)} : HTTP ${r.status}${r.status===429?' (quota atteint)':''}${r.status===504?' (delai serveur depasse)':''}`);
-        if(/remark|error/i.test(corps)) echecs.push('  ' + corps.slice(0,160).replace(/\s+/g,' '));
+        // On ne remonte le corps que s'il est court et lisible : une page
+        // d'erreur HTML complete noyait le diagnostic utile.
+        const net = corps.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+        if(net && net.length < 200) echecs.push('  ' + net);
+        continue;
+      }
+      // Un miroir en surcharge renvoie parfois une page HTML avec un code 200.
+      // Tenter r.json() dessus produirait une erreur de syntaxe illisible.
+      const ct = r.headers.get('content-type') || '';
+      if(!/json/i.test(ct)){
+        echecs.push(`${hote(url)} : r\u00e9ponse non-JSON (${ct.split(';')[0]||'type inconnu'})`);
         continue;
       }
       const d = await r.json();
@@ -162,15 +172,49 @@ function hote(u){ try{ return new URL(u).hostname.split('.')[0]; }catch(e){ retu
 
 async function chercherGare(nom){
   const [s,w,n,e] = BBOX_NORMANDIE;
-  const ql = `[out:json][timeout:25];
-nwr["railway"~"^(station|halt)$"]["name"~"${nom.replace(/"/g,'')}",i](${s},${w},${n},${e});
-out center 15;`;
+  const q = nom.replace(/["\\]/g,'');
+  // Le filtre de TETE doit etre une egalite exacte, jamais une expression
+  // reguliere : Overpass sait resoudre ["railway"="station"] par son index,
+  // alors qu'une regex l'oblige a balayer toute l'emprise. La version
+  // precedente combinait DEUX regex (railway et name) sur la Normandie
+  // entiere, ce qui depassait le delai serveur et renvoyait 504.
+  // On enumere donc les combinaisons plutot que de les factoriser : plus
+  // verbeux, mais indexe.
+  const lignes = [];
+  for(const type of ['node','way','relation'])
+    for(const val of ['station','halt'])
+      lignes.push(`  ${type}["railway"="${val}"]["name"~"${q}",i](${s},${w},${n},${e});`);
+  const ql = `[out:json][timeout:25];\n(\n${lignes.join('\n')}\n);\nout center 20;`;
   const d = await overpass(ql);
   return (d.elements||[]).map(el => ({
     nom: el.tags?.name || 'Sans nom',
     uic: el.tags?.['ref:SNCF'] || el.tags?.uic_ref || null,
     lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon
   })).filter(g => g.lat != null);
+}
+
+// Repli sans recherche : telecharger la zone actuellement affichee sur la
+// carte. Ne depend d'aucune requete de recherche, donc reste disponible quand
+// le nom ne donne rien ou que le service peine. C'est souvent le plus direct :
+// l'operateur sait ou est la gare, il la cadre a l'ecran.
+async function telechargerVue(){
+  if(!MAP_OK){ toast('Carte non pr\u00eate','a'); return; }
+  const nom = (document.getElementById('osm-q').value || '').trim();
+  if(nom.length < 3){ toast('Indiquez d\'abord un nom pour cette zone','a'); return; }
+  const c = MAP.getCenter();
+  const rayon = parseInt(document.getElementById('osm-rayon').value,10) || RAYON_DEFAUT;
+  try{
+    const rec = await telechargerGare({nom, lat:c.lat, lon:c.lng, uic:null}, rayon);
+    document.getElementById('osm-res').innerHTML = '';
+    document.getElementById('osm-q').value = '';
+    await renderOSM();
+    toast(rec.nom + ' \u2014 ' + Math.round(rec.taille/1024) + ' Ko enregistr\u00e9s','g');
+  }catch(err){
+    console.error('[OSM] vue', err.detail || err);
+    document.getElementById('osm-res').innerHTML =
+      '<div class="empty" style="text-align:left">' + (err.detail||[err.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
+    toast('\u00c9chec du t\u00e9l\u00e9chargement','r');
+  }
 }
 
 // Le reseau pietonnier ET les equipements en UNE requete : deux appels
