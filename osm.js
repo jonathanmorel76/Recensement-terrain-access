@@ -25,8 +25,12 @@
 // ══════════════════════════════════════════════════════════════
 
 const OSM_DB = 'ticks-osm-ref', OSM_VER = 1;
-// Miroirs Overpass, essayes dans l'ordre. Le service principal est
-// regulierement sature en fin de journee et repond alors 429 ou 504.
+// Le relais Vercel (api/overpass.js) est essaye EN PREMIER : il s'execute
+// cote serveur, donc sans contrainte CORS, avec un User-Agent conforme et
+// depuis une adresse IP stable. Les appels directs restent en repli, pour le
+// cas ou l'app tournerait ailleurs que sur Vercel — ils fonctionnent parfois,
+// mais leurs erreurs arrivent opaques.
+const RELAIS = '/api/overpass';
 const MIROIRS_OVERPASS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -123,46 +127,46 @@ function mapperOSM(tags){
 // ── Requetes Overpass ─────────────────────────────────────────
 async function overpass(ql){
   const echecs = [];
+
+  // 1) Relais serveur. Il renvoie toujours du JSON, y compris en erreur, donc
+  //    son diagnostic est exploitable tel quel.
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 60000);
+    const r = await fetch(RELAIS + '?data=' + encodeURIComponent(ql), {signal:ctrl.signal});
+    clearTimeout(t);
+    const d = await r.json().catch(() => null);
+    if(r.ok && d && !d.erreur) return d;
+    if(d && Array.isArray(d.echecs)){
+      d.echecs.forEach(e => echecs.push(`${e.hote} : ${e.message}`));
+    }else{
+      echecs.push('relais : HTTP ' + r.status);
+    }
+  }catch(err){
+    // Un relais absent (app servie hors Vercel) ou une coupure reseau.
+    echecs.push('relais : ' + (err.name==='AbortError' ? 'delai de 60 s depasse' : err.message));
+  }
+
+  // 2) Repli direct. Sur navigateur les erreurs amont perdent leurs en-tetes
+  //    CORS et remontent en « Load failed » sans detail : c'est precisement
+  //    ce que le relais evite, d'ou son passage en premier.
   for(const url of MIROIRS_OVERPASS){
-    // GET plutot que POST : une requete GET est une requete « simple » au sens
-    // CORS (aucun preflight), elle traverse les proxys d'entreprise sans
-    // negociation, et elle n'est pas concernee par les restrictions de cache
-    // des service workers. Nos requetes font moins de 2 Ko, largement sous la
-    // limite d'URL de tous les navigateurs.
-    const cible = url + '?data=' + encodeURIComponent(ql);
     try{
       const ctrl = new AbortController();
       const minuteur = setTimeout(() => ctrl.abort(), 45000);
-      const r = await fetch(cible, {method:'GET', signal:ctrl.signal});
+      const r = await fetch(url + '?data=' + encodeURIComponent(ql), {method:'GET', signal:ctrl.signal});
       clearTimeout(minuteur);
-      if(!r.ok){
-        // 429 = quota atteint, 504 = requete trop longue cote serveur.
-        // Distinguer les deux evite de chercher un probleme de reseau la ou
-        // il s'agit d'attendre ou de reduire le rayon.
-        const corps = await r.text().catch(() => '');
-        echecs.push(`${hote(url)} : HTTP ${r.status}${r.status===429?' (quota atteint)':''}${r.status===504?' (delai serveur depasse)':''}`);
-        // On ne remonte le corps que s'il est court et lisible : une page
-        // d'erreur HTML complete noyait le diagnostic utile.
-        const net = corps.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-        if(net && net.length < 200) echecs.push('  ' + net);
-        continue;
-      }
-      // Un miroir en surcharge renvoie parfois une page HTML avec un code 200.
-      // Tenter r.json() dessus produirait une erreur de syntaxe illisible.
+      if(!r.ok){ echecs.push(`${hote(url)} : HTTP ${r.status}`); continue; }
       const ct = r.headers.get('content-type') || '';
-      if(!/json/i.test(ct)){
-        echecs.push(`${hote(url)} : r\u00e9ponse non-JSON (${ct.split(';')[0]||'type inconnu'})`);
-        continue;
-      }
+      if(!/json/i.test(ct)){ echecs.push(`${hote(url)} : r\u00e9ponse non-JSON`); continue; }
       const d = await r.json();
-      // Overpass repond 200 avec un champ « remark » quand la requete elle-meme
-      // est en cause : sans ce test, on croirait a un resultat vide.
-      if(d.remark){ echecs.push(`${hote(url)} : ${d.remark.slice(0,160)}`); continue; }
+      if(d.remark){ echecs.push(`${hote(url)} : ${String(d.remark).slice(0,160)}`); continue; }
       return d;
     }catch(err){
-      echecs.push(`${hote(url)} : ${err.name==='AbortError'?'delai de 45 s depasse':err.message}`);
+      echecs.push(`${hote(url)} : ${err.name==='AbortError'?'delai depasse':err.message}`);
     }
   }
+
   const e = new Error(echecs.join(' | '));
   e.detail = echecs;
   throw e;

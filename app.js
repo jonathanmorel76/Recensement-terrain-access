@@ -6,8 +6,8 @@
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '2.6.2';
-console.log('[TickS Terrain] app.js v2.6.2 charge');
+const APP_VERSION = '2.7.0';
+console.log('[TickS Terrain] app.js v2.7.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,

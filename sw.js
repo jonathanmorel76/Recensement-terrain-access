@@ -1,7 +1,7 @@
 // TickS Terrain — Service Worker v6
 // logo.png retire du SHELL : le fichier du repo est un base64 tronque,
 // le logo est desormais un SVG inline dans index.html.
-const CACHE_APP   = 'ldm-app-v16';
+const CACHE_APP   = 'ldm-app-v17';
 const CACHE_TILES = 'ldm-tiles-v3';
 const SHELL = ['./', './index.html', './manifest.json', './app.js', './sync.js', './osm.js'];
 
@@ -137,6 +137,10 @@ self.addEventListener('fetch', e => {
   // leurs erreurs eux-memes. Ce test etait plus bas dans le fichier, donc
   // JAMAIS atteint (voir ci-dessous).
   if(!url.startsWith(self.location.origin)) return;
+  // Le relais Overpass est une fonction serveur : la mettre en cache
+  // renverrait des donnees perimees, et l'intercepter masquerait ses codes
+  // d'erreur, qui sont justement ce qui rend le diagnostic possible.
+  if(url.includes('/api/')) return;
   // Seules les requetes GET sont cachables. L'API Cache rejette un POST, ce
   // qui transformait la moindre requete POST interceptee en echec dur.
   if(e.request.method !== 'GET') return;
