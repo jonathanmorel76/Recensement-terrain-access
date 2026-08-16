@@ -1,7 +1,7 @@
 // TickS Terrain — Service Worker v6
 // logo.png retire du SHELL : le fichier du repo est un base64 tronque,
 // le logo est desormais un SVG inline dans index.html.
-const CACHE_APP   = 'ldm-app-v14';
+const CACHE_APP   = 'ldm-app-v15';
 const CACHE_TILES = 'ldm-tiles-v3';
 const SHELL = ['./', './index.html', './manifest.json', './app.js', './sync.js', './osm.js'];
 
@@ -132,8 +132,21 @@ self.addEventListener('fetch', e => {
     e.respondWith(cacheTile(e.request));
     return;
   }
-  // App shell : network-first pour recuperer les mises a jour rapidement
-  if(e.request.mode === 'navigate' || SHELL.some(s => url.endsWith(s.replace('./','')))){
+  // Tout ce qui n'est pas servi par notre propre origine est laisse passer
+  // sans interception : Overpass, Nominatim, Supabase gerent leur cache et
+  // leurs erreurs eux-memes. Ce test etait plus bas dans le fichier, donc
+  // JAMAIS atteint (voir ci-dessous).
+  if(!url.startsWith(self.location.origin)) return;
+  // Seules les requetes GET sont cachables. L'API Cache rejette un POST, ce
+  // qui transformait la moindre requete POST interceptee en echec dur.
+  if(e.request.method !== 'GET') return;
+
+  // App shell : network-first pour recuperer les mises a jour rapidement.
+  // ATTENTION — le filtre ci-dessous excluait './' explicitement. Sans cela,
+  // s.replace('./','') donne la chaine VIDE, url.endsWith('') vaut toujours
+  // true, et absolument toutes les requetes tombaient dans cette branche.
+  const fichiers = SHELL.filter(s => s !== './').map(s => s.replace('./',''));
+  if(e.request.mode === 'navigate' || fichiers.some(f => url.endsWith(f))){
     e.respondWith(
       fetch(e.request).then(resp => {
         if(resp && resp.ok){
@@ -145,7 +158,6 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  if(!url.startsWith(self.location.origin)) return;
   e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
 

@@ -25,9 +25,13 @@
 // ══════════════════════════════════════════════════════════════
 
 const OSM_DB = 'ticks-osm-ref', OSM_VER = 1;
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
-// Repli : le service principal tombe regulierement en fin de journee.
-const OVERPASS_ALT = 'https://overpass.kumi.systems/api/interpreter';
+// Miroirs Overpass, essayes dans l'ordre. Le service principal est
+// regulierement sature en fin de journee et repond alors 429 ou 504.
+const MIROIRS_OVERPASS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
+];
 const RAYON_DEFAUT = 500;
 
 // Emprise Normandie, pour borner la recherche de gare. Sans borne, une
@@ -118,16 +122,43 @@ function mapperOSM(tags){
 
 // ── Requetes Overpass ─────────────────────────────────────────
 async function overpass(ql){
-  for(const url of [OVERPASS, OVERPASS_ALT]){
+  const echecs = [];
+  for(const url of MIROIRS_OVERPASS){
+    // GET plutot que POST : une requete GET est une requete « simple » au sens
+    // CORS (aucun preflight), elle traverse les proxys d'entreprise sans
+    // negociation, et elle n'est pas concernee par les restrictions de cache
+    // des service workers. Nos requetes font moins de 2 Ko, largement sous la
+    // limite d'URL de tous les navigateurs.
+    const cible = url + '?data=' + encodeURIComponent(ql);
     try{
-      const r = await fetch(url, {method:'POST', body:'data='+encodeURIComponent(ql),
-        headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-      if(!r.ok) continue;
-      return await r.json();
-    }catch(e){ /* on tente le miroir suivant */ }
+      const ctrl = new AbortController();
+      const minuteur = setTimeout(() => ctrl.abort(), 45000);
+      const r = await fetch(cible, {method:'GET', signal:ctrl.signal});
+      clearTimeout(minuteur);
+      if(!r.ok){
+        // 429 = quota atteint, 504 = requete trop longue cote serveur.
+        // Distinguer les deux evite de chercher un probleme de reseau la ou
+        // il s'agit d'attendre ou de reduire le rayon.
+        const corps = await r.text().catch(() => '');
+        echecs.push(`${hote(url)} : HTTP ${r.status}${r.status===429?' (quota atteint)':''}${r.status===504?' (delai serveur depasse)':''}`);
+        if(/remark|error/i.test(corps)) echecs.push('  ' + corps.slice(0,160).replace(/\s+/g,' '));
+        continue;
+      }
+      const d = await r.json();
+      // Overpass repond 200 avec un champ « remark » quand la requete elle-meme
+      // est en cause : sans ce test, on croirait a un resultat vide.
+      if(d.remark){ echecs.push(`${hote(url)} : ${d.remark.slice(0,160)}`); continue; }
+      return d;
+    }catch(err){
+      echecs.push(`${hote(url)} : ${err.name==='AbortError'?'delai de 45 s depasse':err.message}`);
+    }
   }
-  throw new Error('Overpass injoignable');
+  const e = new Error(echecs.join(' | '));
+  e.detail = echecs;
+  throw e;
 }
+
+function hote(u){ try{ return new URL(u).hostname.split('.')[0]; }catch(e){ return u; } }
 
 async function chercherGare(nom){
   const [s,w,n,e] = BBOX_NORMANDIE;
@@ -337,7 +368,17 @@ async function chercherGareUI(){
       + g.lat.toFixed(4) + ', ' + g.lon.toFixed(4) + '</div></div>'
       + '<span class="wbtn">&darr;</span></div>').join('');
     window.__osmRes = gares;
-  }catch(e){ res.innerHTML = '<div class="empty">Overpass injoignable.<br>R\u00e9essayez avec du r\u00e9seau.</div>'; }
+  }catch(e){
+    // Le detail des echecs par miroir est affiche : « quota atteint » et
+    // « pas de reseau » appellent des reactions differentes, et l'ancien
+    // message unique ne permettait pas de les distinguer.
+    console.error('[OSM] Overpass', e.detail || e);
+    res.innerHTML = '<div class="empty" style="text-align:left">'
+      + '<b>Aucun miroir Overpass n\'a r\u00e9pondu.</b><br><br>'
+      + (e.detail||[e.message]).map(x => '&bull; ' + esc(x)).join('<br>')
+      + '<br><br><span style="color:var(--txt3)">Un quota atteint se d\u00e9bloque seul '
+      + 'en quelques minutes. Un d\u00e9lai d\u00e9pass\u00e9 se corrige en r\u00e9duisant le rayon.</span></div>';
+  }
 }
 
 async function telechargerIdx(i){
@@ -349,7 +390,12 @@ async function telechargerIdx(i){
     document.getElementById('osm-q').value = '';
     await renderOSM();
     toast(rec.nom + ' \u2014 ' + Math.round(rec.taille/1024) + ' Ko enregistr\u00e9s','g');
-  }catch(e){ toast('\u00c9chec : ' + e.message,'r'); }
+  }catch(e){
+    console.error('[OSM] telechargement', e.detail || e);
+    toast('\u00c9chec du t\u00e9l\u00e9chargement \u2014 voir le d\u00e9tail','r');
+    document.getElementById('osm-res').innerHTML =
+      '<div class="empty" style="text-align:left">' + (e.detail||[e.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
+  }
 }
 
 async function chargerGare(slug){
