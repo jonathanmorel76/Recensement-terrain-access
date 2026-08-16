@@ -132,7 +132,7 @@ async function overpass(ql){
   //    son diagnostic est exploitable tel quel.
   try{
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 60000);
+    const t = setTimeout(() => ctrl.abort(), 70000);
     const r = await fetch(RELAIS + '?data=' + encodeURIComponent(ql), {signal:ctrl.signal});
     clearTimeout(t);
     const d = await r.json().catch(() => null);
@@ -144,7 +144,7 @@ async function overpass(ql){
     }
   }catch(err){
     // Un relais absent (app servie hors Vercel) ou une coupure reseau.
-    echecs.push('relais : ' + (err.name==='AbortError' ? 'delai de 60 s depasse' : err.message));
+    echecs.push('relais : ' + (err.name==='AbortError' ? 'delai de 70 s depasse' : err.message));
   }
 
   // 2) Repli direct. Sur navigateur les erreurs amont perdent leurs en-tetes
@@ -188,7 +188,7 @@ async function chercherGare(nom){
   for(const type of ['node','way','relation'])
     for(const val of ['station','halt'])
       lignes.push(`  ${type}["railway"="${val}"]["name"~"${q}",i](${s},${w},${n},${e});`);
-  const ql = `[out:json][timeout:25];\n(\n${lignes.join('\n')}\n);\nout center 20;`;
+  const ql = `[out:json][timeout:18];\n(\n${lignes.join('\n')}\n);\nout center 20;`;
   const d = await overpass(ql);
   return (d.elements||[]).map(el => ({
     nom: el.tags?.name || 'Sans nom',
@@ -224,19 +224,30 @@ async function telechargerVue(){
 // Le reseau pietonnier ET les equipements en UNE requete : deux appels
 // separes doubleraient l'attente sur un service souvent charge.
 function qlGare(lat, lon, rayon){
-  return `[out:json][timeout:90];
+  // Le timeout annonce doit rester SOUS le budget du relais (20 s par miroir).
+  // A 90 s, Overpass acceptait de travailler bien au-dela du temps disponible :
+  // la fonction etait tuee avant qu'il ne reponde, et aucun miroir n'etait
+  // jamais essaye. Mieux vaut qu'Overpass renonce vite et renvoie un « remark »
+  // exploitable.
+  //
+  // Les clauses sont regroupees par type d'objet plutot qu'une par tag : le
+  // filtre « around » est evalue en premier et ramene un ensemble reduit, sur
+  // lequel une expression reguliere ne coute plus rien. Onze clauses separees
+  // recalculaient onze fois le meme voisinage.
+  const a = `around:${rayon},${lat},${lon}`;
+  return `[out:json][timeout:18];
 (
-  way(around:${rayon},${lat},${lon})["highway"~"^(footway|path|pedestrian|steps|corridor|living_street)$"];
-  way(around:${rayon},${lat},${lon})["highway"]["foot"~"^(yes|designated)$"];
-  way(around:${rayon},${lat},${lon})["railway"="platform"];
-  way(around:${rayon},${lat},${lon})["public_transport"="platform"];
-  node(around:${rayon},${lat},${lon})["highway"~"^(elevator|crossing)$"];
-  node(around:${rayon},${lat},${lon})["amenity"~"^(bench|shelter|toilets|ticket_validator|bicycle_parking|waiting_room|vending_machine|help_point)$"];
-  node(around:${rayon},${lat},${lon})["entrance"];
-  node(around:${rayon},${lat},${lon})["railway"~"^(subway_entrance|train_station_entrance)$"];
-  node(around:${rayon},${lat},${lon})["barrier"~"^(turnstile|kerb|gate)$"];
-  node(around:${rayon},${lat},${lon})["emergency"="phone"];
-  node(around:${rayon},${lat},${lon})["tourism"="information"];
+  way(${a})["highway"~"^(footway|path|pedestrian|steps|corridor|living_street)$"];
+  way(${a})["highway"]["foot"~"^(yes|designated)$"];
+  way(${a})["railway"="platform"];
+  way(${a})["public_transport"="platform"];
+  node(${a})["highway"~"^(elevator|crossing)$"];
+  node(${a})["amenity"~"^(bench|shelter|toilets|ticket_validator|bicycle_parking|waiting_room|vending_machine|help_point)$"];
+  node(${a})["railway"~"^(subway_entrance|train_station_entrance)$"];
+  node(${a})["barrier"~"^(turnstile|kerb|gate)$"];
+  node(${a})["entrance"];
+  node(${a})["emergency"="phone"];
+  node(${a})["tourism"="information"];
 );
 out geom;`;
 }
