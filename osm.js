@@ -1,0 +1,369 @@
+// ══════════════════════════════════════════════════════════════
+// osm.js — TickS Terrain
+// Reference OSM telechargee PAR GARE, a l'avance, pour disposer sur place
+// des cheminements et equipements deja cartographies.
+//
+// Meme principe que le pre-cache des tuiles : on prepare au bureau, on
+// consomme sur le terrain sans reseau. Mais contrairement aux tuiles, le
+// telechargement est ici a la demande, gare par gare : charger les 33 sites
+// d'un coup representerait plusieurs megaoctets pour un usage ou l'on ne
+// visite qu'un site a la fois.
+//
+// SEPARATION STRICTE AVEC LES RELEVES
+// -----------------------------------
+// Ces donnees ne sont JAMAIS synchronisees vers Supabase et ne rejoignent
+// jamais S.waypoints ni S.tracks. Elles vivent dans leur propre base
+// IndexedDB et leur propre couche Leaflet. La raison est simple : le schema
+// n'accepte que 'gps' et 'manuel' comme mode de saisie, et surtout un objet
+// vu dans OSM n'est pas un objet constate sur le terrain. Melanger les deux
+// reviendrait a livrer de la donnee tierce comme si elle avait ete relevee.
+//
+// Le seul pont entre les deux mondes est l'ADOPTION : reprendre la geometrie
+// d'un cheminement OSM comme point de depart d'un trace, que l'operateur
+// valide ensuite sommet par sommet sur l'orthophoto. Le resultat est alors
+// bien une saisie manuelle, puisqu'il l'a effectivement validee.
+// ══════════════════════════════════════════════════════════════
+
+const OSM_DB = 'ticks-osm-ref', OSM_VER = 1;
+const OVERPASS = 'https://overpass-api.de/api/interpreter';
+// Repli : le service principal tombe regulierement en fin de journee.
+const OVERPASS_ALT = 'https://overpass.kumi.systems/api/interpreter';
+const RAYON_DEFAUT = 500;
+
+// Emprise Normandie, pour borner la recherche de gare. Sans borne, une
+// recherche « Saint-Pierre » renverrait des gares de toute la France.
+const BBOX_NORMANDIE = [48.15, -2.05, 50.15, 1.95];
+
+let OSM_LAYER = null;          // couche Leaflet de la reference affichee
+let OSM_ACTIVE = null;         // gare actuellement chargee
+let OSM_VISIBLE = false;
+
+// ── Stockage ──────────────────────────────────────────────────
+function osmDB(){
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(OSM_DB, OSM_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('gares')) db.createObjectStore('gares', {keyPath:'slug'});
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+async function osmPut(rec){
+  const db = await osmDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('gares','readwrite');
+    tx.objectStore('gares').put(rec);
+    tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error);
+  });
+}
+async function osmGet(slug){
+  const db = await osmDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction('gares','readonly').objectStore('gares').get(slug);
+    r.onsuccess = () => res(r.result || null); r.onerror = e => rej(e.target.error);
+  });
+}
+async function osmList(){
+  const db = await osmDB();
+  return new Promise((res) => {
+    const r = db.transaction('gares','readonly').objectStore('gares').getAll();
+    r.onsuccess = () => res(r.result || []); r.onerror = () => res([]);
+  });
+}
+async function osmDel(slug){
+  const db = await osmDB();
+  return new Promise((res) => {
+    const tx = db.transaction('gares','readwrite');
+    tx.objectStore('gares').delete(slug);
+    tx.oncomplete = () => res(); tx.onerror = () => res();
+  });
+}
+
+function slugify(s){
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+
+// ── Correspondance OSM -> taxonomie CNIG du projet ────────────
+// Le but n'est pas de classer a la place de l'operateur mais de lui montrer
+// ce qu'OSM pretend savoir, dans SON vocabulaire a lui. Un ascenseur OSM
+// s'affiche donc « ASCENSEUR » et non « highway=elevator ».
+function mapperOSM(tags){
+  const t = tags || {};
+  if(t.highway === 'elevator')                 return ['equip_acces','ASCENSEUR'];
+  if(t.highway === 'steps')                    return ['equip_acces', t.conveying && t.conveying!=='no' ? 'ESCALATOR' : 'ESCALIER'];
+  if(t.conveying === 'yes' && t.highway)       return ['equip_acces','TAPIS_ROULANT'];
+  if(t.highway === 'crossing')                 return ['equip_acces','TRAVERSEE_PIETONS'];
+  if(t.kerb === 'lowered' || t.barrier === 'kerb') return ['equip_acces','ABAISSEMENT_TROTTOIR'];
+  if(t.barrier === 'turnstile')                return ['equip_acces','PASSAGE_SELECTIF'];
+  if(t.amenity === 'ticket_validator')         return ['equip_comp','VALIDATEUR'];
+  if(t.amenity === 'vending_machine' && /ticket/.test(t.vending||'')) return ['equip_comp','DISTRIBUTEUR_TITRES'];
+  if(t.tourism === 'information')              return ['equip_comp','BORNE_INFO'];
+  if(t.amenity === 'bench')                    return ['autre','BANC'];
+  if(t.amenity === 'shelter')                  return ['autre','ABRI'];
+  if(t.amenity === 'toilets')                  return ['autre','TOILETTES'];
+  if(t.amenity === 'waiting_room' || t.public_transport === 'waiting_room') return ['autre','SALLE_ATTENTE'];
+  if(t.amenity === 'bicycle_parking')          return ['autre','STATIONNEMENT_VELO'];
+  if(t.emergency === 'phone' || t.amenity === 'help_point') return ['autre','ASSISTANCE'];
+  if(t.railway === 'subway_entrance' || t.railway === 'train_station_entrance') return ['entree','PRINCIPALE'];
+  if(t.entrance){
+    const m = {main:'PRINCIPALE', yes:'SECONDAIRE', service:'SERVICE', emergency:'URGENCE'};
+    return ['entree', m[t.entrance] || 'SECONDAIRE'];
+  }
+  if(t.railway === 'platform' || t.public_transport === 'platform') return ['noeud','ARRET_TC'];
+  return ['autre','A_CLASSIFIER'];
+}
+
+// ── Requetes Overpass ─────────────────────────────────────────
+async function overpass(ql){
+  for(const url of [OVERPASS, OVERPASS_ALT]){
+    try{
+      const r = await fetch(url, {method:'POST', body:'data='+encodeURIComponent(ql),
+        headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      if(!r.ok) continue;
+      return await r.json();
+    }catch(e){ /* on tente le miroir suivant */ }
+  }
+  throw new Error('Overpass injoignable');
+}
+
+async function chercherGare(nom){
+  const [s,w,n,e] = BBOX_NORMANDIE;
+  const ql = `[out:json][timeout:25];
+nwr["railway"~"^(station|halt)$"]["name"~"${nom.replace(/"/g,'')}",i](${s},${w},${n},${e});
+out center 15;`;
+  const d = await overpass(ql);
+  return (d.elements||[]).map(el => ({
+    nom: el.tags?.name || 'Sans nom',
+    uic: el.tags?.['ref:SNCF'] || el.tags?.uic_ref || null,
+    lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon
+  })).filter(g => g.lat != null);
+}
+
+// Le reseau pietonnier ET les equipements en UNE requete : deux appels
+// separes doubleraient l'attente sur un service souvent charge.
+function qlGare(lat, lon, rayon){
+  return `[out:json][timeout:90];
+(
+  way(around:${rayon},${lat},${lon})["highway"~"^(footway|path|pedestrian|steps|corridor|living_street)$"];
+  way(around:${rayon},${lat},${lon})["highway"]["foot"~"^(yes|designated)$"];
+  way(around:${rayon},${lat},${lon})["railway"="platform"];
+  way(around:${rayon},${lat},${lon})["public_transport"="platform"];
+  node(around:${rayon},${lat},${lon})["highway"~"^(elevator|crossing)$"];
+  node(around:${rayon},${lat},${lon})["amenity"~"^(bench|shelter|toilets|ticket_validator|bicycle_parking|waiting_room|vending_machine|help_point)$"];
+  node(around:${rayon},${lat},${lon})["entrance"];
+  node(around:${rayon},${lat},${lon})["railway"~"^(subway_entrance|train_station_entrance)$"];
+  node(around:${rayon},${lat},${lon})["barrier"~"^(turnstile|kerb|gate)$"];
+  node(around:${rayon},${lat},${lon})["emergency"="phone"];
+  node(around:${rayon},${lat},${lon})["tourism"="information"];
+);
+out geom;`;
+}
+
+// Les attributs d'accessibilite qu'OSM porte reellement et qui interessent le
+// recensement. Tout le reste des tags est ecarte : c'est ce qui fait la
+// difference entre 80 Ko et 900 Ko par gare.
+const TAGS_UTILES = ['wheelchair','tactile_paving','ramp','handrail','step_count',
+  'incline','width','surface','smoothness','kerb','conveying','automatic_door',
+  'door','name','ref','level','indoor','covered','capacity','capacity:disabled',
+  'highway','railway','amenity','entrance','barrier','public_transport','emergency',
+  'tourism','vending','information','access','foot'];
+
+function compacter(elements){
+  const lignes = [], points = [];
+  for(const el of elements){
+    const tags = {};
+    for(const k of TAGS_UTILES) if(el.tags && el.tags[k] != null) tags[k] = el.tags[k];
+    if(el.type === 'way' && el.geometry){
+      // Coordonnees en tableaux plats et arrondies a 6 decimales (~11 cm) :
+      // la precision au-dela n'a aucun sens ici et double le volume.
+      lignes.push({i:el.id, t:tags,
+        g:el.geometry.map(p => [+p.lat.toFixed(6), +p.lon.toFixed(6)])});
+    }else if(el.type === 'node' && el.lat != null){
+      points.push({i:el.id, t:tags, g:[+el.lat.toFixed(6), +el.lon.toFixed(6)]});
+    }
+  }
+  return {lignes, points};
+}
+
+async function telechargerGare(gare, rayon){
+  toast('T\u00e9l\u00e9chargement OSM\u2026');
+  const d = await overpass(qlGare(gare.lat, gare.lon, rayon));
+  const {lignes, points} = compacter(d.elements || []);
+  const rec = {
+    slug: slugify(gare.nom), nom: gare.nom, uic: gare.uic || null,
+    lat: gare.lat, lon: gare.lon, rayon,
+    lignes, points, maj: Date.now()
+  };
+  rec.taille = new Blob([JSON.stringify(rec)]).size;
+  await osmPut(rec);
+  return rec;
+}
+
+// ── Affichage ─────────────────────────────────────────────────
+function afficherGare(rec){
+  if(!MAP_OK) return;
+  masquerOSM();
+  OSM_LAYER = L.layerGroup().addTo(MAP);
+  OSM_ACTIVE = rec; OSM_VISIBLE = true;
+
+  // Cheminements en tirete gris-bleu : volontairement DIFFERENT des traces de
+  // l'operateur, qui sont en violet plein. A aucun moment on ne doit pouvoir
+  // confondre une donnee tierce avec un releve.
+  rec.lignes.forEach(l => {
+    const quai = l.t.railway === 'platform' || l.t.public_transport === 'platform';
+    L.polyline(l.g, {color: quai ? '#0891B2' : '#64748B', weight: quai ? 3 : 2,
+      opacity:.75, dashArray: quai ? null : '5,4'})
+      .bindPopup(popupOSM(l, true))
+      .addTo(OSM_LAYER);
+  });
+  rec.points.forEach(p => {
+    const [type, sub] = mapperOSM(p.t);
+    const col = (typeof COLORS !== 'undefined' && COLORS[type]) || '#64748B';
+    L.circleMarker(p.g, {radius:6, color:col, weight:2, fillColor:'#fff', fillOpacity:.85, dashArray:'2,2'})
+      .bindPopup(popupOSM(p, false))
+      .addTo(OSM_LAYER);
+  });
+  const btn = document.getElementById('btn-osm');
+  if(btn) btn.classList.add('on');
+  toast(rec.nom + ' \u2014 ' + rec.lignes.length + ' cheminements, ' + rec.points.length + ' objets');
+}
+
+function popupOSM(el, estLigne){
+  const [type, sub] = mapperOSM(el.t);
+  const nom = el.t.name || el.t.ref || (estLigne ? 'Cheminement' : 'Objet');
+  const acc = [];
+  if(el.t.wheelchair) acc.push('fauteuil : ' + el.t.wheelchair);
+  if(el.t.tactile_paving) acc.push('bande podotactile : ' + el.t.tactile_paving);
+  if(el.t.step_count) acc.push(el.t.step_count + ' marches');
+  if(el.t.incline) acc.push('pente : ' + el.t.incline);
+  if(el.t.width) acc.push('largeur : ' + el.t.width + ' m');
+  if(el.t.handrail) acc.push('main courante : ' + el.t.handrail);
+  let h = '<div style="font:600 13px -apple-system,sans-serif">' + esc(nom) + '</div>'
+    + '<div style="font-size:11px;color:#666;margin:3px 0">' + sub.replace(/_/g,' ').toLowerCase()
+    + ' &middot; OSM ' + (estLigne ? 'way' : 'node') + '/' + el.i + '</div>';
+  if(acc.length) h += '<div style="font-size:11px;line-height:1.5">' + acc.map(esc).join('<br>') + '</div>';
+  h += '<div style="font-size:10px;color:#999;margin-top:6px;font-style:italic">'
+     + 'Donn\u00e9e OSM &mdash; \u00e0 v\u00e9rifier sur place</div>';
+  if(estLigne && el.g.length >= 2){
+    h += '<button onclick="adopterCheminement(' + el.i + ')" style="margin-top:8px;width:100%;'
+      + 'padding:8px;border:none;border-radius:9px;background:#8A3090;color:#fff;'
+      + 'font:600 12px -apple-system,sans-serif">Reprendre comme trac\u00e9</button>';
+  }
+  return h;
+}
+
+function masquerOSM(){
+  if(OSM_LAYER){ try{ MAP.removeLayer(OSM_LAYER); }catch(e){} OSM_LAYER = null; }
+  OSM_VISIBLE = false;
+  const btn = document.getElementById('btn-osm');
+  if(btn) btn.classList.remove('on');
+}
+
+function toggleOSM(){
+  if(OSM_VISIBLE){ masquerOSM(); return; }
+  if(OSM_ACTIVE){ afficherGare(OSM_ACTIVE); return; }
+  goTab('osm');
+}
+
+// ── Adoption d'un cheminement ─────────────────────────────────
+// Reprend la geometrie OSM comme point de depart d'un trace. L'operateur
+// valide ou corrige chaque sommet sur l'orthophoto avant d'enregistrer : le
+// troncon produit est donc bien une saisie manuelle, et non une copie de
+// donnee tierce presentee comme un releve.
+function adopterCheminement(idWay){
+  if(!OSM_ACTIVE) return;
+  const l = OSM_ACTIVE.lignes.find(x => x.i === idWay);
+  if(!l) return;
+  if(S.recording){ toast('Terminez le tron\u00e7on en cours','a'); return; }
+  MAP.closePopup();
+  startTrace();
+  const t = S.tracks[S.curTrack];
+  // Un cheminement OSM peut compter des centaines de sommets ; au-dela d'une
+  // trentaine le trace devient impossible a corriger au doigt. On echantillonne
+  // en conservant toujours les deux extremites.
+  const pas = Math.max(1, Math.ceil(l.g.length / 30));
+  l.g.forEach((c, i) => {
+    if(i % pas === 0 || i === l.g.length - 1)
+      t.pts.push({lat:c[0], lon:c[1], ts:Date.now(), acc:null, source:'manuel'});
+  });
+  t.name = (l.t.name || 'Cheminement') + ' (OSM \u00e0 v\u00e9rifier)';
+  const nm = document.getElementById('trk-name'); if(nm) nm.value = t.name;
+  redrawTrace(); updateTrkStats(); updateTraceUI();
+  MAP.fitBounds(L.polyline(l.g).getBounds(), {padding:[40,40]});
+  toast(t.pts.length + ' sommets repris \u2014 corrigez puis validez','a');
+}
+
+// ── Interface de gestion ──────────────────────────────────────
+async function renderOSM(){
+  const el = document.getElementById('osm-list'); if(!el) return;
+  const gares = await osmList();
+  if(!gares.length){
+    el.innerHTML = '<div class="empty">Aucune gare t\u00e9l\u00e9charg\u00e9e.<br>'
+      + 'Recherchez-en une ci-dessus, avec du r\u00e9seau,<br>pour la consulter ensuite hors ligne.</div>';
+    return;
+  }
+  const total = gares.reduce((s,g) => s + (g.taille||0), 0);
+  el.innerHTML = gares.sort((a,b) => a.nom.localeCompare(b.nom)).map(g => {
+    const ko = Math.round((g.taille||0)/1024);
+    const j = Math.floor((Date.now() - g.maj)/86400000);
+    return '<div class="wpt-item">'
+      + '<div class="wdot" style="background:rgba(138,48,144,.12);color:var(--ticks)">'
+      + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/></svg></div>'
+      + '<div class="winfo" onclick="chargerGare(\'' + g.slug + '\')" style="cursor:pointer">'
+      + '<div class="wname">' + esc(g.nom) + '</div>'
+      + '<div class="wmeta">' + g.lignes.length + ' cheminements &middot; ' + g.points.length
+      + ' objets &middot; ' + ko + ' Ko &middot; ' + (j ? 'il y a ' + j + ' j' : "aujourd'hui") + '</div></div>'
+      + '<button class="wbtn" onclick="supprimerGare(\'' + g.slug + '\')" aria-label="Supprimer">&times;</button></div>';
+  }).join('')
+  + '<div style="text-align:center;font-size:11.5px;color:var(--txt3);margin-top:10px">'
+  + gares.length + ' gare(s) &middot; ' + Math.round(total/1024) + ' Ko au total</div>';
+}
+
+async function chercherGareUI(){
+  const q = document.getElementById('osm-q').value.trim();
+  if(q.length < 3){ toast('Au moins 3 caract\u00e8res','a'); return; }
+  const res = document.getElementById('osm-res');
+  res.innerHTML = '<div class="empty">Recherche\u2026</div>';
+  try{
+    const gares = await chercherGare(q);
+    if(!gares.length){ res.innerHTML = '<div class="empty">Aucune gare trouv\u00e9e en Normandie.</div>'; return; }
+    res.innerHTML = gares.map((g,i) =>
+      '<div class="wpt-item" onclick="telechargerIdx(' + i + ')" style="cursor:pointer">'
+      + '<div class="winfo"><div class="wname">' + esc(g.nom) + '</div>'
+      + '<div class="wmeta">' + (g.uic ? 'UIC ' + g.uic + ' &middot; ' : '')
+      + g.lat.toFixed(4) + ', ' + g.lon.toFixed(4) + '</div></div>'
+      + '<span class="wbtn">&darr;</span></div>').join('');
+    window.__osmRes = gares;
+  }catch(e){ res.innerHTML = '<div class="empty">Overpass injoignable.<br>R\u00e9essayez avec du r\u00e9seau.</div>'; }
+}
+
+async function telechargerIdx(i){
+  const g = (window.__osmRes || [])[i]; if(!g) return;
+  const rayon = parseInt(document.getElementById('osm-rayon').value, 10) || RAYON_DEFAUT;
+  try{
+    const rec = await telechargerGare(g, rayon);
+    document.getElementById('osm-res').innerHTML = '';
+    document.getElementById('osm-q').value = '';
+    await renderOSM();
+    toast(rec.nom + ' \u2014 ' + Math.round(rec.taille/1024) + ' Ko enregistr\u00e9s','g');
+  }catch(e){ toast('\u00c9chec : ' + e.message,'r'); }
+}
+
+async function chargerGare(slug){
+  const rec = await osmGet(slug); if(!rec) return;
+  goTab('terrain');
+  setTimeout(() => {
+    afficherGare(rec);
+    MAP.setView([rec.lat, rec.lon], 17.5);
+  }, 180);
+}
+
+async function supprimerGare(slug){
+  if(!confirm('Supprimer les donn\u00e9es OSM de cette gare ?')) return;
+  if(OSM_ACTIVE && OSM_ACTIVE.slug === slug) masquerOSM(), OSM_ACTIVE = null;
+  await osmDel(slug); await renderOSM();
+  toast('Supprim\u00e9');
+}

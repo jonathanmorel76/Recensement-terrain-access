@@ -104,7 +104,10 @@ function routeTrack(trk, sessionId){
     nom:trk.name,
     nb_points_gps:trk.pts.length,
     precision_moy:precisionMoy(trk),
-    mode_saisie:'gps'
+    // Un troncon trace a la main sur orthophoto n'est pas un releve GPS :
+    // l'annoncer comme tel fausserait toute analyse de qualite en aval.
+    // precision_moy vaut alors null, ce que precisionMoy() produit deja.
+    mode_saisie:(trk.mode==='manuel'||trk.pts.every(p=>p.acc==null))?'manuel':'gps'
   };
   if(sessionId) data.session_id=sessionId;
   return {table:'troncon_cheminement', data};
@@ -441,13 +444,16 @@ function goTab(id){
   const terrain=document.getElementById('pane-terrain');
   const pts=document.getElementById('pane-points');
   const exp=document.getElementById('pane-export');
+  const osm=document.getElementById('pane-osm');
   if(terrain)terrain.style.display=id==='terrain'?'block':'none';
   if(pts)pts.style.display=id==='points'?'flex':'none';
   if(exp)exp.style.display=id==='export'?'flex':'none';
+  if(osm)osm.style.display=id==='osm'?'flex':'none';
   document.querySelectorAll('.bmenu-item').forEach(b=>{b.classList.toggle('active',b.dataset.view===id);});
   if(id==='terrain'){setTimeout(()=>{if(MAP)MAP.invalidateSize();},100);}
   if(id==='points')renderPts();
   if(id==='export')renderExp();
+  if(id==='osm'&&typeof renderOSM==='function')renderOSM();
   closeBurger();
   closeFilterPopover();
 }
@@ -462,7 +468,7 @@ function goTab(id){
       setTimeout(applyFix, 300); return;
     }
     ['sheet','wpt-cluster','right-pill','filter-popover','btn-geolocate',
-     'manual-bar','pick-bar',
+     'manual-bar','pick-bar','trace-bar','topbar','session-pill',
      'burger-btn','gps-bar','burger-menu','burger-panel',
      'avg-modal','wpt-modal','edit-modal','sync-modal','toast'].forEach(id => {
       const el = document.getElementById(id);

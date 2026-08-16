@@ -6,8 +6,8 @@
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '2.4.0';
-console.log('[TickS Terrain] app.js v2.4.0 charge');
+const APP_VERSION = '2.6.0';
+console.log('[TickS Terrain] app.js v2.6.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -24,6 +24,10 @@ const S = {
 // 8 mesures etaient les MOINS precises de la serie (+/-6 et +/-5 contre
 // +/-2 pour une capture arretee a 3 mesures). Attendre n'achetait rien.
 const AVG_GOAL_M = 5;
+// Precision au-dela de laquelle un point de troncon est ecarte. Sous une
+// halle de gare le GPS depasse regulierement ce seuil : c'est le cas ou le
+// trace manuel prend le relais.
+const SEUIL_TRACE = 15;
 const AVG = { active:false, type:null, samples:[], target:8, maxAcc:20, goal:AVG_GOAL_M,
               lastTs:0, timer:null, deadline:0, rejected:0 };
 // Pointage manuel : MANUAL.pos = coords choisies par appui long sur la carte
@@ -208,12 +212,25 @@ function launchWatch(highAccuracy){
       // Filtre de distance : a l'arret le GPS "derive" et gonflait la longueur
       // du troncon de plusieurs dizaines de metres. On ignore les points a
       // moins de 2 m du precedent.
-      if(S.recording&&!S.paused&&S.acc<=15){
-        const t=S.tracks[S.curTrack];
-        const prev=t.pts[t.pts.length-1];
-        if(!prev||hav(prev,S.pos)>=2){
-          t.pts.push({lat:S.pos.lat,lon:S.pos.lon,ts:Date.now(),acc:S.acc});
-          updateTrkStats();updateMapLive();
+      if(S.recording&&!S.paused&&S.modeTrace!==true){
+        if(S.acc<=SEUIL_TRACE){
+          const t=S.tracks[S.curTrack];
+          const prev=t.pts[t.pts.length-1];
+          if(!prev||hav(prev,S.pos)>=2){
+            t.pts.push({lat:S.pos.lat,lon:S.pos.lon,ts:Date.now(),acc:S.acc});
+            S.trkRejets=0;
+            updateTrkStats();updateMapLive();
+          }
+        }else{
+          // Sous une halle ou en souterrain la precision depasse le seuil et
+          // AUCUN point n'etait retenu : le chronometre tournait, la distance
+          // restait a zero, et rien ne l'expliquait. On previent au bout de
+          // quelques rejets consecutifs, et on propose le trace manuel.
+          S.trkRejets=(S.trkRejets||0)+1;
+          if(S.trkRejets===4){
+            toast('GPS trop impr\u00e9cis \u2014 essayez le trac\u00e9 manuel','a');
+            if(navigator.vibrate)navigator.vibrate([12,60,12]);
+          }
         }
       }
       // Dedoublonnage : watchPosition peut renvoyer plusieurs fois le MEME fix.
@@ -980,4 +997,105 @@ function rememberSub(type,sub){
     m[type]=sub;
     localStorage.setItem(SUB_KEY,JSON.stringify(m));
   }catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════
+// TRACE MANUEL DE TRONCON
+// Le releve d'un cheminement par suivi GPS suppose une precision que l'on
+// n'a pas en gare : sous une halle ou en souterrain la position derive de
+// 20 a 40 m et la trace part en zigzag. Sur orthophoto en revanche, le
+// parvis, les quais et les circulations sont parfaitement lisibles : un
+// trace pointe a la main y est plus juste d'un ordre de grandeur.
+//
+// Les sommets ainsi poses portent acc:null et source:'manuel'. precisionMoy()
+// (sync.js) ignore deja les valeurs non numeriques, donc un troncon trace
+// remonte avec precision_moy nulle plutot qu'avec une precision inventee.
+// ══════════════════════════════════════════════════════════════
+
+let TRACE_LINE = null, TRACE_PTS_LAYER = [];
+
+function startTrace(){
+  if(S.recording){toast('Terminez le tron\u00e7on en cours','a');return;}
+  S.recording=true;S.paused=true;S.modeTrace=true;
+  S.curTrack=S.tracks.length;
+  S.tracks.push({name:'Tron\u00e7on '+(S.tracks.length+1),pts:[],startTs:Date.now(),mode:'manuel'});
+  S.recStart=Date.now();S.recElapsed=0;
+  const el=document.getElementById('map');if(el)el.classList.add('tracing');
+  MAP.on('click',traceClick);
+  updateSheetUI();updateTraceUI();
+  toast('Touchez la carte pour poser les sommets','g');
+}
+
+function traceClick(e){
+  if(!S.modeTrace)return;
+  const t=S.tracks[S.curTrack];
+  t.pts.push({lat:e.latlng.lat,lon:e.latlng.lng,ts:Date.now(),acc:null,source:'manuel'});
+  if(navigator.vibrate)navigator.vibrate(8);
+  redrawTrace();updateTrkStats();updateTraceUI();
+}
+
+function undoTrace(){
+  const t=S.tracks[S.curTrack];
+  if(!t||!t.pts.length)return;
+  t.pts.pop();
+  redrawTrace();updateTrkStats();updateTraceUI();
+}
+
+function redrawTrace(){
+  if(!MAP_OK)return;
+  const t=S.tracks[S.curTrack];if(!t)return;
+  if(TRACE_LINE){try{MAP.removeLayer(TRACE_LINE);}catch(e){}}
+  TRACE_PTS_LAYER.forEach(m=>{try{MAP.removeLayer(m);}catch(e){}});
+  TRACE_PTS_LAYER=[];
+  const ll=t.pts.map(p=>[p.lat,p.lon]);
+  if(ll.length>=2){
+    TRACE_LINE=L.polyline(ll,{color:'#8A3090',weight:4,opacity:.9}).addTo(MAP);
+  }
+  // Sommets numerotes : sur un cheminement qui se recoupe, une simple ligne
+  // ne permet pas de savoir ou l'on en est ni quel point sera annule.
+  ll.forEach((c,i)=>{
+    const dernier=i===ll.length-1;
+    TRACE_PTS_LAYER.push(L.marker(c,{icon:L.divIcon({className:'',iconSize:[20,20],iconAnchor:[10,10],
+      html:'<div style="width:20px;height:20px;border-radius:50%;background:'
+        +(dernier?'#8A3090':'#fff')+';color:'+(dernier?'#fff':'#8A3090')
+        +';border:2px solid #8A3090;font:700 10px/16px -apple-system,sans-serif;'
+        +'text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.3)">'+(i+1)+'</div>'})}).addTo(MAP));
+  });
+}
+
+function updateTraceUI(){
+  const bar=document.getElementById('trace-bar');if(!bar)return;
+  bar.classList.toggle('open',!!S.modeTrace);
+  const t=S.tracks[S.curTrack];
+  const n=(t&&t.pts.length)||0;
+  const lab=document.getElementById('trace-n');
+  if(lab)lab.textContent=n+' sommet'+(n>1?'s':'');
+  const fin=document.getElementById('trace-fin');
+  if(fin){fin.disabled=n<2;fin.style.opacity=n<2?.4:1;}
+}
+
+function finishTrace(){
+  const t=S.tracks[S.curTrack];
+  if(!t||t.pts.length<2){toast('Au moins deux sommets','a');return;}
+  MAP.off('click',traceClick);
+  const el=document.getElementById('map');if(el)el.classList.remove('tracing');
+  if(TRACE_LINE){try{MAP.removeLayer(TRACE_LINE);}catch(e){}TRACE_LINE=null;}
+  TRACE_PTS_LAYER.forEach(m=>{try{MAP.removeLayer(m);}catch(e){}});TRACE_PTS_LAYER=[];
+  const nm=document.getElementById('trk-name');
+  if(nm&&nm.value.trim())t.name=nm.value.trim();
+  S.recording=false;S.paused=false;S.modeTrace=false;S.curTrack=null;
+  updateSheetUI();updateTraceUI();refreshMap();save();
+  if(typeof updateV2Stats==='function')updateV2Stats();
+  toast('Tron\u00e7on trac\u00e9 : '+t.pts.length+' sommets','g');
+}
+
+function cancelTrace(){
+  MAP.off('click',traceClick);
+  const el=document.getElementById('map');if(el)el.classList.remove('tracing');
+  if(TRACE_LINE){try{MAP.removeLayer(TRACE_LINE);}catch(e){}TRACE_LINE=null;}
+  TRACE_PTS_LAYER.forEach(m=>{try{MAP.removeLayer(m);}catch(e){}});TRACE_PTS_LAYER=[];
+  if(S.curTrack!==null)S.tracks.splice(S.curTrack,1);
+  S.recording=false;S.paused=false;S.modeTrace=false;S.curTrack=null;
+  updateSheetUI();updateTraceUI();refreshMap();
+  toast('Trac\u00e9 abandonn\u00e9');
 }
