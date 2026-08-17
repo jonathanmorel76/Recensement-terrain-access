@@ -127,7 +127,7 @@ function afficherGare(rec){
   });
   const btn = document.getElementById('btn-osm');
   if(btn) btn.classList.add('on');
-  toast(rec.nom + ' \u2014 ' + rec.lignes.length + ' cheminements, ' + rec.points.length + ' objets');
+  toast(rec.nom + ' \u2014 ' + rec.lignes.length + ' cheminements, ' + rec.points.length + ' n\u0153uds');
 }
 
 function popupOSM(el, estLigne){
