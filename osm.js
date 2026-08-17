@@ -1,59 +1,40 @@
 // ══════════════════════════════════════════════════════════════
 // osm.js — TickS Terrain
-// Reference OSM telechargee PAR GARE, a l'avance, pour disposer sur place
-// des cheminements et equipements deja cartographies.
+// Reference OSM : reseau pietonnier et noeuds de cheminement, prepares en
+// amont par preparer_gares_osm.py et publies dans gares/ avec l'app.
 //
-// Meme principe que le pre-cache des tuiles : on prepare au bureau, on
-// consomme sur le terrain sans reseau. Mais contrairement aux tuiles, le
-// telechargement est ici a la demande, gare par gare : charger les 33 sites
-// d'un coup representerait plusieurs megaoctets pour un usage ou l'on ne
-// visite qu'un site a la fois.
+// AUCUN APPEL A OVERPASS DEPUIS L'APP.
+// Les versions precedentes interrogeaient Overpass au moment ou l'operateur
+// en avait besoin. Trois raisons ont fait abandonner ce principe :
+//   - Overpass bloque les plages AWS et Azure depuis octobre 2025, donc tout
+//     relais deploye sur Vercel est rejete sans code d'erreur ;
+//   - l'instance publique est notoirement congestionnee ;
+//   - surtout, dependre d'un service benevole a l'instant precis ou l'on se
+//     trouve en gare est fragile par nature.
+// Les donnees sont preparees au bureau et servies en statique. Si une requete
+// a la demande redevenait necessaire, elle serait a traiter cote preparation,
+// pas ici : c'est le retour de cette dependance qu'il faut eviter.
 //
-// SEPARATION STRICTE AVEC LES RELEVES
-// -----------------------------------
-// Ces donnees ne sont JAMAIS synchronisees vers Supabase et ne rejoignent
-// jamais S.waypoints ni S.tracks. Elles vivent dans leur propre base
-// IndexedDB et leur propre couche Leaflet. La raison est simple : le schema
-// n'accepte que 'gps' et 'manuel' comme mode de saisie, et surtout un objet
-// vu dans OSM n'est pas un objet constate sur le terrain. Melanger les deux
-// reviendrait a livrer de la donnee tierce comme si elle avait ete relevee.
+// PERIMETRE : cheminements, quais, et noeuds qui structurent le graphe
+// (ascenseurs, escaliers, traversees, bordures, tourniquets, entrees). Le
+// mobilier et l'information voyageur en sont volontairement absents : ils
+// relevent du recensement terrain. Deux versions du meme objet, l'une
+// observee et l'autre supposee, ne doivent jamais cohabiter sur la carte.
 //
-// Le seul pont entre les deux mondes est l'ADOPTION : reprendre la geometrie
-// d'un cheminement OSM comme point de depart d'un trace, que l'operateur
-// valide ensuite sommet par sommet sur l'orthophoto. Le resultat est alors
-// bien une saisie manuelle, puisqu'il l'a effectivement validee.
+// SEPARATION AVEC LES RELEVES : ces donnees ne rejoignent jamais S.waypoints
+// ni S.tracks et ne sont jamais synchronisees. Le seul pont est l'adoption
+// d'un cheminement comme point de depart d'un trace, que l'operateur valide
+// ensuite sommet par sommet.
 // ══════════════════════════════════════════════════════════════
 
 const OSM_DB = 'ticks-osm-ref', OSM_VER = 1;
-// Relais configurable. Par defaut la fonction Vercel, mais Overpass BLOQUE
-// les plages AWS et Azure depuis octobre 2025 pour se proteger d'un usage
-// abusif depuis le cloud : Vercel s'executant sur AWS, ses requetes sont
-// rejetees sans code d'erreur, ce qui se lit comme un depassement de delai
-// sur tous les miroirs a la fois. Un relais Cloudflare (worker.mjs) contourne
-// le probleme ; son URL se colle dans l'ecran Reference OSM.
-const RELAIS_DEFAUT = '/api/overpass';
-function relaisURL(){
-  try{ return localStorage.getItem('ticks_relais_osm') || RELAIS_DEFAUT; }
-  catch(e){ return RELAIS_DEFAUT; }
-}
-// Instance francaise en tete : la plus proche pour des donnees normandes, et
-// moins sollicitee que l'instance principale allemande.
-const MIROIRS_OVERPASS = [
-  'https://overpass.openstreetmap.fr/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
-];
-const RAYON_DEFAUT = 500;
+const CATALOGUE = './gares/index.json';
 
-// Emprise Normandie, pour borner la recherche de gare. Sans borne, une
-// recherche « Saint-Pierre » renverrait des gares de toute la France.
-const BBOX_NORMANDIE = [48.15, -2.05, 50.15, 1.95];
-
-let OSM_LAYER = null;          // couche Leaflet de la reference affichee
-let OSM_ACTIVE = null;         // gare actuellement chargee
+let OSM_LAYER = null;      // couche Leaflet affichee
+let OSM_ACTIVE = null;     // gare chargee
 let OSM_VISIBLE = false;
 
-// ── Stockage ──────────────────────────────────────────────────
+// ── Stockage local ────────────────────────────────────────────
 function osmDB(){
   return new Promise((res, rej) => {
     const req = indexedDB.open(OSM_DB, OSM_VER);
@@ -65,6 +46,7 @@ function osmDB(){
     req.onerror = e => rej(e.target.error);
   });
 }
+
 async function osmPut(rec){
   const db = await osmDB();
   return new Promise((res, rej) => {
@@ -73,6 +55,7 @@ async function osmPut(rec){
     tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error);
   });
 }
+
 async function osmGet(slug){
   const db = await osmDB();
   return new Promise((res, rej) => {
@@ -80,6 +63,7 @@ async function osmGet(slug){
     r.onsuccess = () => res(r.result || null); r.onerror = e => rej(e.target.error);
   });
 }
+
 async function osmList(){
   const db = await osmDB();
   return new Promise((res) => {
@@ -87,6 +71,7 @@ async function osmList(){
     r.onsuccess = () => res(r.result || []); r.onerror = () => res([]);
   });
 }
+
 async function osmDel(slug){
   const db = await osmDB();
   return new Promise((res) => {
@@ -96,15 +81,9 @@ async function osmDel(slug){
   });
 }
 
-function slugify(s){
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-          .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-}
-
-// ── Correspondance OSM -> taxonomie CNIG du projet ────────────
-// Le but n'est pas de classer a la place de l'operateur mais de lui montrer
-// ce qu'OSM pretend savoir, dans SON vocabulaire a lui. Un ascenseur OSM
-// s'affiche donc « ASCENSEUR » et non « highway=elevator ».
+// ── Correspondance OSM -> taxonomie du projet ─────────────────
+// Affiche l'objet dans le vocabulaire de l'operateur plutot qu'en tags OSM :
+// « ASCENSEUR » se lit mieux que « highway=elevator » sur un parvis.
 function mapperOSM(tags){
   const t = tags || {};
   if(t.highway === 'elevator')                 return ['equip_acces','ASCENSEUR'];
@@ -122,176 +101,7 @@ function mapperOSM(tags){
   return ['noeud','INTERSECTION'];
 }
 
-// ── Requetes Overpass ─────────────────────────────────────────
-async function overpass(ql){
-  const echecs = [];
-
-  // 1) Relais serveur. Il renvoie toujours du JSON, y compris en erreur, donc
-  //    son diagnostic est exploitable tel quel.
-  try{
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 70000);
-    const r = await fetch(relaisURL() + '?data=' + encodeURIComponent(ql), {signal:ctrl.signal});
-    clearTimeout(t);
-    const d = await r.json().catch(() => null);
-    if(r.ok && d && !d.erreur) return d;
-    if(d && Array.isArray(d.echecs)){
-      d.echecs.forEach(e => echecs.push(`${e.hote} : ${e.message}`));
-    }else{
-      echecs.push('relais : HTTP ' + r.status);
-    }
-  }catch(err){
-    // Un relais absent (app servie hors Vercel) ou une coupure reseau.
-    echecs.push('relais : ' + (err.name==='AbortError' ? 'delai de 70 s depasse' : err.message));
-  }
-
-  // 2) Repli direct. Sur navigateur les erreurs amont perdent leurs en-tetes
-  //    CORS et remontent en « Load failed » sans detail : c'est precisement
-  //    ce que le relais evite, d'ou son passage en premier.
-  for(const url of MIROIRS_OVERPASS){
-    try{
-      const ctrl = new AbortController();
-      const minuteur = setTimeout(() => ctrl.abort(), 45000);
-      const r = await fetch(url + '?data=' + encodeURIComponent(ql), {method:'GET', signal:ctrl.signal});
-      clearTimeout(minuteur);
-      if(!r.ok){ echecs.push(`${hote(url)} : HTTP ${r.status}`); continue; }
-      const ct = r.headers.get('content-type') || '';
-      if(!/json/i.test(ct)){ echecs.push(`${hote(url)} : r\u00e9ponse non-JSON`); continue; }
-      const d = await r.json();
-      if(d.remark){ echecs.push(`${hote(url)} : ${String(d.remark).slice(0,160)}`); continue; }
-      return d;
-    }catch(err){
-      echecs.push(`${hote(url)} : ${err.name==='AbortError'?'delai depasse':err.message}`);
-    }
-  }
-
-  const e = new Error(echecs.join(' | '));
-  e.detail = echecs;
-  throw e;
-}
-
-function hote(u){ try{ return new URL(u).hostname.split('.')[0]; }catch(e){ return u; } }
-
-async function chercherGare(nom){
-  const [s,w,n,e] = BBOX_NORMANDIE;
-  const q = nom.replace(/["\\]/g,'');
-  // Le filtre de TETE doit etre une egalite exacte, jamais une expression
-  // reguliere : Overpass sait resoudre ["railway"="station"] par son index,
-  // alors qu'une regex l'oblige a balayer toute l'emprise. La version
-  // precedente combinait DEUX regex (railway et name) sur la Normandie
-  // entiere, ce qui depassait le delai serveur et renvoyait 504.
-  // On enumere donc les combinaisons plutot que de les factoriser : plus
-  // verbeux, mais indexe.
-  const lignes = [];
-  for(const type of ['node','way','relation'])
-    for(const val of ['station','halt'])
-      lignes.push(`  ${type}["railway"="${val}"]["name"~"${q}",i](${s},${w},${n},${e});`);
-  const ql = `[out:json][timeout:18];\n(\n${lignes.join('\n')}\n);\nout center 20;`;
-  const d = await overpass(ql);
-  return (d.elements||[]).map(el => ({
-    nom: el.tags?.name || 'Sans nom',
-    uic: el.tags?.['ref:SNCF'] || el.tags?.uic_ref || null,
-    lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon
-  })).filter(g => g.lat != null);
-}
-
-// Repli sans recherche : telecharger la zone actuellement affichee sur la
-// carte. Ne depend d'aucune requete de recherche, donc reste disponible quand
-// le nom ne donne rien ou que le service peine. C'est souvent le plus direct :
-// l'operateur sait ou est la gare, il la cadre a l'ecran.
-async function telechargerVue(){
-  if(!MAP_OK){ toast('Carte non pr\u00eate','a'); return; }
-  const nom = (document.getElementById('osm-q').value || '').trim();
-  if(nom.length < 3){ toast('Indiquez d\'abord un nom pour cette zone','a'); return; }
-  const c = MAP.getCenter();
-  const rayon = parseInt(document.getElementById('osm-rayon').value,10) || RAYON_DEFAUT;
-  try{
-    const rec = await telechargerGare({nom, lat:c.lat, lon:c.lng, uic:null}, rayon);
-    document.getElementById('osm-res').innerHTML = '';
-    document.getElementById('osm-q').value = '';
-    await renderOSM();
-    toast(rec.nom + ' \u2014 ' + Math.round(rec.taille/1024) + ' Ko enregistr\u00e9s','g');
-  }catch(err){
-    console.error('[OSM] vue', err.detail || err);
-    document.getElementById('osm-res').innerHTML =
-      '<div class="empty" style="text-align:left">' + (err.detail||[err.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
-    toast('\u00c9chec du t\u00e9l\u00e9chargement','r');
-  }
-}
-
-// Le reseau pietonnier ET les equipements en UNE requete : deux appels
-// separes doubleraient l'attente sur un service souvent charge.
-function qlGare(lat, lon, rayon){
-  // Le timeout annonce doit rester SOUS le budget du relais (20 s par miroir).
-  // A 90 s, Overpass acceptait de travailler bien au-dela du temps disponible :
-  // la fonction etait tuee avant qu'il ne reponde, et aucun miroir n'etait
-  // jamais essaye. Mieux vaut qu'Overpass renonce vite et renvoie un « remark »
-  // exploitable.
-  //
-  // Reseau pietonnier et noeuds de cheminement UNIQUEMENT : le mobilier et
-  // les services releves sur le terrain sont volontairement exclus, pour que
-  // deux versions du meme objet — l'une observee, l'autre supposee — ne
-  // cohabitent jamais sur la carte.
-  //
-  // Les clauses sont regroupees par type d'objet plutot qu'une par tag : le
-  // filtre « around » est evalue en premier et ramene un ensemble reduit, sur
-  // lequel une expression reguliere ne coute plus rien. Onze clauses separees
-  // recalculaient onze fois le meme voisinage.
-  const a = `around:${rayon},${lat},${lon}`;
-  return `[out:json][timeout:18];
-(
-  way(${a})["highway"~"^(footway|path|pedestrian|steps|corridor|living_street)$"];
-  way(${a})["highway"]["foot"~"^(yes|designated)$"];
-  way(${a})["railway"="platform"];
-  way(${a})["public_transport"="platform"];
-  node(${a})["highway"~"^(elevator|crossing)$"];
-  node(${a})["railway"~"^(subway_entrance|train_station_entrance)$"];
-  node(${a})["barrier"~"^(turnstile|kerb|gate)$"];
-  node(${a})["entrance"];
-);
-out geom;`;
-}
-
-// Les attributs d'accessibilite qu'OSM porte reellement et qui interessent le
-// recensement. Tout le reste des tags est ecarte : c'est ce qui fait la
-// difference entre 80 Ko et 900 Ko par gare.
-const TAGS_UTILES = ['wheelchair','tactile_paving','ramp','handrail','step_count',
-  'incline','width','surface','smoothness','kerb','conveying','automatic_door',
-  'door','name','ref','level','indoor','covered',
-  'highway','railway','entrance','barrier','public_transport','access','foot'];
-
-function compacter(elements){
-  const lignes = [], points = [];
-  for(const el of elements){
-    const tags = {};
-    for(const k of TAGS_UTILES) if(el.tags && el.tags[k] != null) tags[k] = el.tags[k];
-    if(el.type === 'way' && el.geometry){
-      // Coordonnees en tableaux plats et arrondies a 6 decimales (~11 cm) :
-      // la precision au-dela n'a aucun sens ici et double le volume.
-      lignes.push({i:el.id, t:tags,
-        g:el.geometry.map(p => [+p.lat.toFixed(6), +p.lon.toFixed(6)])});
-    }else if(el.type === 'node' && el.lat != null){
-      points.push({i:el.id, t:tags, g:[+el.lat.toFixed(6), +el.lon.toFixed(6)]});
-    }
-  }
-  return {lignes, points};
-}
-
-async function telechargerGare(gare, rayon){
-  toast('T\u00e9l\u00e9chargement OSM\u2026');
-  const d = await overpass(qlGare(gare.lat, gare.lon, rayon));
-  const {lignes, points} = compacter(d.elements || []);
-  const rec = {
-    slug: slugify(gare.nom), nom: gare.nom, uic: gare.uic || null,
-    lat: gare.lat, lon: gare.lon, rayon,
-    lignes, points, maj: Date.now()
-  };
-  rec.taille = new Blob([JSON.stringify(rec)]).size;
-  await osmPut(rec);
-  return rec;
-}
-
-// ── Affichage ─────────────────────────────────────────────────
+// ── Affichage sur la carte ────────────────────────────────────
 function afficherGare(rec){
   if(!MAP_OK) return;
   masquerOSM();
@@ -357,11 +167,7 @@ function toggleOSM(){
   goTab('osm');
 }
 
-// ── Adoption d'un cheminement ─────────────────────────────────
-// Reprend la geometrie OSM comme point de depart d'un trace. L'operateur
-// valide ou corrige chaque sommet sur l'orthophoto avant d'enregistrer : le
-// troncon produit est donc bien une saisie manuelle, et non une copie de
-// donnee tierce presentee comme un releve.
+// ── Adoption d'un cheminement comme trace ─────────────────────
 function adopterCheminement(idWay){
   if(!OSM_ACTIVE) return;
   const l = OSM_ACTIVE.lignes.find(x => x.i === idWay);
@@ -385,78 +191,68 @@ function adopterCheminement(idWay){
   toast(t.pts.length + ' sommets repris \u2014 corrigez puis validez','a');
 }
 
-// ── Interface de gestion ──────────────────────────────────────
-function enregistrerRelais(){
-  const v = document.getElementById('osm-relais').value.trim();
-  try{
-    if(v) localStorage.setItem('ticks_relais_osm', v.replace(/\/$/,''));
-    else localStorage.removeItem('ticks_relais_osm');
-  }catch(e){}
-  toast(v ? 'Relais enregistr\u00e9' : 'Relais par d\u00e9faut r\u00e9tabli','g');
-}
-
-async function testerRelais(){
-  const res = document.getElementById('osm-res');
-  res.innerHTML = '<div class="empty">Test en cours\u2026</div>';
-  const t0 = Date.now();
-  try{
-    // Requete deliberement minuscule : elle mesure la joignabilite du relais,
-    // pas la capacite d'Overpass a traiter une vraie demande.
-    const d = await overpass('[out:json][timeout:10];node(1);out;');
-    res.innerHTML = '<div class="empty" style="color:var(--green)"><b>Relais op\u00e9rationnel</b><br>'
-      + 'r\u00e9ponse en ' + ((Date.now()-t0)/1000).toFixed(1) + ' s</div>';
-  }catch(e){
-    res.innerHTML = '<div class="empty" style="text-align:left"><b>\u00c9chec du test</b><br><br>'
-      + (e.detail||[e.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// CATALOGUE PRE-PREPARE
-// Les fichiers de gares/ sont produits par preparer_gares_osm.py depuis un
-// poste de travail, ou Overpass repond, et servis par le meme hebergeur que
-// l'app. C'est le chemin NORMAL : instantane, disponible hors ligne une fois
-// charge, et insensible a l'etat d'Overpass. La recherche en direct reste en
-// place pour une gare absente du catalogue, mais elle est devenue le cas
-// exceptionnel et non l'inverse.
-// ══════════════════════════════════════════════════════════════
-const CATALOGUE = './gares/index.json';
-
-async function chargerCatalogue(){
+// ── Catalogue ─────────────────────────────────────────────────
+// UNE seule liste : les gares publiees avec l'app, marquees selon qu'elles
+// sont deja installees sur l'appareil. Une gare installee puis retiree du
+// catalogue reste visible tant qu'elle est en base locale : la faire
+// disparaitre reviendrait a retirer sans prevenir des donnees peut-etre
+// utilisees le jour meme sur le terrain.
+async function renderOSM(){
   const el = document.getElementById('cat-list');
   if(!el) return;
   el.innerHTML = '<div class="empty">Lecture du catalogue\u2026</div>';
-  let idx;
+
+  const locales = await osmList();
+  const parSlug = new Map(locales.map(g => [g.slug, g]));
+
+  let idx = null;
   try{
     const r = await fetch(CATALOGUE, {cache:'no-cache'});
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    idx = await r.json();
-  }catch(e){
-    el.innerHTML = '<div class="empty" style="text-align:left">Aucun catalogue publi\u00e9.<br><br>'
-      + '<span style="color:var(--txt3)">Lancer <code>preparer_gares_osm.py</code> depuis le poste '
-      + 'de travail, puis committer le dossier <code>gares/</code> \u00e0 la racine du d\u00e9p\u00f4t.</span></div>';
-    return;
+    if(r.ok) idx = await r.json();
+  }catch(e){ /* catalogue absent : on affiche au moins ce qui est local */ }
+
+  const lignes = [], vus = new Set();
+  for(const g of (idx && idx.gares) || []){
+    vus.add(g.slug);
+    lignes.push(ligneGare(g, parSlug.has(g.slug)));
   }
-  const locales = new Set((await osmList()).map(g => g.slug));
-  el.innerHTML = (idx.gares||[]).map(g =>
-    '<div class="wpt-item">'
-    + '<div class="wdot" style="background:rgba(138,48,144,.12);color:var(--ticks)">'
-    + (locales.has(g.slug)
-        ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-        : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>')
-    + '</div><div class="winfo"><div class="wname">' + esc(g.nom) + '</div>'
-    + '<div class="wmeta">' + g.nb_lignes + ' cheminements \u00b7 ' + g.nb_points + ' objets \u00b7 '
-    + Math.round(g.taille/1024) + ' Ko' + (locales.has(g.slug) ? ' \u00b7 hors ligne' : '') + '</div></div>'
-    + '<button class="wbtn" onclick="installerDepuisCatalogue(\'' + g.slug + '\')" '
-    + 'style="width:auto;padding:0 12px;font-size:12.5px;font-weight:600;color:var(--ticks)">'
-    + (locales.has(g.slug) ? 'Ouvrir' : 'Installer') + '</button></div>').join('')
-    || '<div class="empty">Catalogue vide.</div>';
+  for(const g of locales){
+    if(!vus.has(g.slug)) lignes.push(ligneGare({
+      slug:g.slug, nom:g.nom, nb_lignes:g.lignes.length,
+      nb_points:g.points.length, taille:g.taille||0}, true, true));
+  }
+
   const info = document.getElementById('cat-info');
-  if(info) info.textContent = (idx.gares||[]).length + ' gare(s) \u00b7 catalogue du '
-    + (idx.genere_le||'').slice(0,10);
+  if(info) info.textContent = idx
+    ? ((idx.gares||[]).length + ' gare(s) \u00b7 catalogue du ' + (idx.genere_le||'').slice(0,10))
+    : '';
+
+  el.innerHTML = lignes.join('') || '<div class="empty" style="text-align:left">'
+    + 'Aucun catalogue publi\u00e9.<br><br><span style="color:var(--txt3)">Lancer '
+    + '<code>preparer_gares_osm.py</code> depuis le poste de travail, puis committer '
+    + 'le dossier <code>gares/</code> \u00e0 la racine du d\u00e9p\u00f4t.</span></div>';
 }
 
-async function installerDepuisCatalogue(slug){
+function ligneGare(g, installee, horsCatalogue){
+  const coche = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const fleche = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  const meta = g.nb_lignes + ' cheminements \u00b7 ' + g.nb_points + ' n\u0153uds \u00b7 '
+    + Math.round((g.taille||0)/1024) + ' Ko'
+    + (installee ? ' \u00b7 hors ligne' : '')
+    + (horsCatalogue ? ' \u00b7 hors catalogue' : '');
+  return '<div class="wpt-item">'
+    + '<div class="wdot" style="background:' + (installee ? 'rgba(141,198,63,.16);color:#5A9E1B' : 'rgba(138,48,144,.12);color:var(--ticks)') + '">'
+    + (installee ? coche : fleche) + '</div>'
+    + '<div class="winfo"><div class="wname">' + esc(g.nom) + '</div>'
+    + '<div class="wmeta">' + meta + '</div></div>'
+    + (installee
+        ? '<button class="wbtn" onclick="chargerGare(\'' + g.slug + '\')" style="width:auto;padding:0 12px;font-size:12.5px;font-weight:600;color:var(--ticks)">Ouvrir</button>'
+          + '<button class="wbtn" onclick="supprimerGare(\'' + g.slug + '\')" aria-label="Retirer">&times;</button>'
+        : '<button class="wbtn" onclick="installerGare(\'' + g.slug + '\')" style="width:auto;padding:0 12px;font-size:12.5px;font-weight:600;color:var(--ticks)">Installer</button>')
+    + '</div>';
+}
+
+async function installerGare(slug){
   const deja = await osmGet(slug);
   if(deja){ chargerGare(slug); return; }
   try{
@@ -465,83 +261,9 @@ async function installerDepuisCatalogue(slug){
     const rec = await r.json();
     delete rec.meta;   // redondant une fois en base locale
     await osmPut(rec);
-    await renderOSM(); await chargerCatalogue();
+    await renderOSM();
     toast(rec.nom + ' \u2014 ' + Math.round((rec.taille||0)/1024) + ' Ko install\u00e9s','g');
   }catch(e){ toast('\u00c9chec : ' + e.message,'r'); }
-}
-
-async function renderOSM(){
-  const champ = document.getElementById('osm-relais');
-  if(champ && !champ.value){
-    try{ champ.value = localStorage.getItem('ticks_relais_osm') || ''; }catch(e){}
-  }
-  const el = document.getElementById('osm-list'); if(!el) return;
-  const gares = await osmList();
-  if(!gares.length){
-    el.innerHTML = '<div class="empty">Aucune gare t\u00e9l\u00e9charg\u00e9e.<br>'
-      + 'Recherchez-en une ci-dessus, avec du r\u00e9seau,<br>pour la consulter ensuite hors ligne.</div>';
-    return;
-  }
-  const total = gares.reduce((s,g) => s + (g.taille||0), 0);
-  el.innerHTML = gares.sort((a,b) => a.nom.localeCompare(b.nom)).map(g => {
-    const ko = Math.round((g.taille||0)/1024);
-    const j = Math.floor((Date.now() - g.maj)/86400000);
-    return '<div class="wpt-item">'
-      + '<div class="wdot" style="background:rgba(138,48,144,.12);color:var(--ticks)">'
-      + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/></svg></div>'
-      + '<div class="winfo" onclick="chargerGare(\'' + g.slug + '\')" style="cursor:pointer">'
-      + '<div class="wname">' + esc(g.nom) + '</div>'
-      + '<div class="wmeta">' + g.lignes.length + ' cheminements &middot; ' + g.points.length
-      + ' objets &middot; ' + ko + ' Ko &middot; ' + (j ? 'il y a ' + j + ' j' : "aujourd'hui") + '</div></div>'
-      + '<button class="wbtn" onclick="supprimerGare(\'' + g.slug + '\')" aria-label="Supprimer">&times;</button></div>';
-  }).join('')
-  + '<div style="text-align:center;font-size:11.5px;color:var(--txt3);margin-top:10px">'
-  + gares.length + ' gare(s) &middot; ' + Math.round(total/1024) + ' Ko au total</div>';
-}
-
-async function chercherGareUI(){
-  const q = document.getElementById('osm-q').value.trim();
-  if(q.length < 3){ toast('Au moins 3 caract\u00e8res','a'); return; }
-  const res = document.getElementById('osm-res');
-  res.innerHTML = '<div class="empty">Recherche\u2026</div>';
-  try{
-    const gares = await chercherGare(q);
-    if(!gares.length){ res.innerHTML = '<div class="empty">Aucune gare trouv\u00e9e en Normandie.</div>'; return; }
-    res.innerHTML = gares.map((g,i) =>
-      '<div class="wpt-item" onclick="telechargerIdx(' + i + ')" style="cursor:pointer">'
-      + '<div class="winfo"><div class="wname">' + esc(g.nom) + '</div>'
-      + '<div class="wmeta">' + (g.uic ? 'UIC ' + g.uic + ' &middot; ' : '')
-      + g.lat.toFixed(4) + ', ' + g.lon.toFixed(4) + '</div></div>'
-      + '<span class="wbtn">&darr;</span></div>').join('');
-    window.__osmRes = gares;
-  }catch(e){
-    // Le detail des echecs par miroir est affiche : « quota atteint » et
-    // « pas de reseau » appellent des reactions differentes, et l'ancien
-    // message unique ne permettait pas de les distinguer.
-    console.error('[OSM] Overpass', e.detail || e);
-    res.innerHTML = '<div class="empty" style="text-align:left">'
-      + '<b>Aucun miroir Overpass n\'a r\u00e9pondu.</b><br><br>'
-      + (e.detail||[e.message]).map(x => '&bull; ' + esc(x)).join('<br>')
-      + '<br><br><span style="color:var(--txt3)">Un quota atteint se d\u00e9bloque seul '
-      + 'en quelques minutes. Un d\u00e9lai d\u00e9pass\u00e9 se corrige en r\u00e9duisant le rayon.</span></div>';
-  }
-}
-
-async function telechargerIdx(i){
-  const g = (window.__osmRes || [])[i]; if(!g) return;
-  const rayon = parseInt(document.getElementById('osm-rayon').value, 10) || RAYON_DEFAUT;
-  try{
-    const rec = await telechargerGare(g, rayon);
-    document.getElementById('osm-res').innerHTML = '';
-    document.getElementById('osm-q').value = '';
-    await renderOSM();
-    toast(rec.nom + ' \u2014 ' + Math.round(rec.taille/1024) + ' Ko enregistr\u00e9s','g');
-  }catch(e){
-    console.error('[OSM] telechargement', e.detail || e);
-    toast('\u00c9chec du t\u00e9l\u00e9chargement \u2014 voir le d\u00e9tail','r');
-    document.getElementById('osm-res').innerHTML =
-      '<div class="empty" style="text-align:left">' + (e.detail||[e.message]).map(x=>'&bull; '+esc(x)).join('<br>') + '</div>';
-  }
 }
 
 async function chargerGare(slug){

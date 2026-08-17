@@ -431,7 +431,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
       <div class="rpill-sep"></div>
       <button class="rpill-btn" id="btn-filter-toggle" onclick="toggleFilterPopover()" aria-label="Filtrer"><svg width="16" height="16" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
       <div class="rpill-sep"></div>
-      <button class="rpill-btn" id="btn-osm" onclick="toggleOSM()" aria-label="R&eacute;f&eacute;rence OSM"><svg width="17" height="17" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 6"/><circle cx="9" cy="11" r="1.4"/><circle cx="13" cy="15" r="1.4"/></svg></button>
+      <button class="rpill-btn" id="btn-osm" onclick="toggleOSM()" aria-label="Cheminements OSM"><svg width="17" height="17" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 6"/><circle cx="9" cy="11" r="1.4"/><circle cx="13" cy="15" r="1.4"/></svg></button>
       <div class="rpill-sep"></div>
       <button class="rpill-btn" id="btn-sun" onclick="toggleSun()" aria-label="Mode plein soleil"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg></button>
     </div>
@@ -521,47 +521,21 @@ body.sun .wc-btn .wl{font-size:10.5px}
 </div>
 
 <div id="pane-osm" class="subview">
-  <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="11" height="17" viewBox="0 0 11 17"><polyline points="9 1.5 2 8.5 9 15.5"/></svg>Carte</button><span class="sv-title">R&eacute;f&eacute;rence OSM par gare</span></div></div>
+  <div class="sv-header"><div class="sv-header-inner"><button class="sv-back" onclick="goTab('terrain')"><svg width="11" height="17" viewBox="0 0 11 17"><polyline points="9 1.5 2 8.5 9 15.5"/></svg>Carte</button><span class="sv-title">Cheminements OSM</span></div></div>
   <div class="sv-content">
     <div class="card">
-      <div class="card-title">Catalogue des gares</div>
+      <div class="card-title">Gares disponibles</div>
       <p style="font-size:12.5px;color:var(--txt2);line-height:1.55;margin-bottom:12px">
-        Donn&eacute;es pr&eacute;par&eacute;es au bureau et publi&eacute;es avec l&rsquo;app. Installation imm&eacute;diate,
-        sans d&eacute;pendre d&rsquo;Overpass. <span id="cat-info" style="color:var(--txt3)"></span></p>
+        R&eacute;seau pi&eacute;tonnier et n&oelig;uds de cheminement, pr&eacute;par&eacute;s au bureau et publi&eacute;s avec l&rsquo;app.
+        Installez une gare avant de partir : elle reste consultable hors ligne.
+        <span id="cat-info" style="color:var(--txt3)"></span></p>
       <div id="cat-list"><div class="empty">Lecture du catalogue&hellip;</div></div>
     </div>
     <div class="card">
-      <div class="card-title">T&eacute;l&eacute;charger une gare &mdash; hors catalogue</div>
-      <p style="font-size:12.5px;color:var(--txt2);line-height:1.55;margin-bottom:12px">
-        Pr&eacute;parez au bureau, avec du r&eacute;seau. Les cheminements et &eacute;quipements
-        d&eacute;j&agrave; cartographi&eacute;s dans OpenStreetMap seront consultables hors ligne sur place.</p>
-      <div class="fg"><label>Nom de la gare</label><input type="text" id="osm-q" placeholder="Ex. Cherbourg" autocomplete="off"></div>
-      <div class="fg"><label>Rayon autour de la gare</label>
-        <select id="osm-rayon">
-          <option value="300">300 m &mdash; abords imm&eacute;diats</option>
-          <option value="500" selected>500 m &mdash; recommand&eacute;</option>
-          <option value="800">800 m &mdash; large, plus lourd</option>
-        </select></div>
-      <button class="btn-main" onclick="chercherGareUI()">Rechercher par nom</button>
-      <button class="btn-sec" onclick="telechargerVue()" style="margin-bottom:0">T&eacute;l&eacute;charger la zone affich&eacute;e sur la carte</button>
-      <div id="osm-res"></div>
-    </div>
-    <div class="card"><div class="card-title">Gares disponibles hors ligne</div><div id="osm-list"></div></div>
-    <div class="card">
-      <div class="card-title">Relais Overpass</div>
-      <p style="font-size:12.5px;color:var(--txt2);line-height:1.55;margin-bottom:12px">
-        Overpass bloque les adresses AWS et Azure depuis octobre 2025. Vercel tournant sur AWS,
-        le relais int&eacute;gr&eacute; est rejet&eacute; sans message. D&eacute;ployez <code style="font-size:11.5px">worker.mjs</code>
-        sur Cloudflare Workers et collez son URL ci-dessous.</p>
-      <div class="fg"><label>URL du relais &mdash; vide = relais int&eacute;gr&eacute;</label>
-        <input type="url" id="osm-relais" placeholder="https://ticks-overpass.xxx.workers.dev" autocomplete="off"></div>
-      <button class="btn-sec" onclick="enregistrerRelais()">Enregistrer</button>
-      <button class="btn-sec" onclick="testerRelais()" style="margin-bottom:0">Tester le relais</button>
-    </div>
-    <div class="card">
       <p style="font-size:12px;color:var(--txt3);line-height:1.6;margin:0">
-        Seuls le r&eacute;seau pi&eacute;tonnier et les n&oelig;uds de cheminement sont import&eacute;s : le mobilier et l&rsquo;information voyageur rel&egrave;vent du recensement terrain. Ces donn&eacute;es viennent d&rsquo;OpenStreetMap et ne sont jamais envoy&eacute;es au SIG.
-        Elles servent de r&eacute;f&eacute;rence &agrave; v&eacute;rifier, pas de relev&eacute;.
+        Donn&eacute;es &copy; les contributeurs OpenStreetMap (ODbL), &agrave; v&eacute;rifier sur place.
+        Elles ne sont jamais envoy&eacute;es au SIG. Le mobilier et l&rsquo;information voyageur
+        n&rsquo;y figurent pas : ils rel&egrave;vent du recensement terrain.
         Un cheminement peut &ecirc;tre repris comme trac&eacute; depuis sa bulle sur la carte,
         puis corrig&eacute; sommet par sommet avant enregistrement.</p>
     </div>
@@ -573,13 +547,13 @@ body.sun .wc-btn .wl{font-size:10.5px}
     <div class="bm-handle"></div>
     <div style="display:flex;align-items:center;gap:11px;padding:0 20px 14px;border-bottom:1px solid var(--sep);margin-bottom:8px">
       <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAflBMVEWoZqeWm06TaHDWt9Z/f3+LPYv/AP+qVVWYuTvdxN2qVaqQOo/+/f4AAACZxjKILYfl0uWRO5DAkL9/AH+RPJCURpCOOo5VVVWRO5CQO5C7iLrMpszw5fCiXKLFmsXizOEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABiRpmDAAAAIHRSTlP/////AiEBA///A/7/AP///9T/AlD/DwOdsf///////5UJJ84AAAF2SURBVHja7Zdbc4MgEIVX09y6EqCAUUH9//+yiKbT5rIYeOqMZ8yDM56PXWYxHmBeB8U+dSNxtWSjj0wdJi/43wdj+g33wtDBOAGurG4xQW3trR6g2F5ikuTem0GpOtHvCbVScGUtJqtlV2AaM6QZpDcwNwFkAWVxKoqSLAEayn8JoggNyKj/cjFED0DQixugIB76J4DyLQAP1yRzihfwBNDtzrafEWUgFOYdgBmrScNyVz7MEY8AztWsEfyTj0tzA4YE9NWPbH+/GkewruopAIfql8QA/W09YwCGqb2RbuEPIMiJSc655R4ie7CraNnYJhpB+ncr5oCqwa6aRHAv7AL4urNghmf2EdYfJm6Gu60Qw8NU0KfRz4w/E/NYO9vBCzd5nDlHHuroOCa+DxAD4AtNJiC7gg2wATbABtgAawEyDyDJj22M/7E09Od+HKDpwBEF+MBBRh6wQnSRyEOHLo7II6ErO/ZlB8/86JsfvkP8P6bG/29YOrk9O2Y5jAAAAABJRU5ErkJggg==" width="36" height="36" alt="" style="flex-shrink:0;display:block;border-radius:10px">
-      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v2.9.1</div></div>
+      <div><div style="font-size:15.5px;font-weight:700;letter-spacing:-.02em">TickS <span style="font-weight:400;color:var(--txt2)">Terrain</span></div><div style="font-size:11.5px;color:var(--txt3)">Accessibilit&eacute; &mdash; recensement en gare</div><div style="font-size:10.5px;color:var(--txt3);margin-top:2px" id="app-version">v3.0.0</div></div>
     </div>
     <div class="bm-label">Navigation</div>
     <button class="bmenu-item active" data-view="terrain" onclick="goTab('terrain')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Carte terrain</button>
     <button class="bmenu-item" data-view="points" onclick="goTab('points')"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>Points relev&eacute;s<span class="mcount" id="bm-count">0</span></button>
     <button class="bmenu-item" data-view="export" onclick="goTab('export')"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Envoi &amp; export</button>
-    <button class="bmenu-item" data-view="osm" onclick="goTab('osm')"><svg width="20" height="20" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 6"/><circle cx="9" cy="11" r="1.4"/><circle cx="13" cy="15" r="1.4"/></svg>R&eacute;f&eacute;rence OSM</button>
+    <button class="bmenu-item" data-view="osm" onclick="goTab('osm')"><svg width="20" height="20" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 6"/><circle cx="9" cy="11" r="1.4"/><circle cx="13" cy="15" r="1.4"/></svg>Cheminements OSM</button>
     <div class="bm-sep"></div>
     <div class="bm-label">Affichage</div>
     <button class="bmenu-item" id="bm-sun" onclick="toggleSun()"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/></svg>Mode plein soleil<span class="msw"><i></i></span></button>
