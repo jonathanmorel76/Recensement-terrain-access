@@ -127,6 +127,10 @@ function afficherGare(rec){
   });
   const btn = document.getElementById('btn-osm');
   if(btn) btn.classList.add('on');
+  // La gare affichee est memorisee pour etre rouverte au prochain lancement.
+  // Sans cela, l'operateur devait repasser par le catalogue a chaque
+  // redemarrage de l'app — geste inutile puisqu'il l'a deja installee.
+  try{ localStorage.setItem('ticks_osm_active', rec.slug); }catch(e){}
   toast(rec.nom + ' \u2014 ' + rec.lignes.length + ' cheminements, ' + rec.points.length + ' n\u0153uds');
 }
 
@@ -161,10 +165,34 @@ function masquerOSM(){
   if(btn) btn.classList.remove('on');
 }
 
-function toggleOSM(){
+async function toggleOSM(){
   if(OSM_VISIBLE){ masquerOSM(); return; }
   if(OSM_ACTIVE){ afficherGare(OSM_ACTIVE); return; }
+  // Derniere gare consultee, si elle est toujours installee : on la reaffiche
+  // sans detour par le catalogue.
+  let slug = null;
+  try{ slug = localStorage.getItem('ticks_osm_active'); }catch(e){}
+  if(slug){
+    const rec = await osmGet(slug);
+    if(rec){ afficherGare(rec); return; }
+  }
   goTab('osm');
+}
+
+// Restauration au demarrage. La couche n'est reaffichee que si la carte est
+// DANS les environs de la gare memorisee : revenu au bureau ou parti sur un
+// autre site, l'operateur n'a que faire des cheminements de la veille, et les
+// voir surgir a l'autre bout de la region serait deroutant.
+async function restaurerOSM(){
+  let slug = null;
+  try{ slug = localStorage.getItem('ticks_osm_active'); }catch(e){}
+  if(!slug || !MAP_OK) return;
+  const rec = await osmGet(slug);
+  if(!rec) return;
+  const c = MAP.getCenter();
+  const d = MAP.distance ? MAP.distance(c, L.latLng(rec.lat, rec.lon))
+                         : L.latLng(rec.lat, rec.lon).distanceTo(c);
+  if(d <= 5000) afficherGare(rec);
 }
 
 // ── Adoption d'un cheminement comme trace ─────────────────────

@@ -6,8 +6,8 @@
 // NOTE : APP_VERSION ecrase le libelle de index.html au DOMContentLoaded.
 // Les deux doivent donc rester synchronises.
 // ========================================
-const APP_VERSION = '3.0.1';
-console.log('[TickS Terrain] app.js v3.0.1 charge');
+const APP_VERSION = '3.1.0';
+console.log('[TickS Terrain] app.js v3.1.0 charge');
 
 const S = {
   pos:null, acc:null, gpsHighMode:false,
@@ -979,7 +979,12 @@ function restoreSun(){
   if(m)m.classList.add('on');
 }
 
-function initV2(){initSheetDrag();restoreSun();updateV2Stats();}
+function initV2(){
+  initSheetDrag();restoreSun();updateV2Stats();
+  // La restauration de la couche OSM attend que la carte soit prete : elle a
+  // besoin du centre courant pour decider si la gare memorisee est pertinente.
+  if(typeof restaurerOSM === 'function') setTimeout(restaurerOSM, 900);
+}
 
 // ── Memoire des sous-types, par categorie ─────────────────────
 // Portee : l'appareil, pas la session. Un operateur qui recense des arrets
