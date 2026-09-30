@@ -512,6 +512,12 @@ body.sun .wc-btn .wl{font-size:10.5px}
         <div style="flex:1"><div id="sync-status-txt" style="font-size:12.5px;color:var(--txt2)">Non configur&eacute;</div><div id="sync-last" style="font-size:10.5px;color:var(--txt3);display:none">Derni&egrave;re sync : <span id="sync-last-time">&mdash;</span></div></div>
         <button onclick="openSyncConfig()" style="font-size:11px;color:var(--ticks);font-family:var(--font);padding:6px 11px;border-radius:8px;border:1px solid rgba(138,48,144,.3);background:rgba(138,48,144,.07)">R&eacute;glages</button>
       </div>
+      <div id="auth-status-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:11px;border-bottom:1px solid var(--brd2);margin-bottom:11px">
+        <span id="auth-status-txt" style="flex:1;min-width:140px;font-size:12.5px;color:var(--txt2)">Non connect&eacute;</span>
+        <button id="auth-btn-login" onclick="Auth.ouvrir('login')" style="font-size:11px;color:var(--ticks);font-family:var(--font);padding:6px 11px;border-radius:8px;border:1px solid rgba(138,48,144,.3);background:rgba(138,48,144,.07)">Se connecter</button>
+        <button id="auth-btn-pwd" onclick="Auth.ouvrir('mdp')" style="display:none;font-size:11px;font-family:var(--font);padding:6px 11px;border-radius:8px;border:1px solid var(--brd);background:var(--surface2);color:var(--txt2)">Mot de passe</button>
+        <button id="auth-btn-logout" onclick="Auth.deconnexion()" style="display:none;font-size:11px;font-family:var(--font);padding:6px 11px;border-radius:8px;border:1px solid var(--brd);background:var(--surface2);color:var(--txt2)">Se d&eacute;connecter</button>
+      </div>
       <button class="btn-main" id="btn-sync" onclick="syncToCloud()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Synchroniser vers TickS SIG</button>
       <div id="sync-cfg-row" style="display:none;margin-top:8px"><button class="btn-sec" onclick="openSyncConfig()" style="color:var(--orange)">Configurer la connexion Supabase</button></div>
       <div id="queue-status-row" style="display:none;align-items:center;gap:9px;padding-top:11px;margin-top:9px;border-top:1px solid var(--brd2)"><span id="queue-label" style="font-size:12.5px;color:var(--orange);flex:1">En attente d'envoi</span><button onclick="flushQueue()" style="font-size:11px;padding:5px 11px;border-radius:8px;border:1px solid var(--orange);color:var(--orange);background:none;font-family:var(--font)">R&eacute;essayer</button></div>
@@ -563,6 +569,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
 </div>
 
 <!-- MODALES -->
+<div id="auth-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="auth-title">Connexion</div><div class="msub" id="auth-sub">N&eacute;cessaire pour envoyer vos relev&eacute;s</div><form onsubmit="event.preventDefault();Auth.valider()"><div class="fg" id="auth-email-row"><label for="auth-email">Email</label><input type="email" id="auth-email" autocomplete="username" inputmode="email"></div><div class="fg"><label for="auth-pwd" id="auth-pwd-label">Mot de passe</label><input type="password" id="auth-pwd" autocomplete="current-password"></div><div id="auth-msg" role="alert" style="display:none;font-size:12.5px;color:var(--red);margin:-4px 0 10px"></div><div class="mbtns"><button type="button" class="mbtn-cancel" onclick="Auth.fermer()">Annuler</button><button type="submit" class="mbtn-ok" id="auth-ok">Se connecter</button></div></form></div></div>
 <div id="sync-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle">Connexion Supabase</div><div class="msub">Cl&eacute; publique uniquement &mdash; jamais la cl&eacute; de service</div><div class="fg"><label>URL Supabase</label><input type="url" id="sc-sb-url" placeholder="https://xxxx.supabase.co"></div><div class="fg"><label>Cl&eacute; publique (anon key)</label><input type="text" id="sc-sb-key" placeholder="eyJhbGci&hellip;"></div><div class="fg"><label>Nom de cette session &mdash; obligatoire</label><input type="text" id="sc-nom" placeholder="Ex. Rouen Rive-Droite &mdash; parvis nord"></div><div class="mbtns"><button class="mbtn-cancel" onclick="closeSyncConfig()">Annuler</button><button class="mbtn-ok" onclick="saveSyncConfig()">Enregistrer</button></div></div></div>
 
 <div id="avg-modal" class="modal"><div class="modal-box"><div class="mhandle"></div><div class="mtitle" id="avg-title">Capture&hellip;</div><div class="msub">Validation automatique d&egrave;s la pr&eacute;cision vis&eacute;e atteinte</div>
@@ -590,6 +597,7 @@ body.sun .wc-btn .wl{font-size:10.5px}
      les emplacements .wi / .ti / .fdot : ne PAS les recopier ici. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="./app.js"></script>
+<script src="./auth.js"></script>
 <script src="./sync.js"></script>
 <script src="./osm.js"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>

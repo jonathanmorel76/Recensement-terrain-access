@@ -16,6 +16,7 @@ function renderExp(){
   }
   if(lastEl&&lastTs){lastEl.style.display='block';document.getElementById('sync-last-time').textContent=lastTs;}
   if(cfgRow)cfgRow.style.display=cfg.sbUrl?'none':'block';
+  Auth.renderAuth();
   updateQueueBadge();
   const counts={};
   S.waypoints.forEach(w=>counts[w.type]=(counts[w.type]||0)+1);
@@ -114,7 +115,10 @@ function routeTrack(trk, sessionId){
 }
 
 async function sbInsert(cfg,table,row){
-  const r=await fetch(`${cfg.sbUrl}/rest/v1/${table}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.sbKey,'Authorization':`Bearer ${cfg.sbKey}`,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)});
+  // Depuis la RLS : Authorization porte le jeton de l'utilisateur connecte,
+  // la cle anon ne sert plus qu'a identifier le projet (apikey).
+  const jeton=await Auth.token(cfg);
+  const r=await fetch(`${cfg.sbUrl}/rest/v1/${table}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.sbKey,'Authorization':`Bearer ${jeton}`,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)});
   if(!r.ok){const e=await r.text();throw new Error(`${table}: ${r.status} ${e}`);}
 }
 
@@ -144,6 +148,7 @@ async function queueCount(){
   return new Promise((res,rej)=>{const tx=db.transaction('queue','readonly');const req=tx.objectStore('queue').count();req.onsuccess=()=>res(req.result);req.onerror=()=>res(0);});
 }
 async function flushQueue(){
+  if(!Auth.connecte())return; // la file attend la prochaine connexion
   let pending;try{pending=await queueGetAll();}catch(e){return;}
   if(!pending.length)return;
   toast(`Reconnexion — envoi de ${pending.length} session(s)…`,'a');
@@ -155,7 +160,7 @@ async function flushQueue(){
 }
 async function replaySync(entry){
   const cfg=getSyncCfg();if(!cfg.sbUrl||!cfg.sbKey)throw new Error('Non configuré');
-  await sbInsert(cfg,'session_terrain',{id:entry.sessionId,nom:entry.sessionNom,statut:'en_cours'});
+  await sbInsert(cfg,'session_terrain',{id:entry.sessionId,nom:entry.sessionNom,statut:'en_cours',operateur:Auth.email()});
   for(const row of(entry.rows||[]))await sbInsert(cfg,row.table,row.data);
 }
 async function updateQueueBadge(){
@@ -183,10 +188,12 @@ async function syncToCloud(){
     if(champ){champ.focus();champ.style.borderColor='var(--orange)';}
     return;
   }
+  // Connexion exigee pour l'envoi uniquement : la saisie terrain reste libre.
+  if(!Auth.connecte()){Auth.ouvrir('login',syncToCloud);return;}
   const btn=document.getElementById('btn-sync');btn.textContent='↑ Synchronisation…';btn.disabled=true;
   try{
     const sessionId=crypto.randomUUID?crypto.randomUUID():'ses-'+Date.now();
-    await sbInsert(cfg,'session_terrain',{id:sessionId,nom:cfg.nomSession||nomParDefaut(),statut:'en_cours'});
+    await sbInsert(cfg,'session_terrain',{id:sessionId,nom:cfg.nomSession||nomParDefaut(),statut:'en_cours',operateur:Auth.email()});
     let ok=0,errs=0;
     for(const w of S.waypoints){
       const {table,data}=routePoint(w, sessionId);
@@ -223,7 +230,8 @@ async function syncToCloud(){
     if(errs) toast(`${ok} envoyé(s), ${errs} en échec — vérifier la file`,'a');
     else toast(`✓ ${ok} éléments envoyés`,'g');
   }catch(e){
-    if(!navigator.onLine||e.message?.includes('fetch')||e.name==='TypeError'){
+    if(e.name==='AuthRequired'){toast(e.message,'a');Auth.ouvrir('login',syncToCloud);}
+    else if(!navigator.onLine||e.message?.includes('fetch')||e.name==='TypeError'){
       try{
         const sessionId=crypto.randomUUID?crypto.randomUUID():'ses-'+Date.now();
         const rows=[];
