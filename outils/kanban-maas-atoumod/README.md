@@ -3,7 +3,38 @@
 Cet outil lit la boîte mail Outlook et l'agenda Microsoft 365, en retient les tâches
 qui concernent le **MaaS Atoumod**, et produit un **Kanban Excel détaillé**.
 
-## Fonctionnement
+## Deux modes de mise à jour
+
+| Mode | Comment | Avantage |
+|---|---|---|
+| **Macro Outlook (autonome)** | Bouton « Actualiser depuis Outlook » dans le classeur : macro VBA `vba/KanbanOutlook.bas` | Aucune dépendance à Claude ni au service informatique |
+| **Claude** | Extraction intelligente via le connecteur Microsoft 365, puis `generer_kanban.py` | Lit et comprend le contenu des mails (engagements, regroupements) |
+
+### Installer la macro (une fois)
+
+1. Ouvrir `Kanban_MaaS_Atoumod.xlsx`, puis **Fichier › Enregistrer sous › Classeur Excel prenant en charge les macros (.xlsm)**.
+2. **Alt+F11 › Fichier › Importer un fichier…** › `KanbanOutlook.bas` (encodé en Windows-1252 pour que les accents passent bien), puis fermer l'éditeur.
+3. **Alt+F8 › InstallerBoutons › Exécuter**.
+
+Ensuite : ouvrir Outlook **classique**, ouvrir le `.xlsm` et cliquer sur **Actualiser depuis Outlook**.
+Les réglages se trouvent dans l'onglet **Paramètres** : mots-clés, domaines, formules de demande et d'engagement, nombre de jours.
+
+Ce que reprend la macro :
+- les mails **avec drapeau** ;
+- les mails classés dans la **catégorie Outlook « MaaS »** ;
+- les **demandes** détectées par formule (« pouvez-vous », « merci de »…) venant des expéditeurs suivis ;
+- les **engagements** pris dans tes mails envoyés ;
+- les **créneaux d'agenda** de type tâche ;
+- une tâche hebdomadaire qui **regroupe les alertes de supervision**.
+
+Elle crée une ligne par fil de discussion et ne touche jamais au statut ni à la priorité saisis à la main.
+Quand un drapeau est marqué terminé dans Outlook, la tâche passe en « Terminé ».
+
+Limites :
+- Le nouvel Outlook (« New Outlook ») ne permet pas les macros : il faut la version classique.
+- Selon la politique antivirus, Outlook peut afficher une fenêtre d'autorisation d'accès aux adresses mail.
+
+## Mode Claude
 
 1. **Extraction** : Claude interroge Outlook (mails et agenda) avec le connecteur Microsoft 365
    et applique les règles ci-dessous. Il en tire un fichier `donnees/taches.json`.

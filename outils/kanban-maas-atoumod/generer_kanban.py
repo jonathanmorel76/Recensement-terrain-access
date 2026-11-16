@@ -87,7 +87,10 @@ COLONNES_TACHES = [
     ("source", "Source", 8),
     ("reference", "Référence (objet du mail / RDV)", 45),
     ("lien", "Lien Outlook", 12),
+    ("cle", "Clé source", 14),          # colonnes techniques utilisées par la macro VBA
+    ("entry_id", "ID Outlook", 14),
 ]
+COLONNES_MASQUEES = ("Clé source", "ID Outlook")
 COL = {entete: get_column_letter(i + 1) for i, (_, entete, _) in enumerate(COLONNES_TACHES)}
 COL_CARTE = get_column_letter(len(COLONNES_TACHES) + 2)          # colonne cachée
 COLS_RANG = [get_column_letter(len(COLONNES_TACHES) + 3 + i) for i in range(len(STATUTS))]
@@ -141,7 +144,7 @@ def onglet_taches(wb, taches):
         for j in range(len(STATUTS)):
             col = COLS_RANG[j]
             ws[f"{col}{r}"] = (f'=IF({s}={col}$1,COUNTIF({c_stat}$2:{s},{col}$1),"")')
-    for col in [COL_CARTE] + COLS_RANG:
+    for col in [COL_CARTE] + COLS_RANG + [COL[c] for c in COLONNES_MASQUEES]:
         ws.column_dimensions[col].hidden = True
 
     # --- listes déroulantes ------------------------------------------------- #
@@ -312,6 +315,64 @@ def onglet_agenda(wb, agenda):
     return ws
 
 
+PARAMETRES = [
+    ("Jours de mails analysés", 14),
+    ("Jours d'agenda analysés", 21),
+    ("Catégorie Outlook des mails à suivre", "MaaS"),
+    ("Mots-clés MaaS", "Atoumod;MaaS;GTFS;Optyfares;Nomad;Astuce;WOP;Fairtiq;M-Ticket;CB2D;PNI;Redmine;"
+                       "YouTrack;SIM;Gabarit;Référentiel;Supervision"),
+    ("Expéditeurs / listes suivis", "@atoumod.fr;@normandie.fr;@instant-system.com;@cityway.fr;@wop-app.com;"
+                                    "@fairtiq.com;atoumod-maas@ticks.fr;signalement.atoumod-maas@ticks.fr"),
+    ("Formules de demande", "pouvez-vous;pourriez-vous;peux-tu;pourrais-tu;merci de;serait-il possible;"
+                            "svp;s'il vous plaît;s'il te plaît;à traiter;pour action;urgent"),
+    ("Formules d'engagement (mails envoyés)", "nous allons;je vais;je reviens vers;nous reviendrons;"
+                                              "reviendrons vers;le point est pris;je m'en occupe;nous nous en occupons;"
+                                              "je vous tiens informé;je te tiens informé"),
+    ("Expéditeur des alertes de supervision", "supervision@ticks.fr"),
+    ("Catégories d'agenda = tâche", "Supervision;Paramétrages & actions diverses"),
+    ("Sujets d'agenda ignorés", "Déjeuner;Annulé;Canceled;Événement annulé"),
+    ("Détecter automatiquement les demandes", "Oui"),
+    ("Inclure les sous-dossiers de la boîte de réception", "Oui"),
+]
+CORRESPONDANCE_CATEGORIES = [
+    ("supervision;monitoring;alerte", "Supervision"),
+    ("GTFS;arrêt;réseau;données;calendrier;transport.data", "Données GTFS"),
+    ("Optyfares;CB2D;PNI;M-Ticket;titre;tarif;billet;vente;Pass", "Billettique & Vente"),
+    ("recette;test;bug;préprod;livraison;accessibilité", "Recette & Tests"),
+    ("Redmine;YouTrack;Jira;outil;script", "Outillage"),
+    ("gabarit;paramétrage;gratuité;libellé", "Paramétrage"),
+    ("guide;documentation;CR ;compte rendu", "Documentation"),
+    ("réunion;point;COMEX;atelier", "Relation partenaires"),
+]
+
+
+def onglet_parametres(wb):
+    ws = wb.create_sheet("Paramètres")
+    ws.column_dimensions["A"].width = 46
+    ws.column_dimensions["B"].width = 110
+    ws.column_dimensions["D"].width = 60
+    ws.column_dimensions["E"].width = 22
+    for col, h in (("A", "Paramètre (ne pas renommer)"), ("B", "Valeur (listes séparées par ;)"),
+                   ("D", "Si le texte contient… (séparés par ;)"), ("E", "…alors catégorie")):
+        en_tete(ws[f"{col}1"]); ws[f"{col}1"] = h
+    for r, (k, v) in enumerate(PARAMETRES, start=2):
+        ws[f"A{r}"] = k
+        ws[f"A{r}"].font = Font(bold=True)
+        ws[f"B{r}"] = v
+        ws[f"B{r}"].alignment = Alignment(wrap_text=True)
+        for c in ("A", "B"):
+            ws[f"{c}{r}"].border = BORDURE
+    for r, (mots, cat) in enumerate(CORRESPONDANCE_CATEGORIES, start=2):
+        ws[f"D{r}"] = mots
+        ws[f"E{r}"] = cat
+        for c in ("D", "E"):
+            ws[f"{c}{r}"].border = BORDURE
+    dv = DataValidation(type="list", formula1='"' + ",".join(CATEGORIES) + '"', allow_blank=True)
+    dv.add("E2:E50")
+    ws.add_data_validation(dv)
+    return ws
+
+
 def onglet_mode_emploi(wb):
     ws = wb.create_sheet("Mode d'emploi")
     ws.column_dimensions["A"].width = 120
@@ -323,9 +384,24 @@ def onglet_mode_emploi(wb):
         ("4. Le lien « Ouvrir ↗ » ouvre le mail ou le rendez-vous source dans Outlook Web.", False),
         ("5. Statuts : À faire → Planifié (créneau posé dans l'agenda) → En cours → En attente (tiers) → Terminé.", False),
         ("", False),
-        ("Régénérer le fichier", True),
-        ("Les tâches sont extraites de la boîte Outlook et de l'agenda selon les règles décrites dans outils/kanban-maas-atoumod/README.md,", False),
-        ("puis le classeur est produit par : python3 generer_kanban.py donnees/taches.json -o Kanban_MaaS_Atoumod.xlsx", False),
+        ("Actualiser depuis Outlook (macro, sans Claude)", True),
+        ("Installation (une seule fois) :", False),
+        ("  a. Fichier › Enregistrer sous › type « Classeur Excel prenant en charge les macros (*.xlsm) ».", False),
+        ("  b. Alt+F11 › Fichier › Importer un fichier… › choisir KanbanOutlook.bas › fermer l'éditeur.", False),
+        ("  c. Alt+F8 › InstallerBoutons › Exécuter : un bouton « Actualiser depuis Outlook » apparaît sur le Kanban.", False),
+        ("Ensuite, chaque lundi : ouvrir Outlook (version classique), ouvrir le classeur, cliquer sur « Actualiser depuis Outlook ».", False),
+        ("", False),
+        ("Ce que la macro reprend :", True),
+        ("• les mails avec un drapeau Outlook, quelle que soit leur date (échéance du drapeau si elle est renseignée) ;", False),
+        ("• les mails classés dans la catégorie Outlook « MaaS » (modifiable dans Paramètres) ;", False),
+        ("• les demandes détectées automatiquement (« pouvez-vous », « merci de »…) venant des expéditeurs suivis : à valider ;", False),
+        ("• les engagements pris dans tes mails envoyés (« nous allons », « je reviens vers toi »…) ;", False),
+        ("• les créneaux d'agenda de type tâche (catégories Supervision / Paramétrages, journées entières, créneaux sans invité) ;", False),
+        ("• une seule tâche par semaine qui regroupe les alertes de supervision KO.", False),
+        ("Une tâche par fil de discussion. Un statut ou une priorité modifiés à la main ne sont jamais écrasés.", False),
+        ("Quand un drapeau est marqué « terminé » dans Outlook, la tâche passe en Terminé.", False),
+        ("Pour ouvrir le mail d'une tâche : sélectionne la ligne dans « Tâches », puis Alt+F8 › OuvrirSource.", False),
+        ("Les mots-clés, domaines, formules et nombres de jours se règlent dans l'onglet « Paramètres ».", False),
     ]
     for r, (texte, titre) in enumerate(lignes, start=1):
         c = ws.cell(row=r, column=1, value=texte)
@@ -364,6 +440,7 @@ def main():
     onglet_kanban(wb, meta)
     onglet_tableau_de_bord(wb)
     onglet_agenda(wb, data.get("agenda", []))
+    onglet_parametres(wb)
     onglet_mode_emploi(wb)
     wb.active = 0
 
